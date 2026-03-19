@@ -1,4 +1,3 @@
-// app/layout.tsx
 import type { Metadata } from "next";
 import { Lora, Nunito } from "next/font/google";
 import "./globals.css";
@@ -16,18 +15,19 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Sync — ふたりのきもち",
+  title: "Sync Weather — ふたりのきもち",
   description: "パートナーとの気持ちをシンクロさせるアプリ",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="ja" className={`${lora.variable} ${nunito.variable}`}>
-      <body style={{ backgroundColor: "var(--bg-main)", color: "var(--text-main)" }}>
+      <body className="font-nunito texture">
         {children}
       </body>
     </html>

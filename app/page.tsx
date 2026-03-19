@@ -207,11 +207,12 @@ function KimochiRow({ label, avatar, selected, onSelect, disabled, note }: {
                   display:    "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize:   28,
-                  fontWeight: 800,
+                  fontSize:   32,
+                  fontWeight: 700,
+                  fontFamily: "'Helvetica Neue', Arial, sans-serif",
                   color:      isSelected ? opt.color : "#C4B8A8",
                   transition: "color 0.18s ease",
-                  letterSpacing: "-1px",
+                  lineHeight: 1,
                 }}>
                 {opt.emoji}
               </span>

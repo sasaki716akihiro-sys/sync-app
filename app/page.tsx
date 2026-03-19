@@ -628,7 +628,7 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
           <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
             <div className="flex items-center gap-1.5">
               <span style={{ fontSize:16 }}>🌙</span>
-              <p className="font-bold text-sm" style={{ color:"#B86540" }}>🌙 生理期間（自動お休みモード）</p>
+              <p className="font-bold text-sm" style={{ color:"#B86540" }}>生理期間（自動お休みモード）</p>
             </div>
             <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
               期間を選ぶと自動でお休みモードになるよ

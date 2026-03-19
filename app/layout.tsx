@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Lora, Nunito } from "next/font/google";
 import "./globals.css";
 
@@ -17,7 +17,28 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "Sync Weather — ふたりのきもち",
   description: "パートナーとの気持ちをシンクロさせるアプリ",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Sync Weather",
+    startupImage: "/apple-touch-icon.png",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#FFFBF5",
 };
 
 export default function RootLayout({

@@ -861,6 +861,9 @@ export default function Home() {
   useEffect(() => {
     if (!coupleId || !myEmail) return;
 
+    // select で取得する部分型を定義
+    type PollRow = Pick<SyncRow, "user_email" | "kimochi" | "kimochi_date" | "last_sync_date">;
+
     const poll = async () => {
       const { data } = await supabase
         .from("sync_status")
@@ -868,7 +871,7 @@ export default function Home() {
         .eq("couple_id", coupleId);
       if (!data?.length) return;
 
-      const pR = data.find((r: SyncRow) => r.user_email !== myEmail && r.user_email !== "");
+      const pR = (data as PollRow[]).find(r => r.user_email !== myEmail && r.user_email !== "");
       if (!pR) return;
 
       const todayStr   = todayRef.current;

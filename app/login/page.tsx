@@ -25,8 +25,9 @@ export default function LoginPage() {
 
     startTransition(async () => {
       const result = mode === "login" ? await login(formData) : await signup(formData);
-      if (result?.error)   setError(result.error);
-      if (result?.success) setSuccess(result.success);
+      if (!result) return;
+      if ("error"   in result && result.error)   setError(result.error);
+      if ("success" in result && result.success) setSuccess(result.success);
     });
   };
 
@@ -67,7 +68,7 @@ export default function LoginPage() {
             boxShadow: "0 8px 32px rgba(255,176,133,0.18)",
           }}
         >
-          {/* タブ */}
+          {/* ── タブ（type="button" で form submit を防ぐ） ── */}
           <div className="grid grid-cols-2" style={{ borderBottom:"1.5px solid #FDEBD0" }}>
             <button
               type="button"

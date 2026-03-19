@@ -918,7 +918,7 @@ export default function Home() {
           return prev.map(r => r.user_email === pR.user_email
             ? { ...r, kimochi: pR.kimochi, kimochi_date: pR.kimochi_date } : r);
         }
-        return [...prev, pR as SyncRow];
+        return [...prev, pR as unknown as SyncRow];
       });
     };
 
@@ -941,7 +941,7 @@ export default function Home() {
     };
 
     // 楽観的更新：syncData を即座に更新
-    mergeRow({ ...payload } as SyncRow);
+    mergeRow({ ...payload } as unknown as SyncRow);
 
     const { error } = await supabase.from("sync_status")
       .upsert(payload, { onConflict: "couple_id,user_email" });

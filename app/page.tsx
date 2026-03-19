@@ -149,9 +149,9 @@ function getLocalDateStr(d = new Date()): string {
 
 // ─── キモチ選択行 ────────────────────────────────────────
 const KIMOCHI_OPTIONS = [
-  { value:"circle"   as Kimochi, emoji:"○", label:"いいね",           sublabel:"一緒にいたいな",     color:"#D97B6C", bg:"#FBE8E6" },
-  { value:"triangle" as Kimochi, emoji:"△", label:"ハグならいいよ",   sublabel:"そばにいてほしい",   color:"#B8943A", bg:"#FBF3E0" },
-  { value:"cross"    as Kimochi, emoji:"✕", label:"ゆっくり休みたい", sublabel:"今日はそっとしてね", color:"#8B7BA8", bg:"#F0EBF8" },
+  { value:"circle"   as Kimochi, emoji:"○", weather:"☀️", color:"#D97B6C", bg:"#FBE8E6", glow:"rgba(217,123,108,0.25)" },
+  { value:"triangle" as Kimochi, emoji:"△", weather:"☁️", color:"#B8943A", bg:"#FBF3E0", glow:"rgba(184,148,58,0.25)"  },
+  { value:"cross"    as Kimochi, emoji:"✕", weather:"🌧️", color:"#8B7BA8", bg:"#F0EBF8", glow:"rgba(139,123,168,0.25)" },
 ];
 
 function KimochiRow({ label, avatar, selected, onSelect, disabled, note }: {
@@ -173,18 +173,48 @@ function KimochiRow({ label, avatar, selected, onSelect, disabled, note }: {
           return (
             <button key={opt.value}
               onClick={() => !disabled && onSelect(opt.value)}
-              className="flex flex-col items-center gap-1 py-3 px-2 rounded-2xl text-center"
+              className="relative overflow-hidden rounded-2xl"
               style={{
+                height:          64,
                 backgroundColor: isSelected ? opt.bg : "rgba(255,255,255,0.6)",
                 border:          isSelected ? `2px solid ${opt.color}` : "1.5px solid #FDEBD0",
-                boxShadow:       isSelected ? `0 2px 12px ${opt.color}30` : "none",
-                transform:       isSelected ? "scale(1.04)" : "scale(1)",
-                opacity:  disabled ? (isSelected ? 1 : 0.45) : 1,
-                cursor:   disabled ? "default" : "pointer",
+                boxShadow:       isSelected ? `0 4px 16px ${opt.glow}` : "none",
+                transform:       isSelected ? "scale(1.06)" : "scale(1)",
+                transition:      "all 0.18s ease",
+                opacity:         disabled ? (isSelected ? 1 : 0.45) : 1,
+                cursor:          disabled ? "default" : "pointer",
               }}>
-              <span style={{ fontSize:20, fontWeight:700, color: isSelected ? opt.color : "#C4A898" }}>{opt.emoji}</span>
-              <span style={{ fontSize:10, fontWeight:700, color: isSelected ? opt.color : "#C4A898", lineHeight:1.3 }}>{opt.label}</span>
-              <span style={{ fontSize:9, color:"#C4A898", lineHeight:1.2 }}>{opt.sublabel}</span>
+              {/* 背景天気アイコン（半透明） */}
+              <span
+                aria-hidden="true"
+                style={{
+                  position:  "absolute",
+                  right:     -4,
+                  bottom:    -6,
+                  fontSize:  38,
+                  opacity:   isSelected ? 0.22 : 0.13,
+                  userSelect:"none",
+                  lineHeight:1,
+                  transition:"opacity 0.18s ease",
+                }}>
+                {opt.weather}
+              </span>
+              {/* メインの記号 */}
+              <span
+                style={{
+                  position:   "absolute",
+                  inset:      0,
+                  display:    "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize:   28,
+                  fontWeight: 800,
+                  color:      isSelected ? opt.color : "#C4B8A8",
+                  transition: "color 0.18s ease",
+                  letterSpacing: "-1px",
+                }}>
+                {opt.emoji}
+              </span>
             </button>
           );
         })}

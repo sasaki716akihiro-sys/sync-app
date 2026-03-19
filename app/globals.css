@@ -1,0 +1,48 @@
+/* app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── カラー変数 ─────────────────────── */
+:root {
+  --bg-main:      #FFFBF5;
+  --text-main:    #4A3728;
+  --text-sub:     #9A7B6A;
+  --text-muted:   #C4A898;
+  --border:       #FDEBD0;
+  --card-bg:      rgba(255,255,255,0.80);
+  --card-bg-sub:  rgba(255,255,255,0.60);
+  --peach-100:    #FFE0CC;
+  --terra-200:    #E8A882;
+  --terra-300:    #D4845A;
+  --terra-400:    #B86540;
+  --terra-500:    #8B4513;
+  --sage-300:     #7AAD72;
+}
+
+/* ── ベース ──────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  min-height: 100dvh;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  overscroll-behavior: none;
+  font-family: var(--font-nunito, 'Nunito', sans-serif);
+}
+
+/* ── アニメーション遅延 ───────────────── */
+@layer utilities {
+  .anim-delay-100 { animation-delay: 100ms; }
+  .anim-delay-200 { animation-delay: 200ms; }
+  .anim-delay-300 { animation-delay: 300ms; }
+  .anim-delay-400 { animation-delay: 400ms; }
+  .anim-delay-500 { animation-delay: 500ms; }
+}
+
+/* ── スクロールバー非表示 ─────────────── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

@@ -103,78 +103,160 @@ function calcShindoness(startDateStr: string | null): number {
   return 10;
 }
 
-// ─── しんどさイラスト（SVG・丸みキャラ） ─────────────────
+// ─── しんどさイラスト（SVG・セミロング女性キャラ） ──────────
 function ShindonessIllustration({ level }: { level: number }) {
-  const skin  = "#FDDCB5";
-  const hair  = "#6B3E26";
-  const cheek = "#F4A8A8";
+  const skin   = "#FDDCB5";
+  const hair   = "#C4703A";   // 明るい茶色（女性らしく）
+  const cloth  = "#F0A899";   // ピーチ
+  const futon  = "#FDE8E0";   // 布団
+  const cheek  = "#F4A8A8";
 
   if (level >= 80) {
+    // 布団に横たわり、セミロングが広がっている
     return (
-      <svg width="160" height="100" viewBox="0 0 160 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="80" cy="90" rx="60" ry="8" fill="#F0C0B0" opacity="0.25"/>
-        <ellipse cx="75" cy="65" rx="40" ry="16" fill="#F0A899"/>
-        <circle cx="36" cy="72" r="12" fill="#F0A899"/>
-        <circle cx="24" cy="78" r="10" fill="#F0A899"/>
-        <circle cx="118" cy="56" r="28" fill={skin}/>
-        <circle cx="106" cy="62" r="6" fill={cheek} opacity="0.5"/>
-        <circle cx="130" cy="62" r="6" fill={cheek} opacity="0.5"/>
-        <ellipse cx="118" cy="30" rx="22" ry="14" fill={hair}/>
-        <circle cx="100" cy="32" r="8" fill={hair}/>
-        <circle cx="136" cy="32" r="8" fill={hair}/>
-        <circle cx="130" cy="22" r="10" fill={hair}/>
-        <path d="M108 54 Q112 51 116 54" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
-        <path d="M120 54 Q124 51 128 54" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
-        <path d="M110 65 Q118 63 126 65" stroke="#C47840" strokeWidth="2" strokeLinecap="round"/>
-        <ellipse cx="96" cy="44" rx="4" ry="6" fill="#B3E5FC" opacity="0.7" transform="rotate(-15 96 44)"/>
-        <ellipse cx="143" cy="38" rx="3" ry="5" fill="#B3E5FC" opacity="0.5" transform="rotate(10 143 38)"/>
+      <svg width="200" height="120" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* 布団 */}
+        <rect x="10" y="72" width="180" height="38" rx="19" fill={futon}/>
+        <rect x="10" y="72" width="180" height="20" rx="12" fill="#FCCFC4" opacity="0.5"/>
+
+        {/* 体（横向き） */}
+        <ellipse cx="100" cy="78" rx="60" ry="16" fill={cloth} opacity="0.7"/>
+
+        {/* セミロングの髪（布団に広がる） */}
+        <ellipse cx="155" cy="60" rx="32" ry="18" fill={hair} opacity="0.85"/>
+        <path d="M128 55 Q160 45 185 58 Q190 70 175 78 Q160 72 130 70" fill={hair} opacity="0.8"/>
+        {/* 後ろ髪たれ */}
+        <path d="M160 72 Q172 82 168 95" stroke={hair} strokeWidth="9" strokeLinecap="round" opacity="0.7"/>
+        <path d="M150 72 Q158 84 155 96" stroke={hair} strokeWidth="7" strokeLinecap="round" opacity="0.6"/>
+
+        {/* 頭（横向き丸） */}
+        <circle cx="148" cy="60" r="24" fill={skin}/>
+
+        {/* 頬染め */}
+        <circle cx="138" cy="65" r="6" fill={cheek} opacity="0.45"/>
+
+        {/* 顔：眉をひそめて辛そう */}
+        <path d="M138 54 Q141 51 144 54" stroke="#8B4513" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M150 54 Q153 51 156 54" stroke="#8B4513" strokeWidth="2" strokeLinecap="round"/>
+        {/* 目（細めて辛そう） */}
+        <path d="M136 59 Q140 57 144 59" stroke="#6B3E26" strokeWidth="2.2" strokeLinecap="round"/>
+        <path d="M149 59 Q153 57 157 59" stroke="#6B3E26" strokeWidth="2.2" strokeLinecap="round"/>
+        {/* への字口 */}
+        <path d="M139 67 Q147 65 155 67" stroke="#C47840" strokeWidth="1.8" strokeLinecap="round"/>
+
+        {/* 腕でお腹を抱えてる */}
+        <path d="M40 75 Q60 90 100 90 Q130 90 145 80" stroke={cloth} strokeWidth="11" strokeLinecap="round" fill="none" opacity="0.65"/>
+
+        {/* 汗マーク */}
+        <ellipse cx="170" cy="42" rx="4" ry="6" fill="#B3E5FC" opacity="0.7" transform="rotate(-20 170 42)"/>
+        <ellipse cx="180" cy="50" rx="3" ry="5" fill="#B3E5FC" opacity="0.5" transform="rotate(-10 180 50)"/>
       </svg>
     );
   }
 
   if (level >= 40) {
+    // 布団の上に座ってお腹を抱えている
     return (
-      <svg width="120" height="130" viewBox="0 0 120 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="60" cy="124" rx="40" ry="6" fill="#F0C0B0" opacity="0.25"/>
-        <ellipse cx="40" cy="106" rx="16" ry="12" fill="#F0A899"/>
-        <ellipse cx="80" cy="106" rx="16" ry="12" fill="#F0A899"/>
-        <ellipse cx="60" cy="84" rx="28" ry="24" fill="#F0A899"/>
-        <path d="M32 82 Q36 100 60 104 Q84 100 88 82" stroke="#E8907A" strokeWidth="12" strokeLinecap="round" fill="none"/>
-        <circle cx="60" cy="44" r="30" fill={skin}/>
-        <circle cx="44" cy="52" r="8" fill={cheek} opacity="0.45"/>
-        <circle cx="76" cy="52" r="8" fill={cheek} opacity="0.45"/>
-        <ellipse cx="60" cy="18" rx="26" ry="16" fill={hair}/>
-        <path d="M30 30 Q24 50 30 68" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
-        <path d="M90 30 Q96 50 90 68" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
-        <path d="M44 36 Q50 33 56 36" stroke={hair} strokeWidth="2.2" strokeLinecap="round"/>
-        <path d="M64 36 Q70 33 76 36" stroke={hair} strokeWidth="2.2" strokeLinecap="round"/>
-        <ellipse cx="49" cy="44" rx="5" ry="6" fill="#6B3E26"/>
-        <ellipse cx="71" cy="44" rx="5" ry="6" fill="#6B3E26"/>
-        <circle cx="51" cy="42" r="2" fill="white"/>
-        <circle cx="73" cy="42" r="2" fill="white"/>
-        <path d="M50 58 Q60 55 70 58" stroke="#C47840" strokeWidth="2.2" strokeLinecap="round"/>
+      <svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* 布団 */}
+        <rect x="8" y="118" width="144" height="34" rx="17" fill={futon}/>
+
+        {/* 足（正座気味） */}
+        <ellipse cx="55" cy="122" rx="20" ry="12" fill={cloth} opacity="0.8"/>
+        <ellipse cx="105" cy="122" rx="20" ry="12" fill={cloth} opacity="0.8"/>
+
+        {/* 体 */}
+        <ellipse cx="80" cy="96" rx="30" ry="26" fill={cloth}/>
+
+        {/* セミロング髪（肩にかかる） */}
+        {/* 右側 */}
+        <path d="M100 58 Q115 70 112 96 Q108 108 100 114" stroke={hair} strokeWidth="14" strokeLinecap="round" opacity="0.85"/>
+        {/* 左側 */}
+        <path d="M60 58 Q45 70 48 96 Q52 108 60 114" stroke={hair} strokeWidth="14" strokeLinecap="round" opacity="0.85"/>
+
+        {/* 頭 */}
+        <circle cx="80" cy="52" r="32" fill={skin}/>
+
+        {/* 頭頂の髪 */}
+        <ellipse cx="80" cy="24" rx="28" ry="18" fill={hair}/>
+        {/* 前髪 */}
+        <path d="M52 38 Q65 28 80 32 Q95 28 108 38" fill={hair} opacity="0.9"/>
+        <path d="M54 42 Q62 35 72 38" stroke={hair} strokeWidth="6" strokeLinecap="round" opacity="0.8"/>
+
+        {/* 頬 */}
+        <circle cx="62" cy="60" r="9" fill={cheek} opacity="0.4"/>
+        <circle cx="98" cy="60" r="9" fill={cheek} opacity="0.4"/>
+
+        {/* 眉（下がり気味） */}
+        <path d="M63 44 Q70 41 77 44" stroke="#8B4513" strokeWidth="2.2" strokeLinecap="round"/>
+        <path d="M83 44 Q90 41 97 44" stroke="#8B4513" strokeWidth="2.2" strokeLinecap="round"/>
+
+        {/* 目（うるうる） */}
+        <ellipse cx="68" cy="52" rx="6" ry="7" fill="#6B3E26"/>
+        <ellipse cx="92" cy="52" rx="6" ry="7" fill="#6B3E26"/>
+        <circle cx="70" cy="50" r="2.5" fill="white"/>
+        <circle cx="94" cy="50" r="2.5" fill="white"/>
+        {/* 涙の粒 */}
+        <circle cx="76" cy="62" r="2" fill="#B3E5FC" opacity="0.7"/>
+
+        {/* への字口 */}
+        <path d="M66 68 Q80 65 94 68" stroke="#C47840" strokeWidth="2.2" strokeLinecap="round"/>
+
+        {/* 腕でお腹を抱える */}
+        <path d="M50 94 Q54 116 80 120 Q106 116 110 94" stroke={hair} strokeWidth="11" strokeLinecap="round" fill="none" opacity="0.25"/>
+        <path d="M50 94 Q54 116 80 120 Q106 116 110 94" stroke={cloth} strokeWidth="9" strokeLinecap="round" fill="none" opacity="0.6"/>
       </svg>
     );
   }
 
+  // 布団から起きて座っている・少し元気
   return (
-    <svg width="110" height="130" viewBox="0 0 110 130" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="55" cy="124" rx="35" ry="6" fill="#B8D4A0" opacity="0.25"/>
-      <ellipse cx="36" cy="108" rx="14" ry="11" fill="#A8D898"/>
-      <ellipse cx="74" cy="108" rx="14" ry="11" fill="#A8D898"/>
-      <ellipse cx="55" cy="84" rx="26" ry="22" fill="#A8D898"/>
-      <circle cx="18" cy="76" r="12" fill="#A8D898"/>
-      <circle cx="92" cy="76" r="12" fill="#A8D898"/>
-      <circle cx="55" cy="44" r="30" fill={skin}/>
-      <circle cx="40" cy="52" r="8" fill={cheek} opacity="0.35"/>
-      <circle cx="70" cy="52" r="8" fill={cheek} opacity="0.35"/>
-      <ellipse cx="55" cy="17" rx="25" ry="15" fill={hair}/>
-      <path d="M25 28 Q20 46 26 64" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
-      <path d="M85 28 Q90 46 84 64" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
-      <path d="M43 42 Q49 39 55 42" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
-      <path d="M55 42 Q61 39 67 42" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
-      <path d="M44 56 Q55 63 66 56" stroke="#C47840" strokeWidth="2.5" strokeLinecap="round"/>
-      <text x="82" y="28" fontSize="14" opacity="0.6">✨</text>
+    <svg width="150" height="170" viewBox="0 0 150 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* 布団 */}
+      <rect x="10" y="134" width="130" height="28" rx="14" fill={futon}/>
+
+      {/* 足（体育座り気味） */}
+      <ellipse cx="50" cy="138" rx="18" ry="11" fill="#A8D898" opacity="0.9"/>
+      <ellipse cx="100" cy="138" rx="18" ry="11" fill="#A8D898" opacity="0.9"/>
+
+      {/* 体 */}
+      <ellipse cx="75" cy="108" rx="28" ry="28" fill="#A8D898"/>
+
+      {/* セミロング髪（左右に流れる） */}
+      <path d="M98 56 Q116 72 112 106 Q108 118 98 124" stroke={hair} strokeWidth="13" strokeLinecap="round" opacity="0.85"/>
+      <path d="M52 56 Q34 72 38 106 Q42 118 52 124" stroke={hair} strokeWidth="13" strokeLinecap="round" opacity="0.85"/>
+
+      {/* 頭 */}
+      <circle cx="75" cy="50" r="32" fill={skin}/>
+
+      {/* 頭頂・前髪 */}
+      <ellipse cx="75" cy="22" rx="26" ry="17" fill={hair}/>
+      <path d="M48 36 Q62 26 75 30 Q88 26 102 36" fill={hair} opacity="0.9"/>
+      <path d="M50 40 Q58 33 68 36" stroke={hair} strokeWidth="6" strokeLinecap="round" opacity="0.8"/>
+      {/* ポニーテール風アクセント */}
+      <circle cx="75" cy="16" r="8" fill={hair}/>
+
+      {/* 頬（薄め） */}
+      <circle cx="59" cy="58" r="9" fill={cheek} opacity="0.3"/>
+      <circle cx="91" cy="58" r="9" fill={cheek} opacity="0.3"/>
+
+      {/* 眉（少し和らいでいる） */}
+      <path d="M60 40 Q67 38 74 40" stroke="#8B4513" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M76 40 Q83 38 90 40" stroke="#8B4513" strokeWidth="2" strokeLinecap="round"/>
+
+      {/* 目（少し細め・やさしく） */}
+      <path d="M58 50 Q65 47 72 50" stroke="#6B3E26" strokeWidth="2.8" strokeLinecap="round"/>
+      <path d="M78 50 Q85 47 92 50" stroke="#6B3E26" strokeWidth="2.8" strokeLinecap="round"/>
+
+      {/* 薄い笑顔 */}
+      <path d="M62 65 Q75 71 88 65" stroke="#C47840" strokeWidth="2.2" strokeLinecap="round"/>
+
+      {/* 腕（膝に乗せてる） */}
+      <path d="M47 106 Q52 128 75 132 Q98 128 103 106" stroke="#A8D898" strokeWidth="9" strokeLinecap="round" fill="none" opacity="0.7"/>
+
+      {/* 回復の小さなキラキラ */}
+      <text x="108" y="40" fontSize="13" opacity="0.55">✨</text>
+      <text x="20" y="52" fontSize="10" opacity="0.4">🌱</text>
     </svg>
   );
 }

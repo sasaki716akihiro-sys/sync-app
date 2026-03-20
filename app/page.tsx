@@ -199,7 +199,8 @@ function addKimochiLog(
   return next.slice(-28); // 最大4週分
 }
 
-
+// ─── クールダウン日数 ────────────────────────────────────
+function getCooldownDays(goal: number): number {
   if (goal === 1) return 20;
   if (goal === 2) return 10;
   if (goal === 3) return 7;

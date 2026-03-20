@@ -1453,64 +1453,77 @@ export default function Home() {
   if (loading) return <LoadingScreen />;
   if (!coupleId) return <NoCoupleIdScreen onGoSettings={()=>setScreen("settings")} />;
 
+  // ── 状態ラベル ─────────────────────────────────────────
+  const myStatus     = myKimochi      ? "回答済み" : is17 ? "未回答" : "待機中";
+  const partnerStatus = partnerKimochi ? "回答済み" : "まだ選んでいないよ";
+
   return (
-    <main className="min-h-dvh flex flex-col items-center" style={{ backgroundColor:"#FFFBF5", color:"#4A3728" }}>
+    <main className="min-h-dvh flex flex-col items-center"
+      style={{ backgroundColor:"#FFFBF5", color:"#4A3728" }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
 
       <Toast msg={toast.msg} on={toast.on}/>
       {showFireworks && <Fireworks onDone={()=>setShowFireworks(false)}/>}
 
-      <div className="w-full max-w-sm flex flex-col px-4 py-8 gap-5">
+      <div className="w-full max-w-sm flex flex-col px-4 pt-6 pb-10 gap-4">
 
-        {/* ヘッダー */}
-        <header className="flex flex-col items-center gap-2">
-          <div className="w-full flex items-center justify-between">
-            <div className="w-9"/>
-            <h1 className="text-2xl font-bold" style={{ color:"#8B4513" }}>Sync Weather</h1>
-            <div className="flex items-center gap-2">
-              <button onClick={()=>setScreen("settings")}
-                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-sm"
-                style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1px solid #FDEBD0", fontSize:18 }}>⚙️</button>
-              <form action={logout}>
-                <button type="submit"
-                  className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-sm text-xs font-bold"
-                  style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1px solid #FDEBD0", color:"#C4A898" }}
-                  title="ログアウト">出</button>
-              </form>
-            </div>
+        {/* ── ① ヘッダー ─────────────────────────────── */}
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="font-bold" style={{ fontSize:20, color:"#8B4513", lineHeight:1.2 }}>
+              Sync Weather
+            </h1>
+            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+              ふたりの気持ちを、やさしく共有
+            </p>
           </div>
-          <p style={{ fontSize:10, color:"#C4A898" }}>ID: {coupleId}</p>
+          <div className="flex items-center gap-2">
+            <button onClick={()=>setScreen("settings")}
+              className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+              style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1px solid #FDEBD0", fontSize:18 }}>
+              ⚙️
+            </button>
+            <form action={logout}>
+              <button type="submit"
+                className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform text-xs font-bold"
+                style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1px solid #FDEBD0", color:"#C4A898" }}
+                title="ログアウト">出</button>
+            </form>
+          </div>
         </header>
 
-        {/* 今月目標バッジ */}
-        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl overflow-hidden"
-          style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #FDEBD0" }}>
-          <span style={{ fontSize:16, flexShrink:0 }}>🎯</span>
-          <span style={{ fontSize:11, color:"#9A7B6A", flexShrink:0 }}>目標</span>
-          <span className="font-bold" style={{ fontSize:14, color:"#D97B6C", flexShrink:0 }}>{syncGoal}回</span>
-          <span style={{ fontSize:11, color:"#C4A898", flexShrink:0 }}>/ お休み{cooldownDays}日</span>
+        {/* ── ② 状態バー（接続・目標・生理期間） ────────── */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* 接続状態 */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            style={{ backgroundColor:"rgba(122,173,114,0.15)", border:"1px solid #A8C9A0" }}>
+            <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block" }}/>
+            <span style={{ fontSize:10, color:"#5A9E7A", fontWeight:600 }}>パートナーと接続中</span>
+          </div>
+          {/* 目標サマリー */}
+          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+            style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #FDEBD0" }}>
+            <span style={{ fontSize:11, color:"#C4A898" }}>🎯</span>
+            <span style={{ fontSize:10, color:"#9A7B6A" }}>目標 {syncGoal}回 / お休み{cooldownDays}日</span>
+          </div>
+          {/* 生理期間バッジ */}
           {isInMoonPeriod && (
-            <><div className="flex-1"/>
-              <span className="text-xs px-2 py-1 rounded-full font-semibold"
-                style={{ backgroundColor:"rgba(196,180,224,0.3)", color:"#8B7BA8", flexShrink:0 }}>🌙 生理期間中</span></>
+            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:"rgba(196,180,224,0.2)", border:"1px solid #D4C4F0" }}>
+              <span style={{ fontSize:11 }}>🌙</span>
+              <span style={{ fontSize:10, color:"#8B7BA8", fontWeight:600 }}>生理期間中</span>
+            </div>
           )}
         </div>
 
-        <div className="h-px" style={{ backgroundColor:"#FDEBD0" }}/>
+        {/* ── ③ メインカード：状態別に完全分岐 ─────────── */}
 
-        {/* ── 完全2択分岐 ─────────────────────────────────────
-            isInCooldown=true  → SyncSuccessCard のみ（ボタンなし）
-            isInCooldown=false → キモチ確認フロー
-        ───────────────────────────────────────────────────── */}
         {isInCooldown ? (
-
+          /* === Perfect Sync / 待機期間 === */
           <div className="flex flex-col gap-3">
-            <div className="flex items-center px-1">
-              <span style={{ fontSize:18, marginRight:6 }}>✨</span>
-              <h2 className="text-sm font-bold" style={{ color:"#B86540" }}>
-                {isSyncToday ? "Perfect Sync 達成！" : "ふたりの準備期間"}
-              </h2>
-            </div>
+            <p className="text-sm font-bold px-1" style={{ color:"#B86540" }}>
+              {isSyncToday ? "✨ Perfect Sync 達成！" : "🌿 ふたりの準備期間"}
+            </p>
             <SyncSuccessCard
               isSyncToday={isSyncToday}
               remainingDays={remainingDays}
@@ -1519,116 +1532,134 @@ export default function Home() {
               onReset={handleCooldownReset}/>
           </div>
 
-        ) : (
-
-          <div className="flex flex-col gap-3">
-            {/* 生理期間中はヘッダーを非表示 */}
-            {!isInMoonPeriod && (
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1.5">
-                  <span style={{ fontSize:18 }}>🌅</span>
-                  <h2 className="text-sm font-bold" style={{ color:"#B86540" }}>17時のキモチ確認</h2>
-                </div>
-                {!is17 && (
-                  <button onClick={()=>{ setIs17(true); pop("17時になりました 🌅"); }}
-                    className="px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform"
-                    style={{ backgroundColor:"#FFE0CC", color:"#B86540", border:"1.5px solid #FFB085" }}>
-                    🕔 17時にする
-                  </button>
-                )}
-                {is17 && (
-                  <span className="px-3 py-1.5 rounded-full text-xs font-bold"
-                    style={{ backgroundColor:"#FBE8E6", color:"#D97B6C" }}>🌅 17時です</span>
-                )}
-              </div>
-            )}
-
-            {isInMoonPeriod ? (
-              /* ── 生理期間中：しんどさインジケーター ── */
-              (() => {
-                const shindoness = calcShindoness(lastStartDate);
-                const bgColor = shindoness >= 80
-                  ? "rgba(240,168,153,0.12)"
-                  : shindoness >= 40
-                  ? "rgba(184,148,58,0.10)"
-                  : "rgba(122,173,114,0.10)";
-                const borderColor = shindoness >= 80
-                  ? "#F0A899"
-                  : shindoness >= 40
-                  ? "#E8C880"
-                  : "#A8C9A0";
-                const textColor = shindoness >= 80
-                  ? "#D97B6C"
-                  : shindoness >= 40
-                  ? "#B8943A"
-                  : "#5A9E7A";
-                const label = shindoness >= 80
-                  ? "かなりしんどい時期だよ。\nそっと見守ってあげてね 💜"
-                  : shindoness >= 40
-                  ? "まだしんどさが残っているよ。\n優しくしてあげてね 🌿"
-                  : "少しずつ回復してきているよ。\nもうすぐ元気になるね 🌱";
-                return (
-                  <div className="rounded-3xl overflow-hidden"
-                    style={{ backgroundColor: bgColor, border:`1.5px solid ${borderColor}` }}>
-                    <div className="flex flex-col items-center gap-3 px-5 py-5">
-                      <ShindonessIllustration level={shindoness} />
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-base" style={{ color: textColor }}>
-                          しんどさレベル：
-                        </span>
-                        <span className="font-bold" style={{ fontSize:22, color: textColor }}>
-                          {shindoness}%
-                        </span>
-                      </div>
-                      <p className="text-xs text-center leading-relaxed whitespace-pre-line"
-                        style={{ color: textColor, opacity:0.85 }}>
-                        {label}
-                      </p>
-                    </div>
+        ) : isInMoonPeriod ? (
+          /* === 生理期間中：しんどさインジケーター === */
+          (() => {
+            const shindoness  = calcShindoness(lastStartDate);
+            const borderColor = shindoness >= 80 ? "#F0A899" : shindoness >= 40 ? "#E8C880" : "#A8C9A0";
+            const bgColor     = shindoness >= 80 ? "rgba(240,168,153,0.10)" : shindoness >= 40 ? "rgba(184,148,58,0.08)" : "rgba(122,173,114,0.08)";
+            const textColor   = shindoness >= 80 ? "#D97B6C" : shindoness >= 40 ? "#B8943A" : "#5A9E7A";
+            const label       = shindoness >= 80 ? "かなりしんどい時期だよ。\nそっと見守ってあげてね 💜"
+                              : shindoness >= 40 ? "まだしんどさが残っているよ。\n優しくしてあげてね 🌿"
+                              : "少しずつ回復してきているよ。\nもうすぐ元気になるね 🌱";
+            return (
+              <div className="rounded-3xl overflow-hidden"
+                style={{ backgroundColor: bgColor, border:`1.5px solid ${borderColor}` }}>
+                <div className="flex flex-col items-center gap-3 px-5 py-5">
+                  <ShindonessIllustration level={shindoness} />
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-base" style={{ color: textColor }}>しんどさレベル：</span>
+                    <span className="font-bold" style={{ fontSize:22, color: textColor }}>{shindoness}%</span>
                   </div>
-                );
-              })()
+                  <p className="text-xs text-center leading-relaxed whitespace-pre-line"
+                    style={{ color: textColor, opacity:0.85 }}>{label}</p>
+                </div>
+              </div>
+            );
+          })()
 
-            ) : !is17 ? (
-              <div className="rounded-3xl p-5 flex flex-col items-center gap-2 text-center"
+        ) : (
+          /* === 通常：キモチ確認 === */
+          <div className="flex flex-col gap-3">
+
+            {/* ヘッダー行：タイトル＋17時バッジ */}
+            <div className="flex items-center justify-between px-0.5">
+              <div>
+                <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                  今日のキモチを選んでね
+                </p>
+                <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                  言いにくい日も、選ぶだけでOK ☁️
+                </p>
+              </div>
+              {!is17 ? (
+                <button onClick={()=>{ setIs17(true); pop("17時になりました 🌅"); }}
+                  className="px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform flex-shrink-0"
+                  style={{ backgroundColor:"#FFE0CC", color:"#B86540", border:"1.5px solid #FFB085" }}>
+                  🕔 17時にする
+                </button>
+              ) : (
+                <span className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
+                  style={{ backgroundColor:"#FBE8E6", color:"#D97B6C" }}>🌅 17時</span>
+              )}
+            </div>
+
+            {!is17 ? (
+              /* 17時前：待機プレート */
+              <div className="rounded-3xl px-5 py-6 flex flex-col items-center gap-2 text-center"
                 style={{ backgroundColor:"rgba(255,255,255,0.6)", border:"1.5px dashed #FFE0CC" }}>
-                <span style={{ fontSize:28 }}>🕓</span>
-                <p className="text-sm font-medium" style={{ color:"#C4A898" }}>17時になると確認エリアが開くよ</p>
-                <p style={{ fontSize:11, color:"#D4C4A8" }}>テストボタンで確認できます</p>
+                <span style={{ fontSize:32 }}>🕓</span>
+                <p className="font-semibold text-sm" style={{ color:"#B86540" }}>
+                  17時になったらキモチを選べるよ
+                </p>
+                <p style={{ fontSize:11, color:"#C4A898" }}>
+                  上の「17時にする」で今すぐ確認できます
+                </p>
               </div>
 
             ) : (
               <>
+                {/* ─ メインカード ─ */}
                 <div className="rounded-3xl overflow-hidden"
-                  style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 20px rgba(255,176,133,0.15)" }}>
-                  <div className="px-4 py-4 flex flex-col gap-4"
-                    style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-                    {/* ★ myEmail で仕分けた myRow の値を表示 */}
+                  style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 24px rgba(255,176,133,0.18)" }}>
+
+                  {/* あなたのキモチ */}
+                  <div className="px-4 pt-4 pb-3"
+                    style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span style={{ fontSize:14 }}>🌸</span>
+                      <span className="text-xs font-bold" style={{ color:"#B86540" }}>あなたのキモチ</span>
+                      {myKimochi && (
+                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
+                          ✓ 選択済み
+                        </span>
+                      )}
+                      {!myKimochi && (
+                        <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
+                          まだ選んでいないよ
+                        </span>
+                      )}
+                    </div>
                     <KimochiRow
-                      label="あなた" avatar="🌸"
+                      label="" avatar=""
                       selected={myKimochi}
                       onSelect={handleKimochiSelect}
                       disabled={false}
                     />
-                    {/* ★ myEmail で仕分けた partnerRow の値を表示 */}
+                  </div>
+
+                  <div className="h-px" style={{ backgroundColor:"#FDEBD0" }}/>
+
+                  {/* パートナーのキモチ */}
+                  <div className="px-4 pt-3 pb-4"
+                    style={{ backgroundColor:"rgba(255,248,240,0.7)" }}>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span style={{ fontSize:14 }}>🌿</span>
+                      <span className="text-xs font-bold" style={{ color:"#7AAD72" }}>パートナーのキモチ</span>
+                      {partnerKimochi ? (
+                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor:"rgba(122,173,114,0.15)", color:"#5A9E7A" }}>
+                          ✓ 回答済み
+                        </span>
+                      ) : (
+                        <span className="ml-auto text-xs flex items-center gap-1" style={{ color:"#C4A898" }}>
+                          <span style={{ animation:"pulse 1.5s infinite", display:"inline-block" }}>●</span>
+                          待ち中…
+                        </span>
+                      )}
+                    </div>
                     <KimochiRow
                       key={`partner-${partnerKimochi ?? "none"}`}
-                      label="パートナー" avatar="🌿"
+                      label="" avatar=""
                       selected={partnerKimochi}
                       onSelect={()=>{}}
                       disabled={true}
-                      note={partnerKimochi ? "✓ 選択済み" : "（待っているよ…）"}
                     />
-                    {(!myKimochi || !partnerKimochi) && (
-                      <p className="text-center text-xs pb-1" style={{ color:"#C4A898" }}>
-                        {!myKimochi
-                          ? "あなたのキモチを選んでね 🌸"
-                          : "パートナーの選択を待っているよ… 🌿"}
-                      </p>
-                    )}
                   </div>
                 </div>
 
+                {/* マッチバナー */}
                 {showMatch && myKimochi && partnerKimochi && (
                   <MatchBanner me={myKimochi} partner={partnerKimochi} onClose={resetKimochi}/>
                 )}
@@ -1637,7 +1668,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="h-8"/>
+        <div className="h-4"/>
       </div>
     </main>
   );

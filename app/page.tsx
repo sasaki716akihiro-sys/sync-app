@@ -1756,38 +1756,44 @@ export default function Home() {
           /* === 通常：キモチ確認 === */
           <div className="flex flex-col gap-3">
 
-            {/* ヘッダー行：タイトル＋17時バッジ */}
-            <div className="flex items-center justify-between px-0.5">
-              <div>
-                <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
-                  今日のキモチを選んでね
-                </p>
-                <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                  言いにくい日も、選ぶだけでOK ☁️
-                </p>
-              </div>
-              {!is17 ? (
-                <button onClick={()=>{ setIs17(true); pop("17時になりました 🌅"); }}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform flex-shrink-0"
-                  style={{ backgroundColor:"#FFE0CC", color:"#B86540", border:"1.5px solid #FFB085" }}>
-                  🕔 17時にする
-                </button>
-              ) : (
-                <span className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
-                  style={{ backgroundColor:"#FBE8E6", color:"#D97B6C" }}>🌅 17時</span>
-              )}
-            </div>
+            {/* ヘッダー行：タイトル＋リマインド時刻バッジ */}
+            {(() => {
+              const rHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
+              const rLabel = `${String(rHour).padStart(2,"0")}時`;
+              return (
+                <div className="flex items-center justify-between px-0.5">
+                  <div>
+                    <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                      今日のキモチを選んでね
+                    </p>
+                    <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                      言いにくい日も、選ぶだけでOK ☁️
+                    </p>
+                  </div>
+                  {!is17 ? (
+                    <button onClick={()=>{ setIs17(true); pop(`${rLabel}になりました 🌅`); }}
+                      className="px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform flex-shrink-0"
+                      style={{ backgroundColor:"#FFE0CC", color:"#B86540", border:"1.5px solid #FFB085" }}>
+                      🕔 {rLabel}にする
+                    </button>
+                  ) : (
+                    <span className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
+                      style={{ backgroundColor:"#FBE8E6", color:"#D97B6C" }}>🌅 {rLabel}</span>
+                  )}
+                </div>
+              );
+            })()}
 
             {!is17 ? (
-              /* 17時前：待機プレート */
+              /* リマインド時刻前：待機プレート */
               <div className="rounded-3xl px-5 py-6 flex flex-col items-center gap-2 text-center"
                 style={{ backgroundColor:"rgba(255,255,255,0.6)", border:"1.5px dashed #FFE0CC" }}>
                 <span style={{ fontSize:32 }}>🕓</span>
                 <p className="font-semibold text-sm" style={{ color:"#B86540" }}>
-                  17時になったらキモチを選べるよ
+                  {String(getTodayReminderHour(reminderWeekday, reminderWeekend)).padStart(2,"0")}時になったらキモチを選べるよ
                 </p>
                 <p style={{ fontSize:11, color:"#C4A898" }}>
-                  上の「17時にする」で今すぐ確認できます
+                  上のボタンで今すぐ確認できます
                 </p>
               </div>
 

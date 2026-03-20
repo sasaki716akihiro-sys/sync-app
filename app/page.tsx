@@ -1328,10 +1328,11 @@ export default function Home() {
     const month = start ? ymdMonth(start) : end ? ymdMonth(end) : moonMonth;
 
     // start が確定したら last_start_date も保存
+    // start が null（リセット）なら last_start_date も null にする
     const lastStart = start
       ? `${ymdYear(start)}-${String(ymdMonth(start)+1).padStart(2,"0")}-${String(ymdDay(start)).padStart(2,"0")}`
       : null;
-    if (lastStart) setLastStartDate_moon(lastStart);
+    setLastStartDate_moon(lastStart); // null でも更新（予測が消える）
 
     // ★ start と end が両方確定したら履歴に追加して再計算
     let newHistory = periodHistory;
@@ -1355,7 +1356,7 @@ export default function Home() {
       moon_end:        end,
       moon_year:       year,
       moon_month:      month,
-      ...(lastStart ? { last_start_date: lastStart } : {}),
+      last_start_date: lastStart, // null のときも上書き（予測をクリア）
       // 再計算した平均値とヒストリーを保存
       cycle_days:      newCycle,
       period_days:     newPeriod,

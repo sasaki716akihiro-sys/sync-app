@@ -64,10 +64,26 @@ function calcAveragePeriod(history: PeriodRecord[]): number {
   return Math.round(days.reduce((a,b) => a+b, 0) / days.length);
 }
 
-// 履歴に1件追加し、最大5件に絞る
+// 履歴に1件追加（20日以内なら直近を上書き）、最大5件に絞る
 function addToHistory(
   history: PeriodRecord[], start: string, end: string
 ): PeriodRecord[] {
+  const startMs = new Date(start).getTime();
+
+  // 直近の履歴と比較して20日以内なら「入力ミス修正」として上書き
+  if (history.length > 0) {
+    const latest = history[history.length - 1];
+    const latestMs = new Date(latest.start).getTime();
+    const diffDays = Math.abs(startMs - latestMs) / 86400000;
+    if (diffDays < 20) {
+      // 直近エントリを上書き
+      const updated = [...history.slice(0, -1), { start, end }];
+      updated.sort((a,b) => a.start.localeCompare(b.start));
+      return updated.slice(-5);
+    }
+  }
+
+  // 通常追加（同一 start は置き換え）
   const next = [...history.filter(r => r.start !== start), { start, end }];
   next.sort((a,b) => a.start.localeCompare(b.start));
   return next.slice(-5); // 最大5件保持
@@ -546,6 +562,7 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   onSave:(coupleId:string)=>void; saving:boolean;
   onMoonDateChange:(start:number|null, end:number|null)=>void;
   onGoalChange:(newGoal:number)=>void;
+  onHistoryReset:()=>void;
 }) {
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
   const cooldownDays = getCooldownDays(syncGoal);
@@ -747,11 +764,21 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
 
             {/* 自動計算結果の表示（Read-Only） */}
             <div className="mt-4 flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 px-1">
-                <p className="text-xs font-bold" style={{ color:"#B86540" }}>自動計算の結果</p>
-                <span style={{ fontSize:9, color:"#C4A898" }}>
-                  （履歴 {historyCount} 件 / 最大3回分の平均）
-                </span>
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold" style={{ color:"#B86540" }}>自動計算の結果</p>
+                  <span style={{ fontSize:9, color:"#C4A898" }}>
+                    （履歴 {historyCount} 件 / 最大3回分の平均）
+                  </span>
+                </div>
+                {historyCount > 0 && (
+                  <button
+                    onClick={onHistoryReset}
+                    style={{ fontSize:10, color:"#C4A898",
+                      textDecoration:"underline", textDecorationStyle:"dotted" }}>
+                    履歴をリセット
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {/* 生理周期 Read-Only */}
@@ -1274,6 +1301,29 @@ export default function Home() {
     }, { onConflict: "couple_id,user_email" });
   }, [coupleId, myEmail, moonYear, moonMonth, periodHistory, cycleDays, periodDays]);
 
+  // ─── 9b. 生理履歴リセット ────────────────────────────────
+  const handleHistoryReset = useCallback(async () => {
+    if (!coupleId || !myEmail) return;
+    if (!window.confirm(
+      "これまでの生理履歴と予測データを初期状態に戻しますか？\n（履歴・平均周期・平均期間がリセットされます）"
+    )) return;
+
+    setPeriodHistory([]);
+    setCycleDays(28);
+    setPeriodDays(5);
+    setLastStartDate_moon(null);
+
+    await supabase.from("sync_status").upsert({
+      couple_id:       coupleId,
+      user_email:      myEmail,
+      period_history:  [],
+      cycle_days:      28,
+      period_days:     5,
+      last_start_date: null,
+      updated_at:      new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+  }, [coupleId, myEmail]);
+
   // ─── 計算 ─────────────────────────────────────────────────
   const cooldownDays = getCooldownDays(syncGoal);
   const getRemainingDays = () => {
@@ -1314,6 +1364,7 @@ export default function Home() {
         onSave={handleSaveSettings} saving={saving}
         onMoonDateChange={handleMoonDateChange}
         onGoalChange={handleGoalChange}
+        onHistoryReset={handleHistoryReset}
       />
     );
   }

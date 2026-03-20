@@ -970,8 +970,19 @@ export default function Home() {
 
   // ── syncData から派生する値（★ 毎レンダーで再計算） ──────
   // myEmail で厳格に仕分け → ミラーリング不可能
-  const myRow      = syncData.find(r => r.user_email === myEmail) ?? null;
-  const partnerRow = syncData.find(r => r.user_email !== myEmail && r.user_email !== "") ?? null;
+  const myRow = syncData.find(
+    r => r.user_email === myEmail && r.couple_id === coupleId
+  ) ?? null;
+
+  // ★ パートナー判定：以下をすべて満たす行のみ
+  //   1. coupleId が完全一致（別IDの残骸を拾わない）
+  //   2. user_email が自分ではない（自分自身を相手扱いしない）
+  //   3. user_email が空文字でない
+  const partnerRow = syncData.find(
+    r => r.couple_id === coupleId.trim()
+      && r.user_email !== myEmail
+      && r.user_email !== ""
+  ) ?? null;
 
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
@@ -1092,9 +1103,12 @@ export default function Home() {
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
   useEffect(() => {
     if (coupleId && myEmail) {
+      // ★ coupleId が変わったら古い syncData を必ずクリア（別IDの残骸を防ぐ）
+      setSyncData([]);
       setLoading(true);
       loadAll(coupleId, myEmail).finally(() => setLoading(false));
     } else if (myEmail) {
+      setSyncData([]); // coupleId 未設定時もクリア
       setLoading(false);
     }
   }, [coupleId, myEmail, loadAll]);
@@ -1111,7 +1125,8 @@ export default function Home() {
         (payload) => {
           const newRow = payload.new as SyncRow;
           if (!newRow?.user_email) return;
-          if (newRow.couple_id !== coupleId) return;
+          // ★ coupleId の完全一致（trim済み）を厳格にチェック
+          if (newRow.couple_id?.trim() !== coupleId.trim()) return;
 
           console.log("[Sync] realtime:",
             newRow.user_email === myEmail ? "【自分】" : "【パートナー】",

@@ -103,90 +103,81 @@ function calcShindoness(startDateStr: string | null): number {
   return 10;
 }
 
-// ─── しんどさイラスト（SVG） ──────────────────────────────
+// ─── しんどさイラスト（SVG・丸みキャラ） ─────────────────
 function ShindonessIllustration({ level }: { level: number }) {
-  const color = level >= 80 ? "#D97B6C" : level >= 40 ? "#B8943A" : "#7AAD72";
+  const skin  = "#FDDCB5";
+  const hair  = "#6B3E26";
+  const cheek = "#F4A8A8";
 
   if (level >= 80) {
-    // かなりしんどい：横たわって丸まっている
     return (
-      <svg width="140" height="90" viewBox="0 0 140 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="65" cy="74" rx="48" ry="10" fill={color} opacity="0.12"/>
-        {/* 体 */}
-        <rect x="20" y="52" width="64" height="22" rx="11" fill={color} opacity="0.65"/>
-        {/* 膝を曲げた足 */}
-        <path d="M20 63 Q8 72 16 78" stroke={color} strokeWidth="12" strokeLinecap="round" opacity="0.55"/>
-        {/* 頭 */}
-        <circle cx="96" cy="48" r="20" fill={color} opacity="0.85"/>
-        {/* 髪 */}
-        <ellipse cx="96" cy="32" rx="18" ry="10" fill="#4A3728" opacity="0.45"/>
-        <path d="M76 40 Q72 55 78 64" stroke="#4A3728" strokeWidth="6" strokeLinecap="round" opacity="0.35"/>
-        {/* 眉をしかめた表情 */}
-        <path d="M88 44 Q91 42 94 44" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
-        <path d="M98 44 Q101 42 104 44" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
-        <circle cx="89" cy="49" r="2" fill="#fff" opacity="0.75"/>
-        <circle cx="103" cy="49" r="2" fill="#fff" opacity="0.75"/>
-        {/* への字口 */}
-        <path d="M89 57 Q96 55 103 57" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/>
-        {/* 汗 */}
-        <text x="118" y="28" fontSize="13" opacity="0.45">💧</text>
-        <text x="8" y="36" fontSize="11" opacity="0.35">💧</text>
+      <svg width="160" height="100" viewBox="0 0 160 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="80" cy="90" rx="60" ry="8" fill="#F0C0B0" opacity="0.25"/>
+        <ellipse cx="75" cy="65" rx="40" ry="16" fill="#F0A899"/>
+        <circle cx="36" cy="72" r="12" fill="#F0A899"/>
+        <circle cx="24" cy="78" r="10" fill="#F0A899"/>
+        <circle cx="118" cy="56" r="28" fill={skin}/>
+        <circle cx="106" cy="62" r="6" fill={cheek} opacity="0.5"/>
+        <circle cx="130" cy="62" r="6" fill={cheek} opacity="0.5"/>
+        <ellipse cx="118" cy="30" rx="22" ry="14" fill={hair}/>
+        <circle cx="100" cy="32" r="8" fill={hair}/>
+        <circle cx="136" cy="32" r="8" fill={hair}/>
+        <circle cx="130" cy="22" r="10" fill={hair}/>
+        <path d="M108 54 Q112 51 116 54" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
+        <path d="M120 54 Q124 51 128 54" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
+        <path d="M110 65 Q118 63 126 65" stroke="#C47840" strokeWidth="2" strokeLinecap="round"/>
+        <ellipse cx="96" cy="44" rx="4" ry="6" fill="#B3E5FC" opacity="0.7" transform="rotate(-15 96 44)"/>
+        <ellipse cx="143" cy="38" rx="3" ry="5" fill="#B3E5FC" opacity="0.5" transform="rotate(10 143 38)"/>
       </svg>
     );
   }
 
   if (level >= 40) {
-    // しんどそう：座ってお腹を抱えている
     return (
-      <svg width="100" height="110" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="50" cy="104" rx="26" ry="6" fill={color} opacity="0.12"/>
-        {/* 足（座り） */}
-        <path d="M28 80 Q18 95 30 100" stroke={color} strokeWidth="11" strokeLinecap="round" opacity="0.5"/>
-        <path d="M72 80 Q82 95 70 100" stroke={color} strokeWidth="11" strokeLinecap="round" opacity="0.5"/>
-        {/* 体 */}
-        <rect x="26" y="52" width="48" height="32" rx="14" fill={color} opacity="0.7"/>
-        {/* 腕でお腹を抱える */}
-        <path d="M26 62 Q20 78 50 82 Q80 78 74 62" stroke={color} strokeWidth="10" strokeLinecap="round" fill="none" opacity="0.5"/>
-        {/* 頭 */}
-        <circle cx="50" cy="34" r="20" fill={color} opacity="0.85"/>
-        {/* 髪 */}
-        <ellipse cx="50" cy="18" rx="17" ry="11" fill="#4A3728" opacity="0.45"/>
-        <path d="M30 26 Q26 42 30 52" stroke="#4A3728" strokeWidth="6" strokeLinecap="round" opacity="0.35"/>
-        {/* 顔：苦しそう */}
-        <path d="M40 28 Q43 26 46 28" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
-        <path d="M54 28 Q57 26 60 28" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
-        <circle cx="41" cy="34" r="2" fill="#fff" opacity="0.8"/>
-        <circle cx="59" cy="34" r="2" fill="#fff" opacity="0.8"/>
-        <path d="M42 43 Q50 41 58 43" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/>
+      <svg width="120" height="130" viewBox="0 0 120 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="60" cy="124" rx="40" ry="6" fill="#F0C0B0" opacity="0.25"/>
+        <ellipse cx="40" cy="106" rx="16" ry="12" fill="#F0A899"/>
+        <ellipse cx="80" cy="106" rx="16" ry="12" fill="#F0A899"/>
+        <ellipse cx="60" cy="84" rx="28" ry="24" fill="#F0A899"/>
+        <path d="M32 82 Q36 100 60 104 Q84 100 88 82" stroke="#E8907A" strokeWidth="12" strokeLinecap="round" fill="none"/>
+        <circle cx="60" cy="44" r="30" fill={skin}/>
+        <circle cx="44" cy="52" r="8" fill={cheek} opacity="0.45"/>
+        <circle cx="76" cy="52" r="8" fill={cheek} opacity="0.45"/>
+        <ellipse cx="60" cy="18" rx="26" ry="16" fill={hair}/>
+        <path d="M30 30 Q24 50 30 68" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
+        <path d="M90 30 Q96 50 90 68" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
+        <path d="M44 36 Q50 33 56 36" stroke={hair} strokeWidth="2.2" strokeLinecap="round"/>
+        <path d="M64 36 Q70 33 76 36" stroke={hair} strokeWidth="2.2" strokeLinecap="round"/>
+        <ellipse cx="49" cy="44" rx="5" ry="6" fill="#6B3E26"/>
+        <ellipse cx="71" cy="44" rx="5" ry="6" fill="#6B3E26"/>
+        <circle cx="51" cy="42" r="2" fill="white"/>
+        <circle cx="73" cy="42" r="2" fill="white"/>
+        <path d="M50 58 Q60 55 70 58" stroke="#C47840" strokeWidth="2.2" strokeLinecap="round"/>
       </svg>
     );
   }
 
-  // 少し元気：立っているが少しうつむき加減
   return (
-    <svg width="90" height="120" viewBox="0 0 90 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="45" cy="114" rx="24" ry="6" fill={color} opacity="0.12"/>
-      {/* 足 */}
-      <rect x="30" y="84" width="12" height="28" rx="6" fill={color} opacity="0.55"/>
-      <rect x="48" y="84" width="12" height="28" rx="6" fill={color} opacity="0.55"/>
-      {/* 体 */}
-      <rect x="22" y="52" width="46" height="36" rx="14" fill={color} opacity="0.7"/>
-      {/* 腕（少し下向き・回復中） */}
-      <path d="M22 62 Q10 74 14 84" stroke={color} strokeWidth="10" strokeLinecap="round" opacity="0.5"/>
-      <path d="M68 62 Q80 74 76 84" stroke={color} strokeWidth="10" strokeLinecap="round" opacity="0.5"/>
-      {/* 頭 */}
-      <circle cx="45" cy="32" r="20" fill={color} opacity="0.85"/>
-      {/* 髪 */}
-      <ellipse cx="45" cy="15" rx="17" ry="11" fill="#4A3728" opacity="0.45"/>
-      <path d="M65 22 Q70 36 67 50" stroke="#4A3728" strokeWidth="6" strokeLinecap="round" opacity="0.35"/>
-      {/* 顔：少し安堵 */}
-      <circle cx="38" cy="30" r="2.2" fill="#fff" opacity="0.8"/>
-      <circle cx="52" cy="30" r="2.2" fill="#fff" opacity="0.8"/>
-      <path d="M38 40 Q45 44 52 40" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.8"/>
+    <svg width="110" height="130" viewBox="0 0 110 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="55" cy="124" rx="35" ry="6" fill="#B8D4A0" opacity="0.25"/>
+      <ellipse cx="36" cy="108" rx="14" ry="11" fill="#A8D898"/>
+      <ellipse cx="74" cy="108" rx="14" ry="11" fill="#A8D898"/>
+      <ellipse cx="55" cy="84" rx="26" ry="22" fill="#A8D898"/>
+      <circle cx="18" cy="76" r="12" fill="#A8D898"/>
+      <circle cx="92" cy="76" r="12" fill="#A8D898"/>
+      <circle cx="55" cy="44" r="30" fill={skin}/>
+      <circle cx="40" cy="52" r="8" fill={cheek} opacity="0.35"/>
+      <circle cx="70" cy="52" r="8" fill={cheek} opacity="0.35"/>
+      <ellipse cx="55" cy="17" rx="25" ry="15" fill={hair}/>
+      <path d="M25 28 Q20 46 26 64" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
+      <path d="M85 28 Q90 46 84 64" stroke={hair} strokeWidth="10" strokeLinecap="round"/>
+      <path d="M43 42 Q49 39 55 42" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M55 42 Q61 39 67 42" stroke="#6B3E26" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M44 56 Q55 63 66 56" stroke="#C47840" strokeWidth="2.5" strokeLinecap="round"/>
+      <text x="82" y="28" fontSize="14" opacity="0.6">✨</text>
     </svg>
   );
 }
-
 function getCooldownDays(goal: number): number {
   if (goal === 1) return 20;
   if (goal === 2) return 10;
@@ -1516,16 +1507,16 @@ export default function Home() {
         </header>
 
         {/* 今月目標バッジ */}
-        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl overflow-hidden"
           style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #FDEBD0" }}>
-          <span style={{ fontSize:18 }}>🎯</span>
-          <p className="text-xs" style={{ color:"#9A7B6A" }}>今月の目標：</p>
-          <p className="text-sm font-bold" style={{ color:"#D97B6C" }}>{syncGoal} 回</p>
-          <span style={{ fontSize:12, color:"#C4A898" }}>（Sync後 {cooldownDays}日お休み）</span>
+          <span style={{ fontSize:16, flexShrink:0 }}>🎯</span>
+          <span style={{ fontSize:11, color:"#9A7B6A", flexShrink:0 }}>目標</span>
+          <span className="font-bold" style={{ fontSize:14, color:"#D97B6C", flexShrink:0 }}>{syncGoal}回</span>
+          <span style={{ fontSize:11, color:"#C4A898", flexShrink:0 }}>/ お休み{cooldownDays}日</span>
           {isInMoonPeriod && (
             <><div className="flex-1"/>
               <span className="text-xs px-2 py-1 rounded-full font-semibold"
-                style={{ backgroundColor:"rgba(196,180,224,0.3)", color:"#8B7BA8" }}>🌙 生理期間中</span></>
+                style={{ backgroundColor:"rgba(196,180,224,0.3)", color:"#8B7BA8", flexShrink:0 }}>🌙 生理期間中</span></>
           )}
         </div>
 
@@ -1555,23 +1546,26 @@ export default function Home() {
         ) : (
 
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-1.5">
-                <span style={{ fontSize:18 }}>🌅</span>
-                <h2 className="text-sm font-bold" style={{ color:"#B86540" }}>17時のキモチ確認</h2>
+            {/* 生理期間中はヘッダーを非表示 */}
+            {!isInMoonPeriod && (
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5">
+                  <span style={{ fontSize:18 }}>🌅</span>
+                  <h2 className="text-sm font-bold" style={{ color:"#B86540" }}>17時のキモチ確認</h2>
+                </div>
+                {!is17 && (
+                  <button onClick={()=>{ setIs17(true); pop("17時になりました 🌅"); }}
+                    className="px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform"
+                    style={{ backgroundColor:"#FFE0CC", color:"#B86540", border:"1.5px solid #FFB085" }}>
+                    🕔 17時にする
+                  </button>
+                )}
+                {is17 && (
+                  <span className="px-3 py-1.5 rounded-full text-xs font-bold"
+                    style={{ backgroundColor:"#FBE8E6", color:"#D97B6C" }}>🌅 17時です</span>
+                )}
               </div>
-              {!is17 && (
-                <button onClick={()=>{ setIs17(true); pop("17時になりました 🌅"); }}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform"
-                  style={{ backgroundColor:"#FFE0CC", color:"#B86540", border:"1.5px solid #FFB085" }}>
-                  🕔 17時にする
-                </button>
-              )}
-              {is17 && (
-                <span className="px-3 py-1.5 rounded-full text-xs font-bold"
-                  style={{ backgroundColor:"#FBE8E6", color:"#D97B6C" }}>🌅 17時です</span>
-              )}
-            </div>
+            )}
 
             {isInMoonPeriod ? (
               /* ── 生理期間中：しんどさインジケーター ── */

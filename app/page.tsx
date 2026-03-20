@@ -31,12 +31,24 @@ interface SyncRow {
   period_days:     number | null;  // 自動計算された平均期間
   last_start_date: string | null;  // 直近の開始日 YYYY-MM-DD
   period_history:  PeriodRecord[] | null; // 直近3回分の履歴
+  // ── リマインド設定 ──
+  reminder_weekday: number | null; // 平日リマインド時刻（時）例: 17
+  reminder_weekend: number | null; // 休日リマインド時刻（時）例: 19
+  // ── キモチ履歴（週次ふりかえり用） ──
+  kimochi_log: KimochiLogEntry[] | null;
 }
 
 // 生理履歴の1件
 interface PeriodRecord {
   start: string; // YYYY-MM-DD
   end:   string; // YYYY-MM-DD
+}
+
+// キモチ履歴の1件（週次ふりかえり用）
+interface KimochiLogEntry {
+  date:           string;  // YYYY-MM-DD
+  my_kimochi:     Kimochi;
+  partner_kimochi:Kimochi;
 }
 
 // ─── 生理履歴から平均周期・平均期間を計算 ──────────────────
@@ -129,7 +141,65 @@ function ShindonessIllustration({ level }: { level: number }) {
     />
   );
 }
-function getCooldownDays(goal: number): number {
+// ─── 週次ふりかえりロジック ────────────────────────────────
+// 気持ちの距離：0=完全一致 1=近い 2=ズレあり
+function kimochiDistance(a: Kimochi, b: Kimochi): number {
+  if (!a || !b) return 3; // 未回答
+  if (a === b) return 0;
+  const order: Record<NonNullable<Kimochi>, number> = { circle:0, triangle:1, cross:2 };
+  return Math.abs(order[a] - order[b]);
+}
+
+// 今週の月曜〜今日の日付範囲を返す
+function getThisWeekRange(): { start: string; end: string } {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay(); // 0=日 1=月 ... 6=土
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  return {
+    start: getLocalDateStr(monday),
+    end:   getLocalDateStr(today),
+  };
+}
+
+const DOW_LABEL = ["日","月","火","水","木","金","土"];
+
+function analyzeWeeklyLog(log: KimochiLogEntry[]): {
+  syncCount:  number;
+  closeDays:  string[];   // 気持ちが近かった日（曜日ラベル）
+} {
+  const { start, end } = getThisWeekRange();
+  const thisWeek = log.filter(e => e.date >= start && e.date <= end);
+  const syncCount = thisWeek.filter(e => e.my_kimochi === "circle" && e.partner_kimochi === "circle").length;
+  const closeDays = thisWeek
+    .filter(e => kimochiDistance(e.my_kimochi, e.partner_kimochi) <= 1)
+    .map(e => {
+      const d = new Date(e.date);
+      return DOW_LABEL[d.getDay()] + "曜";
+    });
+  return { syncCount, closeDays };
+}
+
+// 今日リマインド時刻を返す（平日/休日）
+function getTodayReminderHour(weekday: number, weekend: number): number {
+  const dow = new Date().getDay();
+  return (dow === 0 || dow === 6) ? weekend : weekday;
+}
+
+// キモチログに今日の記録を追加（最大28件保持）
+function addKimochiLog(
+  log: KimochiLogEntry[],
+  date: string,
+  myK: Kimochi,
+  partnerK: Kimochi
+): KimochiLogEntry[] {
+  const filtered = log.filter(e => e.date !== date); // 同日は上書き
+  const next = [...filtered, { date, my_kimochi: myK, partner_kimochi: partnerK }];
+  next.sort((a,b) => a.date.localeCompare(b.date));
+  return next.slice(-28); // 最大4週分
+}
+
+
   if (goal === 1) return 20;
   if (goal === 2) return 10;
   if (goal === 3) return 7;
@@ -613,7 +683,8 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonStart, setMoonStart, moonEnd, setMoonEnd,
   moonYear, moonMonth, setMoonYear, setMoonMonth,
   cycleDays, periodDays, lastStartDate, periodHistory,
-  onSave, saving, onMoonDateChange, onGoalChange, onHistoryReset }: {
+  reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
+  onSave, saving, onMoonDateChange, onGoalChange, onHistoryReset, onReminderChange }: {
   onBack:()=>void;
   initialCoupleId:string;
   syncGoal:number; setSyncGoal:(n:number)=>void;
@@ -624,10 +695,13 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   cycleDays:number; periodDays:number;
   lastStartDate:string|null;
   periodHistory:PeriodRecord[];
+  reminderWeekday:number; setReminderWeekday:(n:number)=>void;
+  reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string)=>void; saving:boolean;
   onMoonDateChange:(start:number|null, end:number|null)=>void;
   onGoalChange:(newGoal:number)=>void;
   onHistoryReset:()=>void;
+  onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
   const cooldownDays = getCooldownDays(syncGoal);
@@ -881,13 +955,58 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
           </div>
         </div>
 
+        {/* リマインド設定 */}
+        <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
+          <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
+            <div className="flex items-center gap-1.5">
+              <span style={{ fontSize:16 }}>🔔</span>
+              <p className="font-bold text-sm" style={{ color:"#B86540" }}>キモチ確認のリマインド時刻</p>
+            </div>
+            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+              平日と休日で別々に設定できるよ
+            </p>
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-4" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+            {[
+              { label:"平日（月〜金）", value: reminderWeekday, setValue: (v:number) => { setReminderWeekday(v); onReminderChange(v, reminderWeekend); } },
+              { label:"休日（土・日）", value: reminderWeekend, setValue: (v:number) => { setReminderWeekend(v); onReminderChange(reminderWeekday, v); } },
+            ].map(({ label, value, setValue }) => (
+              <div key={label} className="flex items-center justify-between">
+                <p style={{ fontSize:12, color:"#9A7B6A", fontWeight:600 }}>{label}</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={()=>setValue(Math.max(0, value-1))}
+                    className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
+                    style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16, fontWeight:700 }}>−</button>
+                  <div className="flex items-baseline gap-0.5 w-16 justify-center">
+                    <span className="font-bold" style={{ fontSize:24, color:"#D97B6C" }}>
+                      {String(value).padStart(2,"0")}
+                    </span>
+                    <span style={{ fontSize:11, color:"#C4A898" }}>:00</span>
+                  </div>
+                  <button onClick={()=>setValue(Math.min(23, value+1))}
+                    className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
+                    style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16, fontWeight:700 }}>＋</button>
+                </div>
+              </div>
+            ))}
+            <div className="px-4 py-2.5 rounded-2xl text-center"
+              style={{ backgroundColor:"rgba(255,224,204,0.3)", border:"1px solid #FFE0CC" }}>
+              <p style={{ fontSize:11, color:"#B86540" }}>
+                今日（{new Date().getDay()===0||new Date().getDay()===6?"休日":"平日"}）は&nbsp;
+                <span style={{ fontWeight:700 }}>
+                  {String(getTodayReminderHour(reminderWeekday, reminderWeekend)).padStart(2,"0")}:00
+                </span>
+                &nbsp;に確認しよう 🔔
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="h-8"/>
       </div>
     </div>
   );
 }
-
-// ─── ローディング ────────────────────────────────────────
 function LoadingScreen() {
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center gap-3" style={{ backgroundColor:"#FFFBF5" }}>
@@ -947,6 +1066,11 @@ export default function Home() {
   const [periodDays,    setPeriodDays]    = useState(5);
   const [lastStartDate, setLastStartDate_moon] = useState<string|null>(null);
   const [periodHistory, setPeriodHistory] = useState<PeriodRecord[]>([]);
+  // ── リマインド設定 ────────────────────────────────────────
+  const [reminderWeekday, setReminderWeekday] = useState(17);
+  const [reminderWeekend, setReminderWeekend] = useState(19);
+  // ── キモチ履歴（週次ふりかえり） ─────────────────────────
+  const [kimochiLog, setKimochiLog] = useState<KimochiLogEntry[]>([]);
 
   // ── UI状態 ──
   const [is17,          setIs17]          = useState(false);
@@ -1047,6 +1171,11 @@ export default function Home() {
     setLastSyncDate(row.last_sync_date ?? null);
     // ムーンデイ予測フィールド
     if (row.last_start_date != null) setLastStartDate_moon(row.last_start_date);
+    // リマインド設定
+    if (row.reminder_weekday != null) setReminderWeekday(row.reminder_weekday);
+    if (row.reminder_weekend != null) setReminderWeekend(row.reminder_weekend);
+    // キモチ履歴
+    if (row.kimochi_log) setKimochiLog(row.kimochi_log);
     // 履歴から平均を自動計算（DBの cycle_days / period_days は無視して再計算）
     const hist = row.period_history ?? [];
     setPeriodHistory(hist);
@@ -1298,6 +1427,8 @@ export default function Home() {
         ? normalizeKimochi(pRow.kimochi) : null;
       if (val && prevP) {
         setShowMatch(true);
+        // ★ ログに記録（両方選択済み）
+        saveKimochiLog(val, prevP);
         if (val === "circle" && prevP === "circle") {
           setShowFireworks(true);
           const syncDate = todayStr;
@@ -1307,7 +1438,7 @@ export default function Home() {
       }
       return current;
     });
-  }, [saveMyKimochi, myEmail, pop]);
+  }, [saveMyKimochi, saveKimochiLog, myEmail, pop]);
 
   // ─── 7. クールダウンリセット ───────────────────────────────
   const handleCooldownReset = useCallback(async () => {
@@ -1350,6 +1481,32 @@ export default function Home() {
       updated_at: new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
   }, [coupleId, myEmail]);
+
+  // ─── 9c. リマインド設定の即時保存 ────────────────────────
+  const handleReminderChange = useCallback(async (weekday: number, weekend: number) => {
+    if (!coupleId || !myEmail) return;
+    await supabase.from("sync_status").upsert({
+      couple_id:        coupleId,
+      user_email:       myEmail,
+      reminder_weekday: weekday,
+      reminder_weekend: weekend,
+      updated_at:       new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+  }, [coupleId, myEmail]);
+
+  // ─── 9d. キモチログ保存（両方選択済み時） ─────────────────
+  const saveKimochiLog = useCallback(async (myK: Kimochi, partnerK: Kimochi) => {
+    if (!coupleId || !myEmail || !myK || !partnerK) return;
+    const date = getLocalDateStr();
+    const newLog = addKimochiLog(kimochiLog, date, myK, partnerK);
+    setKimochiLog(newLog);
+    await supabase.from("sync_status").upsert({
+      couple_id:   coupleId,
+      user_email:  myEmail,
+      kimochi_log: newLog,
+      updated_at:  new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+  }, [coupleId, myEmail, kimochiLog]);
 
   // ─── 9. ムーンデイ日程の即時保存（YYYYMMDD形式）─────────
   const handleMoonDateChange = useCallback(async (
@@ -1461,6 +1618,9 @@ export default function Home() {
         onMoonDateChange={handleMoonDateChange}
         onGoalChange={handleGoalChange}
         onHistoryReset={handleHistoryReset}
+        reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
+        reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}
+        onReminderChange={handleReminderChange}
       />
     );
   }
@@ -1700,6 +1860,51 @@ export default function Home() {
             )}
           </div>
         )}
+
+        {/* ── ④ 週次ふりかえりカード ─────────────────────── */}
+        {(() => {
+          const { syncCount, closeDays } = analyzeWeeklyLog(kimochiLog);
+          const reminderHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
+          const isWeekend = new Date().getDay()===0 || new Date().getDay()===6;
+          if (kimochiLog.length === 0) return null;
+          return (
+            <div className="rounded-3xl overflow-hidden"
+              style={{ border:"1.5px solid #FDEBD0", boxShadow:"0 2px 12px rgba(255,176,133,0.08)" }}>
+              <div className="px-4 py-3 flex items-center gap-2"
+                style={{ backgroundColor:"rgba(255,245,228,0.8)" }}>
+                <span style={{ fontSize:16 }}>📅</span>
+                <p className="font-bold text-sm" style={{ color:"#B86540" }}>今週のふりかえり</p>
+                <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full"
+                  style={{ backgroundColor:"rgba(255,224,204,0.5)", border:"1px solid #FFD090" }}>
+                  <span style={{ fontSize:10 }}>🔔</span>
+                  <span style={{ fontSize:10, color:"#B86540" }}>
+                    今日 {String(reminderHour).padStart(2,"0")}:00（{isWeekend?"休日":"平日"}）
+                  </span>
+                </div>
+              </div>
+              <div className="px-4 py-4 flex flex-col gap-2.5"
+                style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize:20 }}>✨</span>
+                  <p style={{ fontSize:13, color:"#4A3728", fontWeight:600 }}>
+                    今週は{syncCount > 0 ? `${syncCount}回 Syncできたよ` : "まだSyncなし。今日が最初の一歩 🌱"}
+                  </p>
+                </div>
+                {closeDays.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize:18 }}>🩷</span>
+                    <p style={{ fontSize:12, color:"#9A7B6A" }}>
+                      気持ちが近かった日：{closeDays.slice(0,3).join("・")}
+                    </p>
+                  </div>
+                )}
+                <p className="text-center" style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                  今週もおつかれさま 🌿
+                </p>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="h-4"/>
       </div>

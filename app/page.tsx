@@ -548,7 +548,7 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonStart, setMoonStart, moonEnd, setMoonEnd,
   moonYear, moonMonth, setMoonYear, setMoonMonth,
   cycleDays, periodDays, lastStartDate, periodHistory,
-  onSave, saving, onMoonDateChange, onGoalChange }: {
+  onSave, saving, onMoonDateChange, onGoalChange, onHistoryReset }: {
   onBack:()=>void;
   initialCoupleId:string;
   syncGoal:number; setSyncGoal:(n:number)=>void;

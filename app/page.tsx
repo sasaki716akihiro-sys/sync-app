@@ -181,14 +181,24 @@ const FW_COLORS = ["#FFB085","#F0A899","#D97B6C","#FFE066","#A8D8A8","#B8D4F5","
 const FW_EMOJIS = ["✨","🎉","💛","🌟","💕","🎊","🌸","⭐"];
 
 function Fireworks({ onDone }: { onDone: () => void }) {
-  const particles = Array.from({ length: 48 }, (_, i) => {
-    const angle = (i/48)*360, dist = 80+Math.random()*120;
-    return { id:i, color:FW_COLORS[i%FW_COLORS.length],
-      emoji: i%8===0 ? FW_EMOJIS[Math.floor(i/8)%FW_EMOJIS.length] : null,
-      tx: Math.cos((angle*Math.PI)/180)*dist,
-      ty: Math.sin((angle*Math.PI)/180)*dist-60,
-      delay: Math.random()*0.6, size: 10+Math.random()*14 };
+  // ハート形の座標を生成（媒介変数表示）
+  const heartParticles = Array.from({ length: 60 }, (_, i) => {
+    const t = (i / 60) * 2 * Math.PI;
+    // ハートの媒介変数式（サイズ調整）
+    const hx = 16 * Math.pow(Math.sin(t), 3);
+    const hy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+    const scale = 8 + Math.random() * 4; // 拡散距離
+    return {
+      id:    i,
+      color: FW_COLORS[i % FW_COLORS.length],
+      tx:    hx * scale,
+      ty:    hy * scale,
+      delay: Math.random() * 0.5,
+      size:  6 + Math.random() * 10,
+      isHeart: i % 5 === 0,
+    };
   });
+
   useEffect(() => { const t = setTimeout(onDone, 3800); return () => clearTimeout(t); }, [onDone]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
@@ -198,21 +208,28 @@ function Fireworks({ onDone }: { onDone: () => void }) {
         @keyframes fw-msg{0%{opacity:0;transform:scale(.7) translateY(10px)}30%{opacity:1;transform:scale(1.08) translateY(0)}80%{opacity:1}100%{opacity:0}}
       `}</style>
       <div className="relative w-40 h-40">
-        {particles.map(p=>(
-          <div key={p.id} className="absolute top-1/2 left-1/2 rounded-full flex items-center justify-center"
-            style={{ width:p.emoji?p.size*1.6:p.size, height:p.emoji?p.size*1.6:p.size,
-              backgroundColor:p.emoji?"transparent":p.color, fontSize:p.emoji?p.size:undefined,
-              ["--tx" as string]:`${p.tx}px`, ["--ty" as string]:`${p.ty}px`,
-              animation:`fw 1.2s ${p.delay}s ease-out both`,
-              marginLeft:-(p.size/2), marginTop:-(p.size/2) }}>
-            {p.emoji}
+        {heartParticles.map(p=>(
+          <div key={p.id} className="absolute top-1/2 left-1/2 flex items-center justify-center"
+            style={{
+              width:  p.isHeart ? p.size * 1.8 : p.size,
+              height: p.isHeart ? p.size * 1.8 : p.size,
+              borderRadius: p.isHeart ? "0" : "50%",
+              backgroundColor: p.isHeart ? "transparent" : p.color,
+              fontSize: p.isHeart ? p.size * 1.2 : undefined,
+              ["--tx" as string]: `${p.tx}px`,
+              ["--ty" as string]: `${p.ty}px`,
+              animation: `fw 1.4s ${p.delay}s ease-out both`,
+              marginLeft: -(p.size / 2),
+              marginTop:  -(p.size / 2),
+            }}>
+            {p.isHeart ? "🩷" : null}
           </div>
         ))}
       </div>
+      {/* ★ ハート絵文字・テキスト内のハートを削除 */}
       <div className="absolute flex flex-col items-center gap-2 px-8 py-5 rounded-3xl shadow-2xl"
         style={{ backgroundColor:"rgba(255,255,255,0.93)", border:"2px solid #FFB085", animation:"fw-msg 3.8s ease-out both" }}>
-        <span style={{ fontSize:40 }}>💛</span>
-        <p className="text-xl font-bold text-center" style={{ color:"#D97B6C" }}>Perfect Sync 💛</p>
+        <p className="text-xl font-bold text-center" style={{ color:"#D97B6C" }}>Perfect Sync ✨</p>
         <p className="text-sm text-center" style={{ color:"#9A7B6A" }}>ふたりの気持ちがそろったね</p>
       </div>
     </div>
@@ -332,7 +349,7 @@ function MatchBanner({ me, partner, onClose }: { me:Kimochi; partner:Kimochi; on
   // 　 再レンダリングのたびに Math.random() が呼ばれてメッセージが変わるのを防ぐ
   const msgRef = useRef(
     isHappy
-      ? { title:"Perfect Sync 💛", body:"ふたりの気持ちがそろったね。素敵な夜を 🌙✨" }
+      ? { title:"Perfect Sync ✨", body:"ふたりの気持ちがそろったね。素敵な夜を 🌙✨" }
       : pickMessage(me, partner)
   );
   const msg = msgRef.current;

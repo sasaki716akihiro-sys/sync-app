@@ -124,7 +124,7 @@ function ShindonessIllustration({ level }: { level: number }) {
       alt={alt}
       width={200}
       height={160}
-      style={{ objectFit: "contain" }}
+      style={{ objectFit: "contain", mixBlendMode: "multiply" }}
       priority
     />
   );

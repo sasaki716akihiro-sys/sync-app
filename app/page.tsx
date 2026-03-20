@@ -26,12 +26,52 @@ interface SyncRow {
   moon_year:       number | null;
   moon_month:      number | null;
   // ── ムーンデイ予測用 ──
-  cycle_days:      number | null;  // 生理周期（日数）
-  period_days:     number | null;  // 生理期間（日数）
+  cycle_days:      number | null;  // 自動計算された平均周期
+  period_days:     number | null;  // 自動計算された平均期間
   last_start_date: string | null;  // 直近の開始日 YYYY-MM-DD
+  period_history:  PeriodRecord[] | null; // 直近3回分の履歴
 }
 
-// ─── クールダウン日数 ────────────────────────────────────
+// 生理履歴の1件
+interface PeriodRecord {
+  start: string; // YYYY-MM-DD
+  end:   string; // YYYY-MM-DD
+}
+
+// ─── 生理履歴から平均周期・平均期間を計算 ──────────────────
+function calcAverageCycle(history: PeriodRecord[]): number {
+  // 直近3件の開始日の間隔の平均
+  if (history.length < 2) return 28;
+  const recent = history.slice(-3); // 最大3件
+  const intervals: number[] = [];
+  for (let i = 1; i < recent.length; i++) {
+    const prev = new Date(recent[i-1].start).getTime();
+    const curr = new Date(recent[i].start).getTime();
+    intervals.push(Math.round((curr - prev) / 86400000));
+  }
+  return Math.round(intervals.reduce((a,b) => a+b, 0) / intervals.length);
+}
+
+function calcAveragePeriod(history: PeriodRecord[]): number {
+  // 直近3件の期間日数の平均
+  if (history.length < 1) return 5;
+  const recent = history.slice(-3);
+  const days = recent.map(r => {
+    const s = new Date(r.start).getTime();
+    const e = new Date(r.end).getTime();
+    return Math.round((e - s) / 86400000) + 1;
+  });
+  return Math.round(days.reduce((a,b) => a+b, 0) / days.length);
+}
+
+// 履歴に1件追加し、最大5件に絞る
+function addToHistory(
+  history: PeriodRecord[], start: string, end: string
+): PeriodRecord[] {
+  const next = [...history.filter(r => r.start !== start), { start, end }];
+  next.sort((a,b) => a.start.localeCompare(b.start));
+  return next.slice(-5); // 最大5件保持
+}
 function getCooldownDays(goal: number): number {
   if (goal === 1) return 20;
   if (goal === 2) return 10;
@@ -411,11 +451,12 @@ function ymdLabel(ymd: number) {
 }
 
 function MoonCalendar({ year, month, startYMD, endYMD, onSelectStart, onSelectEnd,
-  predictStartYMD, predictEndYMD }: {
+  predictStartYMD, predictEndYMD, tentativeEndYMD }: {
   year:number; month:number;
   startYMD:number|null; endYMD:number|null;
   onSelectStart:(ymd:number)=>void; onSelectEnd:(ymd:number)=>void;
   predictStartYMD?:number|null; predictEndYMD?:number|null;
+  tentativeEndYMD?:number|null; // 開始日のみ選択時の仮終了日
 }) {
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const firstDow    = new Date(year, month, 1).getDay();
@@ -450,8 +491,12 @@ function MoonCalendar({ year, month, startYMD, endYMD, onSelectStart, onSelectEn
           const active = (startYMD !== null && endYMD !== null && ymd >= startYMD && ymd <= endYMD)
                       || ymd === startYMD || ymd === endYMD;
           const isEdge = ymd === startYMD || ymd === endYMD;
-          // 予測期間（薄いオレンジ・点線枠）
-          const isPredicted = !active
+          // 仮終了日（開始日のみ選択時・平均期間で計算）
+          const isTentative = !active && !endYMD
+            && startYMD != null && tentativeEndYMD != null
+            && ymd > startYMD && ymd <= tentativeEndYMD;
+          // 次回予測期間
+          const isPredicted = !active && !isTentative
             && predictStartYMD != null && predictEndYMD != null
             && ymd >= predictStartYMD && ymd <= predictEndYMD;
           const isPredictEdge = ymd === predictStartYMD || ymd === predictEndYMD;
@@ -459,11 +504,16 @@ function MoonCalendar({ year, month, startYMD, endYMD, onSelectStart, onSelectEn
             <button key={i} onClick={()=>handleDay(d)}
               className="flex items-center justify-center rounded-full transition-all duration-150 active:scale-90 mx-auto"
               style={{ width:32, height:32,
-                backgroundColor: active ? "#C4B4E0" : isPredicted ? "rgba(255,176,100,0.18)" : "transparent",
-                color:           active ? "#fff" : isPredicted ? "#C47840" : "#4A3728",
+                backgroundColor: active      ? "#C4B4E0"
+                               : isTentative ? "rgba(196,180,224,0.25)"
+                               : isPredicted ? "rgba(255,176,100,0.18)" : "transparent",
+                color:           active      ? "#fff"
+                               : isTentative ? "#8B7BA8"
+                               : isPredicted ? "#C47840" : "#4A3728",
                 fontWeight:      (isEdge || isPredictEdge) ? 700 : 400,
                 fontSize:        13,
-                outline:         isEdge ? "2px solid #8B7BA8"
+                outline:         isEdge        ? "2px solid #8B7BA8"
+                               : isTentative   ? "1.5px dashed #C4B4E0"
                                : isPredictEdge ? "2px dashed #FFB085"
                                : isPredicted   ? "1px dashed #FFB085"
                                : "none",
@@ -481,8 +531,8 @@ function MoonCalendar({ year, month, startYMD, endYMD, onSelectStart, onSelectEn
 function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonStart, setMoonStart, moonEnd, setMoonEnd,
   moonYear, moonMonth, setMoonYear, setMoonMonth,
-  cycleDays, setCycleDays, periodDays, setPeriodDays, lastStartDate,
-  onSave, saving, onMoonDateChange, onGoalChange, onCycleChange }: {
+  cycleDays, periodDays, lastStartDate, periodHistory,
+  onSave, saving, onMoonDateChange, onGoalChange }: {
   onBack:()=>void;
   initialCoupleId:string;
   syncGoal:number; setSyncGoal:(n:number)=>void;
@@ -490,20 +540,17 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonEnd:number|null;   setMoonEnd:(d:number|null)=>void;
   moonYear:number; moonMonth:number;
   setMoonYear:(n:number)=>void; setMoonMonth:(n:number)=>void;
-  cycleDays:number; setCycleDays:(n:number)=>void;
-  periodDays:number; setPeriodDays:(n:number)=>void;
+  cycleDays:number; periodDays:number;
   lastStartDate:string|null;
+  periodHistory:PeriodRecord[];
   onSave:(coupleId:string)=>void; saving:boolean;
   onMoonDateChange:(start:number|null, end:number|null)=>void;
   onGoalChange:(newGoal:number)=>void;
-  onCycleChange:(cycle:number, period:number)=>void;
 }) {
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
   const cooldownDays = getCooldownDays(syncGoal);
 
-  // ── 次回ムーンデイ予測計算 ──────────────────────────────
-  // lastStartDate + cycleDays = 次回開始日
-  // 次回開始日 + periodDays  = 次回終了日
+  // ── 次回予測計算 ──────────────────────────────────────────
   const { predictStartYMD, predictEndYMD } = (() => {
     if (!lastStartDate || !cycleDays || !periodDays) {
       return { predictStartYMD: null, predictEndYMD: null };
@@ -520,9 +567,22 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
     };
   })();
 
+  // ── 開始日のみ選択時：平均期間から仮終了日を表示 ──────────
+  const tentativeEndYMD = (() => {
+    if (!moonStart || moonEnd) return null; // 終了日未選択のときだけ
+    const s = new Date(
+      ymdYear(moonStart), ymdMonth(moonStart), ymdDay(moonStart)
+    );
+    const e = new Date(s);
+    e.setDate(e.getDate() + periodDays - 1);
+    return toYMD(e.getFullYear(), e.getMonth(), e.getDate());
+  })();
+
   const predictLabel = predictStartYMD && predictEndYMD
     ? `次回予測：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
     : null;
+
+  const historyCount = periodHistory.length;
   const prevMonth = () => {
     if (moonMonth===0){ setMoonMonth(11); setMoonYear(moonYear-1); }
     else setMoonMonth(moonMonth-1);
@@ -533,11 +593,14 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   };
 
   // ラベルは YYYYMMDD から年月日を復元して表示
+  // 開始日のみ → 仮終了日も表示
   const rangeLabel = moonStart
     ? moonEnd
       ? `${ymdLabel(moonStart)} 〜 ${ymdLabel(moonEnd)}`
-      : `${ymdLabel(moonStart)} 〜 （終了日を選んでね）`
-    : "期間を選んでね";
+      : tentativeEndYMD
+        ? `${ymdLabel(moonStart)} 〜 ${ymdLabel(tentativeEndYMD)}（予測）`
+        : `${ymdLabel(moonStart)} 〜 （終了日を選んでね）`
+    : "開始日をタップしてね";
 
   // カレンダー操作ハンドラ（YYYYMMDD で保存）
   const handleSelectStart = (ymd: number) => {
@@ -646,13 +709,18 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
               startYMD={moonStart} endYMD={moonEnd}
               onSelectStart={handleSelectStart}
               onSelectEnd={handleSelectEnd}
-              predictStartYMD={predictStartYMD}
-              predictEndYMD={predictEndYMD}/>
+              predictStartYMD={moonEnd ? predictStartYMD : null}
+              predictEndYMD={moonEnd ? predictEndYMD : null}
+              tentativeEndYMD={tentativeEndYMD}/>
             {/* 凡例 */}
-            <div className="flex items-center gap-3 mt-2 px-1">
+            <div className="flex items-center gap-3 mt-2 px-1 flex-wrap">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"#C4B4E0" }}/>
-                <span style={{ fontSize:10, color:"#8B7BA8" }}>選択済み</span>
+                <span style={{ fontSize:10, color:"#8B7BA8" }}>今回</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"rgba(196,180,224,0.25)", border:"1.5px dashed #C4B4E0" }}/>
+                <span style={{ fontSize:10, color:"#8B7BA8" }}>仮終了（予測）</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"rgba(255,176,100,0.35)", border:"1px dashed #FFB085" }}/>
@@ -677,43 +745,44 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
               </div>
             )}
 
-            {/* 周期・期間の設定 */}
-            <div className="mt-4 flex flex-col gap-3">
-              <p className="text-xs font-bold px-1" style={{ color:"#B86540" }}>予測のための設定</p>
+            {/* 自動計算結果の表示（Read-Only） */}
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 px-1">
+                <p className="text-xs font-bold" style={{ color:"#B86540" }}>自動計算の結果</p>
+                <span style={{ fontSize:9, color:"#C4A898" }}>
+                  （履歴 {historyCount} 件 / 最大3回分の平均）
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                {/* 生理周期 */}
-                <div className="flex flex-col gap-1.5 px-3 py-3 rounded-2xl"
+                {/* 生理周期 Read-Only */}
+                <div className="flex flex-col gap-1.5 px-4 py-3 rounded-2xl"
                   style={{ backgroundColor:"rgba(255,245,228,0.8)", border:"1px solid #FDEBD0" }}>
-                  <p style={{ fontSize:10, color:"#B86540", fontWeight:600 }}>🔄 生理周期</p>
-                  <div className="flex items-center justify-between">
-                    <button onClick={()=>{ const v=Math.max(20,cycleDays-1); setCycleDays(v); onCycleChange(v, periodDays); }}
-                      className="w-7 h-7 rounded-full flex items-center justify-center font-bold active:scale-90"
-                      style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16 }}>−</button>
-                    <div className="flex items-baseline gap-0.5">
-                      <span className="font-bold" style={{ fontSize:22, color:"#D97B6C" }}>{cycleDays}</span>
-                      <span style={{ fontSize:10, color:"#C4A898" }}>日</span>
-                    </div>
-                    <button onClick={()=>{ const v=Math.min(45,cycleDays+1); setCycleDays(v); onCycleChange(v, periodDays); }}
-                      className="w-7 h-7 rounded-full flex items-center justify-center font-bold active:scale-90"
-                      style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16 }}>＋</button>
+                  <p style={{ fontSize:10, color:"#B86540", fontWeight:600 }}>🔄 平均周期</p>
+                  <div className="flex items-baseline gap-0.5 justify-center">
+                    <span className="font-bold" style={{ fontSize:26, color:"#D97B6C" }}>
+                      {historyCount >= 2 ? cycleDays : "—"}
+                    </span>
+                    <span style={{ fontSize:10, color:"#C4A898" }}>
+                      {historyCount >= 2 ? "日" : ""}
+                    </span>
                   </div>
+                  <p style={{ fontSize:9, color:"#C4A898", textAlign:"center" }}>
+                    {historyCount < 2 ? `記録2回以上で自動計算` : `自動計算済み`}
+                  </p>
                 </div>
-                {/* 生理期間 */}
-                <div className="flex flex-col gap-1.5 px-3 py-3 rounded-2xl"
+                {/* 生理期間 Read-Only */}
+                <div className="flex flex-col gap-1.5 px-4 py-3 rounded-2xl"
                   style={{ backgroundColor:"rgba(255,245,228,0.8)", border:"1px solid #FDEBD0" }}>
-                  <p style={{ fontSize:10, color:"#B86540", fontWeight:600 }}>📅 生理期間</p>
-                  <div className="flex items-center justify-between">
-                    <button onClick={()=>{ const v=Math.max(2,periodDays-1); setPeriodDays(v); onCycleChange(cycleDays, v); }}
-                      className="w-7 h-7 rounded-full flex items-center justify-center font-bold active:scale-90"
-                      style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16 }}>−</button>
-                    <div className="flex items-baseline gap-0.5">
-                      <span className="font-bold" style={{ fontSize:22, color:"#D97B6C" }}>{periodDays}</span>
-                      <span style={{ fontSize:10, color:"#C4A898" }}>日</span>
-                    </div>
-                    <button onClick={()=>{ const v=Math.min(10,periodDays+1); setPeriodDays(v); onCycleChange(cycleDays, v); }}
-                      className="w-7 h-7 rounded-full flex items-center justify-center font-bold active:scale-90"
-                      style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16 }}>＋</button>
+                  <p style={{ fontSize:10, color:"#B86540", fontWeight:600 }}>📅 平均期間</p>
+                  <div className="flex items-baseline gap-0.5 justify-center">
+                    <span className="font-bold" style={{ fontSize:26, color:"#D97B6C" }}>
+                      {periodDays}
+                    </span>
+                    <span style={{ fontSize:10, color:"#C4A898" }}>日</span>
                   </div>
+                  <p style={{ fontSize:9, color:"#C4A898", textAlign:"center" }}>
+                    {historyCount < 1 ? "初期値（記録で更新）" : "自動計算済み"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -785,6 +854,7 @@ export default function Home() {
   const [cycleDays,     setCycleDays]     = useState(28);
   const [periodDays,    setPeriodDays]    = useState(5);
   const [lastStartDate, setLastStartDate_moon] = useState<string|null>(null);
+  const [periodHistory, setPeriodHistory] = useState<PeriodRecord[]>([]);
 
   // ── UI状態 ──
   const [is17,          setIs17]          = useState(false);
@@ -858,9 +928,12 @@ export default function Home() {
     setSyncGoal(row.sync_goal ?? 4);
     setLastSyncDate(row.last_sync_date ?? null);
     // ムーンデイ予測フィールド
-    if (row.cycle_days  != null) setCycleDays(row.cycle_days);
-    if (row.period_days != null) setPeriodDays(row.period_days);
     if (row.last_start_date != null) setLastStartDate_moon(row.last_start_date);
+    // 履歴から平均を自動計算（DBの cycle_days / period_days は無視して再計算）
+    const hist = row.period_history ?? [];
+    setPeriodHistory(hist);
+    setCycleDays(calcAverageCycle(hist));
+    setPeriodDays(calcAveragePeriod(hist));
 
     // 自分の行に月データがあればそれを使用、なければパートナーの行を参照
     const moonSource = row.moon_start != null
@@ -1156,18 +1229,6 @@ export default function Home() {
     }, { onConflict: "couple_id,user_email" });
   }, [coupleId, myEmail]);
 
-  // ─── 9b. 周期・期間の即時保存 ─────────────────────────────
-  const handleCycleChange = useCallback(async (cycle: number, period: number) => {
-    if (!coupleId || !myEmail) return;
-    await supabase.from("sync_status").upsert({
-      couple_id:   coupleId,
-      user_email:  myEmail,
-      cycle_days:  cycle,
-      period_days: period,
-      updated_at:  new Date().toISOString(),
-    }, { onConflict: "couple_id,user_email" });
-  }, [coupleId, myEmail]);
-
   // ─── 9. ムーンデイ日程の即時保存（YYYYMMDD形式）─────────
   const handleMoonDateChange = useCallback(async (
     start: number|null, end: number|null
@@ -1175,11 +1236,28 @@ export default function Home() {
     if (!coupleId || !myEmail) return;
     const year  = start ? ymdYear(start)  : end ? ymdYear(end)  : moonYear;
     const month = start ? ymdMonth(start) : end ? ymdMonth(end) : moonMonth;
+
     // start が確定したら last_start_date も保存
     const lastStart = start
       ? `${ymdYear(start)}-${String(ymdMonth(start)+1).padStart(2,"0")}-${String(ymdDay(start)).padStart(2,"0")}`
       : null;
     if (lastStart) setLastStartDate_moon(lastStart);
+
+    // ★ start と end が両方確定したら履歴に追加して再計算
+    let newHistory = periodHistory;
+    let newCycle   = cycleDays;
+    let newPeriod  = periodDays;
+    if (start && end) {
+      const startStr = `${ymdYear(start)}-${String(ymdMonth(start)+1).padStart(2,"0")}-${String(ymdDay(start)).padStart(2,"0")}`;
+      const endStr   = `${ymdYear(end)}-${String(ymdMonth(end)+1).padStart(2,"0")}-${String(ymdDay(end)).padStart(2,"0")}`;
+      newHistory = addToHistory(periodHistory, startStr, endStr);
+      newCycle   = calcAverageCycle(newHistory);
+      newPeriod  = calcAveragePeriod(newHistory);
+      setPeriodHistory(newHistory);
+      setCycleDays(newCycle);
+      setPeriodDays(newPeriod);
+    }
+
     await supabase.from("sync_status").upsert({
       couple_id:       coupleId,
       user_email:      myEmail,
@@ -1188,9 +1266,13 @@ export default function Home() {
       moon_year:       year,
       moon_month:      month,
       ...(lastStart ? { last_start_date: lastStart } : {}),
+      // 再計算した平均値とヒストリーを保存
+      cycle_days:      newCycle,
+      period_days:     newPeriod,
+      period_history:  newHistory,
       updated_at:      new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
-  }, [coupleId, myEmail, moonYear, moonMonth]);
+  }, [coupleId, myEmail, moonYear, moonMonth, periodHistory, cycleDays, periodDays]);
 
   // ─── 計算 ─────────────────────────────────────────────────
   const cooldownDays = getCooldownDays(syncGoal);
@@ -1225,13 +1307,13 @@ export default function Home() {
         moonEnd={moonEnd}     setMoonEnd={setMoonEnd}
         moonYear={moonYear}   moonMonth={moonMonth}
         setMoonYear={setMoonYear} setMoonMonth={setMoonMonth}
-        cycleDays={cycleDays}   setCycleDays={setCycleDays}
-        periodDays={periodDays} setPeriodDays={setPeriodDays}
+        cycleDays={cycleDays}
+        periodDays={periodDays}
         lastStartDate={lastStartDate}
+        periodHistory={periodHistory}
         onSave={handleSaveSettings} saving={saving}
         onMoonDateChange={handleMoonDateChange}
         onGoalChange={handleGoalChange}
-        onCycleChange={handleCycleChange}
       />
     );
   }

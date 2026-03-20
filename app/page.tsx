@@ -1413,6 +1413,20 @@ export default function Home() {
     else       console.log("[Sync] upsert成功:", val);
   }, [coupleId, myEmail, mergeRow]);
 
+  // ─── 5b. キモチログ保存（6より前に定義が必要） ────────────
+  const saveKimochiLog = useCallback(async (myK: Kimochi, partnerK: Kimochi) => {
+    if (!coupleId || !myEmail || !myK || !partnerK) return;
+    const date = getLocalDateStr();
+    const newLog = addKimochiLog(kimochiLog, date, myK, partnerK);
+    setKimochiLog(newLog);
+    await supabase.from("sync_status").upsert({
+      couple_id:   coupleId,
+      user_email:  myEmail,
+      kimochi_log: newLog,
+      updated_at:  new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+  }, [coupleId, myEmail, kimochiLog]);
+
   // ─── 6. キモチ選択ハンドラ ─────────────────────────────────
   const handleKimochiSelect = useCallback(async (val: Kimochi) => {
     setShowMatch(false);
@@ -1494,20 +1508,6 @@ export default function Home() {
       updated_at:       new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
   }, [coupleId, myEmail]);
-
-  // ─── 9d. キモチログ保存（両方選択済み時） ─────────────────
-  const saveKimochiLog = useCallback(async (myK: Kimochi, partnerK: Kimochi) => {
-    if (!coupleId || !myEmail || !myK || !partnerK) return;
-    const date = getLocalDateStr();
-    const newLog = addKimochiLog(kimochiLog, date, myK, partnerK);
-    setKimochiLog(newLog);
-    await supabase.from("sync_status").upsert({
-      couple_id:   coupleId,
-      user_email:  myEmail,
-      kimochi_log: newLog,
-      updated_at:  new Date().toISOString(),
-    }, { onConflict: "couple_id,user_email" });
-  }, [coupleId, myEmail, kimochiLog]);
 
   // ─── 9. ムーンデイ日程の即時保存（YYYYMMDD形式）─────────
   const handleMoonDateChange = useCallback(async (

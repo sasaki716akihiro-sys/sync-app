@@ -88,6 +88,105 @@ function addToHistory(
   next.sort((a,b) => a.start.localeCompare(b.start));
   return next.slice(-5); // 最大5件保持
 }
+
+// ─── しんどさレベル計算 ───────────────────────────────────
+function calcShindoness(startDateStr: string | null): number {
+  if (!startDateStr) return 50;
+  const start = new Date(startDateStr); start.setHours(0,0,0,0);
+  const today = new Date();             today.setHours(0,0,0,0);
+  const day = Math.floor((today.getTime() - start.getTime()) / 86400000) + 1;
+  if (day <= 0) return 0;
+  if (day === 1) return 90;
+  if (day === 2) return 100;
+  if (day === 3) return 60;
+  if (day === 4) return 30;
+  return 10;
+}
+
+// ─── しんどさイラスト（SVG） ──────────────────────────────
+function ShindonessIllustration({ level }: { level: number }) {
+  const color = level >= 80 ? "#D97B6C" : level >= 40 ? "#B8943A" : "#7AAD72";
+
+  if (level >= 80) {
+    // かなりしんどい：横たわって丸まっている
+    return (
+      <svg width="140" height="90" viewBox="0 0 140 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="65" cy="74" rx="48" ry="10" fill={color} opacity="0.12"/>
+        {/* 体 */}
+        <rect x="20" y="52" width="64" height="22" rx="11" fill={color} opacity="0.65"/>
+        {/* 膝を曲げた足 */}
+        <path d="M20 63 Q8 72 16 78" stroke={color} strokeWidth="12" strokeLinecap="round" opacity="0.55"/>
+        {/* 頭 */}
+        <circle cx="96" cy="48" r="20" fill={color} opacity="0.85"/>
+        {/* 髪 */}
+        <ellipse cx="96" cy="32" rx="18" ry="10" fill="#4A3728" opacity="0.45"/>
+        <path d="M76 40 Q72 55 78 64" stroke="#4A3728" strokeWidth="6" strokeLinecap="round" opacity="0.35"/>
+        {/* 眉をしかめた表情 */}
+        <path d="M88 44 Q91 42 94 44" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
+        <path d="M98 44 Q101 42 104 44" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
+        <circle cx="89" cy="49" r="2" fill="#fff" opacity="0.75"/>
+        <circle cx="103" cy="49" r="2" fill="#fff" opacity="0.75"/>
+        {/* への字口 */}
+        <path d="M89 57 Q96 55 103 57" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/>
+        {/* 汗 */}
+        <text x="118" y="28" fontSize="13" opacity="0.45">💧</text>
+        <text x="8" y="36" fontSize="11" opacity="0.35">💧</text>
+      </svg>
+    );
+  }
+
+  if (level >= 40) {
+    // しんどそう：座ってお腹を抱えている
+    return (
+      <svg width="100" height="110" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="50" cy="104" rx="26" ry="6" fill={color} opacity="0.12"/>
+        {/* 足（座り） */}
+        <path d="M28 80 Q18 95 30 100" stroke={color} strokeWidth="11" strokeLinecap="round" opacity="0.5"/>
+        <path d="M72 80 Q82 95 70 100" stroke={color} strokeWidth="11" strokeLinecap="round" opacity="0.5"/>
+        {/* 体 */}
+        <rect x="26" y="52" width="48" height="32" rx="14" fill={color} opacity="0.7"/>
+        {/* 腕でお腹を抱える */}
+        <path d="M26 62 Q20 78 50 82 Q80 78 74 62" stroke={color} strokeWidth="10" strokeLinecap="round" fill="none" opacity="0.5"/>
+        {/* 頭 */}
+        <circle cx="50" cy="34" r="20" fill={color} opacity="0.85"/>
+        {/* 髪 */}
+        <ellipse cx="50" cy="18" rx="17" ry="11" fill="#4A3728" opacity="0.45"/>
+        <path d="M30 26 Q26 42 30 52" stroke="#4A3728" strokeWidth="6" strokeLinecap="round" opacity="0.35"/>
+        {/* 顔：苦しそう */}
+        <path d="M40 28 Q43 26 46 28" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
+        <path d="M54 28 Q57 26 60 28" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.7"/>
+        <circle cx="41" cy="34" r="2" fill="#fff" opacity="0.8"/>
+        <circle cx="59" cy="34" r="2" fill="#fff" opacity="0.8"/>
+        <path d="M42 43 Q50 41 58 43" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/>
+      </svg>
+    );
+  }
+
+  // 少し元気：立っているが少しうつむき加減
+  return (
+    <svg width="90" height="120" viewBox="0 0 90 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="45" cy="114" rx="24" ry="6" fill={color} opacity="0.12"/>
+      {/* 足 */}
+      <rect x="30" y="84" width="12" height="28" rx="6" fill={color} opacity="0.55"/>
+      <rect x="48" y="84" width="12" height="28" rx="6" fill={color} opacity="0.55"/>
+      {/* 体 */}
+      <rect x="22" y="52" width="46" height="36" rx="14" fill={color} opacity="0.7"/>
+      {/* 腕（少し下向き・回復中） */}
+      <path d="M22 62 Q10 74 14 84" stroke={color} strokeWidth="10" strokeLinecap="round" opacity="0.5"/>
+      <path d="M68 62 Q80 74 76 84" stroke={color} strokeWidth="10" strokeLinecap="round" opacity="0.5"/>
+      {/* 頭 */}
+      <circle cx="45" cy="32" r="20" fill={color} opacity="0.85"/>
+      {/* 髪 */}
+      <ellipse cx="45" cy="15" rx="17" ry="11" fill="#4A3728" opacity="0.45"/>
+      <path d="M65 22 Q70 36 67 50" stroke="#4A3728" strokeWidth="6" strokeLinecap="round" opacity="0.35"/>
+      {/* 顔：少し安堵 */}
+      <circle cx="38" cy="30" r="2.2" fill="#fff" opacity="0.8"/>
+      <circle cx="52" cy="30" r="2.2" fill="#fff" opacity="0.8"/>
+      <path d="M38 40 Q45 44 52 40" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" opacity="0.8"/>
+    </svg>
+  );
+}
+
 function getCooldownDays(goal: number): number {
   if (goal === 1) return 20;
   if (goal === 2) return 10;
@@ -1426,7 +1525,7 @@ export default function Home() {
           {isInMoonPeriod && (
             <><div className="flex-1"/>
               <span className="text-xs px-2 py-1 rounded-full font-semibold"
-                style={{ backgroundColor:"rgba(196,180,224,0.3)", color:"#8B7BA8" }}>🌙 ムーンデイ中</span></>
+                style={{ backgroundColor:"rgba(196,180,224,0.3)", color:"#8B7BA8" }}>🌙 生理期間中</span></>
           )}
         </div>
 
@@ -1475,14 +1574,50 @@ export default function Home() {
             </div>
 
             {isInMoonPeriod ? (
-              <div className="rounded-3xl p-5 flex flex-col items-center gap-2 text-center"
-                style={{ backgroundColor:"rgba(240,235,248,0.8)", border:"1.5px solid #D4C4F0" }}>
-                <span style={{ fontSize:28 }}>🌙</span>
-                <p className="font-semibold text-sm" style={{ color:"#8B7BA8" }}>ムーンデイ期間中</p>
-                <p className="text-xs leading-relaxed" style={{ color:"#A898C0" }}>
-                  現在は無理せず休む期間です。<br/>キモチ確認はお休みしています 💜
-                </p>
-              </div>
+              /* ── 生理期間中：しんどさインジケーター ── */
+              (() => {
+                const shindoness = calcShindoness(lastStartDate);
+                const bgColor = shindoness >= 80
+                  ? "rgba(240,168,153,0.12)"
+                  : shindoness >= 40
+                  ? "rgba(184,148,58,0.10)"
+                  : "rgba(122,173,114,0.10)";
+                const borderColor = shindoness >= 80
+                  ? "#F0A899"
+                  : shindoness >= 40
+                  ? "#E8C880"
+                  : "#A8C9A0";
+                const textColor = shindoness >= 80
+                  ? "#D97B6C"
+                  : shindoness >= 40
+                  ? "#B8943A"
+                  : "#5A9E7A";
+                const label = shindoness >= 80
+                  ? "かなりしんどい時期だよ。\nそっと見守ってあげてね 💜"
+                  : shindoness >= 40
+                  ? "まだしんどさが残っているよ。\n優しくしてあげてね 🌿"
+                  : "少しずつ回復してきているよ。\nもうすぐ元気になるね 🌱";
+                return (
+                  <div className="rounded-3xl overflow-hidden"
+                    style={{ backgroundColor: bgColor, border:`1.5px solid ${borderColor}` }}>
+                    <div className="flex flex-col items-center gap-3 px-5 py-5">
+                      <ShindonessIllustration level={shindoness} />
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-base" style={{ color: textColor }}>
+                          しんどさレベル：
+                        </span>
+                        <span className="font-bold" style={{ fontSize:22, color: textColor }}>
+                          {shindoness}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-center leading-relaxed whitespace-pre-line"
+                        style={{ color: textColor, opacity:0.85 }}>
+                        {label}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()
 
             ) : !is17 ? (
               <div className="rounded-3xl p-5 flex flex-col items-center gap-2 text-center"

@@ -328,7 +328,14 @@ function KimochiRow({ label, avatar, selected, onSelect, disabled, note }: {
 // ─── マッチング結果バナー ────────────────────────────────
 function MatchBanner({ me, partner, onClose }: { me:Kimochi; partner:Kimochi; onClose:()=>void }) {
   const isHappy = me==="circle" && partner==="circle";
-  const msg = isHappy ? { title:"Perfect Sync 💛", body:"ふたりの気持ちがそろったね。素敵な夜を 🌙✨" } : pickMessage(me, partner);
+  // ★ useRef で初回マウント時のメッセージを固定
+  // 　 再レンダリングのたびに Math.random() が呼ばれてメッセージが変わるのを防ぐ
+  const msgRef = useRef(
+    isHappy
+      ? { title:"Perfect Sync 💛", body:"ふたりの気持ちがそろったね。素敵な夜を 🌙✨" }
+      : pickMessage(me, partner)
+  );
+  const msg = msgRef.current;
   const pal = isHappy
     ? { bg:"linear-gradient(135deg,#FBE8E6,#FFF0E8)", border:"#F0A899", icon:"💛", text:"#D97B6C" }
     : (me==="cross"||partner==="cross")

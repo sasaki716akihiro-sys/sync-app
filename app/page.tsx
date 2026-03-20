@@ -926,12 +926,27 @@ export default function Home() {
   // isInMoonPeriod は syncData 由来の moonRow で判定
   // → パートナーが設定を変更した瞬間に自動反映される
   const todayDate  = now.getDate(), todayYear = now.getFullYear(), todayMonth = now.getMonth();
-  // ★ YYYYMMDD で比較 → 月が違うのに同じ日番号でマッチする誤判定を防ぐ
-  const todayYMD = toYMD(todayYear, todayMonth, todayDate); // month は 0-indexed を渡す
-  const isInMoonPeriod = moonRow != null
-    && moonRow.moon_start != null && moonRow.moon_end != null
-    && todayYMD >= moonRow.moon_start
-    && todayYMD <= moonRow.moon_end;
+  const todayYMD = toYMD(todayYear, todayMonth, todayDate);
+
+  const isInMoonPeriod = (() => {
+    if (!moonRow || moonRow.moon_start == null) return false;
+
+    // 終了日が確定している場合：その範囲内かどうか
+    if (moonRow.moon_end != null) {
+      return todayYMD >= moonRow.moon_start && todayYMD <= moonRow.moon_end;
+    }
+
+    // ★ 開始日のみ（仮終了日）：開始日 〜 開始日 + periodDays - 1 の範囲内かどうか
+    // periodDays が 0 以下の場合は初期値 5 を使用
+    const pd = (moonRow.period_days && moonRow.period_days > 0) ? moonRow.period_days : 5;
+    const startD = new Date(
+      ymdYear(moonRow.moon_start), ymdMonth(moonRow.moon_start), ymdDay(moonRow.moon_start)
+    );
+    const tentEnd = new Date(startD);
+    tentEnd.setDate(tentEnd.getDate() + pd - 1);
+    const tentEndYMD = toYMD(tentEnd.getFullYear(), tentEnd.getMonth(), tentEnd.getDate());
+    return todayYMD >= moonRow.moon_start && todayYMD <= tentEndYMD;
+  })();
 
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す

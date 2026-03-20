@@ -1494,12 +1494,30 @@ export default function Home() {
 
         {/* ── ② 状態バー（接続・目標・生理期間） ────────── */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* 接続状態 */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-            style={{ backgroundColor:"rgba(122,173,114,0.15)", border:"1px solid #A8C9A0" }}>
-            <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block" }}/>
-            <span style={{ fontSize:10, color:"#5A9E7A", fontWeight:600 }}>パートナーと接続中</span>
-          </div>
+          {/* ★ 接続状態：partnerRow の有無で3段階に判定 */}
+          {!coupleId ? (
+            // 未設定
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:"rgba(200,200,200,0.15)", border:"1px solid #D4D0CC" }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#B0A898", display:"inline-block" }}/>
+              <span style={{ fontSize:10, color:"#9A8E84", fontWeight:600 }}>IDを設定してください</span>
+            </div>
+          ) : !partnerRow ? (
+            // 接続待ち（自分だけ設定済み）
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:"rgba(255,196,80,0.15)", border:"1px solid #F0C840" }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#C8A020",
+                animation:"pulse 1.5s infinite", display:"inline-block" }}/>
+              <span style={{ fontSize:10, color:"#9A7820", fontWeight:600 }}>パートナーの接続待ち…</span>
+            </div>
+          ) : (
+            // 接続完了
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:"rgba(122,173,114,0.15)", border:"1px solid #A8C9A0" }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block" }}/>
+              <span style={{ fontSize:10, color:"#5A9E7A", fontWeight:600 }}>パートナーと接続中</span>
+            </div>
+          )}
           {/* 目標サマリー */}
           <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
             style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #FDEBD0" }}>

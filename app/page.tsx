@@ -1070,6 +1070,8 @@ export default function Home() {
   // ── リマインド設定 ────────────────────────────────────────
   const [reminderWeekday, setReminderWeekday] = useState(17);
   const [reminderWeekend, setReminderWeekend] = useState(19);
+  // Supabaseから実際の設定値を受け取ったかどうか（デフォルト値での誤判定防止）
+  const [reminderLoaded, setReminderLoaded] = useState(false);
   // ── キモチ履歴（週次ふりかえり） ─────────────────────────
   const [kimochiLog, setKimochiLog] = useState<KimochiLogEntry[]>([]);
 
@@ -1172,9 +1174,10 @@ export default function Home() {
     setLastSyncDate(row.last_sync_date ?? null);
     // ムーンデイ予測フィールド
     if (row.last_start_date != null) setLastStartDate_moon(row.last_start_date);
-    // リマインド設定
+    // リマインド設定（null の場合はデフォルト値のまま維持し、ロード完了フラグだけ立てる）
     if (row.reminder_weekday != null) setReminderWeekday(row.reminder_weekday);
     if (row.reminder_weekend != null) setReminderWeekend(row.reminder_weekend);
+    setReminderLoaded(true); // Supabaseから設定値を受け取ったことを記録
     // キモチ履歴
     if (row.kimochi_log) setKimochiLog(row.kimochi_log);
     // 履歴から平均を自動計算（DBの cycle_days / period_days は無視して再計算）
@@ -1390,6 +1393,23 @@ export default function Home() {
     const id = setInterval(poll, 3000);
     return () => clearInterval(id);
   }, [coupleId, myEmail, pop]);
+
+  // ─── 4b. リマインド時刻を過ぎたら自動的にキモチ選択を解放 ──
+  // ・reminderLoaded が true になるまで実行しない
+  //   （Supabase読み込み前のデフォルト値 17/19 での誤判定を防ぐ）
+  // ・設定変更直後に即チェック → 設定→ホーム遷移で即時反映
+  // ・1分ごとに再チェック → リマインド時刻になった瞬間に自動解放
+  // ・is17 を true にするだけ（false に戻す処理はしない）
+  useEffect(() => {
+    if (!reminderLoaded) return;
+    const unlock = () => {
+      const rHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
+      if (new Date().getHours() >= rHour) setIs17(true);
+    };
+    unlock();
+    const id = setInterval(unlock, 60_000);
+    return () => clearInterval(id);
+  }, [reminderWeekday, reminderWeekend, reminderLoaded]);
 
   // ─── 5. キモチ保存 ────────────────────────────────────────
   const saveMyKimochi = useCallback(async (val: Kimochi, newLastSync?: string) => {

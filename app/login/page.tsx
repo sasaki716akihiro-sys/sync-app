@@ -90,7 +90,7 @@ export default function LoginPage() {
           >
             💛
           </div>
-          <h1 className="text-3xl font-bold" style={{ color:"#8B4513" }}>Sync Weather</h1>
+          <h1 className="text-3xl font-bold" style={{ color:"#8B4513" }}>Sync Couple</h1>
           <p className="text-sm" style={{ color:"#C4A898" }}>ふたりのきもちをつなげよう 🌤️</p>
         </div>
 

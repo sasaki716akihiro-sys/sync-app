@@ -1647,7 +1647,7 @@ export default function Home() {
         <header className="flex items-center justify-between">
           <div>
             <h1 className="font-bold" style={{ fontSize:20, color:"#8B4513", lineHeight:1.2 }}>
-              Sync Weather
+              Sync Couple
             </h1>
             <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
               ふたりの気持ちを、やさしく共有

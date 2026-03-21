@@ -15,13 +15,13 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Sync Weather — ふたりのきもち",
+  title: "Sync Couple — ふたりのきもち",
   description: "パートナーとの気持ちをシンクロさせるアプリ",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Sync Weather",
+    title: "Sync Couple",
     startupImage: "/apple-touch-icon.png",
   },
   icons: {

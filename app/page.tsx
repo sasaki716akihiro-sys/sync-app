@@ -1094,6 +1094,8 @@ export default function Home() {
   const todayRef        = useRef(today);
   const lastSyncDateRef = useRef<string|null>(null);
   useEffect(() => { lastSyncDateRef.current = lastSyncDate; }, [lastSyncDate]);
+  // パートナーのメールを ref で保持（handleReminderChange の stale closure 対策）
+  const partnerEmailRef = useRef<string|null>(null);
 
   // ── syncData から派生する値（★ 毎レンダーで再計算） ──────
   // myEmail で厳格に仕分け → ミラーリング不可能
@@ -1115,6 +1117,9 @@ export default function Home() {
     ? normalizeKimochi(myRow.kimochi) : null;
   const partnerKimochi: Kimochi = partnerRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(partnerRow.kimochi) : null;
+
+  // partnerEmailRef を最新の partnerRow に追従させる
+  useEffect(() => { partnerEmailRef.current = partnerRow?.user_email ?? null; }, [partnerRow]);
 
   // ── ★ カレンダーは「日付データがある方の行」を優先して表示 ──
   // 「キモチは別々、カレンダーは一緒」
@@ -1212,6 +1217,16 @@ export default function Home() {
     const myR = (data as SyncRow[]).find(r => r.user_email === email);
     if (myR) applyMySettings(myR, data as SyncRow[]);
 
+    // 自分のリマインド設定が未設定の場合、パートナーの値をフォールバックとして使う
+    // （片方が先に設定済みの場合に初回表示から一致させる）
+    const pR2 = (data as SyncRow[]).find(r => r.user_email !== email && r.user_email !== "");
+    if (myR?.reminder_weekday == null && pR2?.reminder_weekday != null) {
+      setReminderWeekday(pR2.reminder_weekday);
+    }
+    if (myR?.reminder_weekend == null && pR2?.reminder_weekend != null) {
+      setReminderWeekend(pR2.reminder_weekend);
+    }
+
     // 両方選択済みならマッチ・is17 復元
     const todayStr = todayRef.current;
     const myK = myR?.kimochi_date?.substring(0,10) === todayStr
@@ -1283,6 +1298,12 @@ export default function Home() {
             // ★ パートナーの sync_goal が変わったら自分の画面にも反映
             if (newRow.sync_goal != null) {
               setSyncGoal(newRow.sync_goal);
+            }
+            // ★ パートナーのリマインド設定が変わったら自分の画面にも即反映（カップル共有設定）
+            if (newRow.reminder_weekday != null) setReminderWeekday(newRow.reminder_weekday);
+            if (newRow.reminder_weekend != null) {
+              setReminderWeekend(newRow.reminder_weekend);
+              setReminderLoaded(true); // 時刻自動解放チェックを有効化
             }
 
             // パートナーの行：通知 & マッチ判定
@@ -1517,16 +1538,27 @@ export default function Home() {
     }, { onConflict: "couple_id,user_email" });
   }, [coupleId, myEmail]);
 
-  // ─── 9c. リマインド設定の即時保存 ────────────────────────
+  // ─── 9c. リマインド設定の即時保存（カップル共有設定：両行に書き込む） ──
   const handleReminderChange = useCallback(async (weekday: number, weekend: number) => {
     if (!coupleId || !myEmail) return;
-    await supabase.from("sync_status").upsert({
-      couple_id:        coupleId,
-      user_email:       myEmail,
+    const payload = {
       reminder_weekday: weekday,
       reminder_weekend: weekend,
       updated_at:       new Date().toISOString(),
-    }, { onConflict: "couple_id,user_email" });
+    };
+    // 自分の行に保存
+    await supabase.from("sync_status").upsert(
+      { couple_id: coupleId, user_email: myEmail, ...payload },
+      { onConflict: "couple_id,user_email" }
+    );
+    // パートナーが接続済みなら相手の行にも同じ値を保存（DB レベルで一致させる）
+    const partnerEmail = partnerEmailRef.current;
+    if (partnerEmail) {
+      await supabase.from("sync_status").upsert(
+        { couple_id: coupleId, user_email: partnerEmail, ...payload },
+        { onConflict: "couple_id,user_email" }
+      );
+    }
   }, [coupleId, myEmail]);
 
   // ─── 9. ムーンデイ日程の即時保存（YYYYMMDD形式）─────────
@@ -1619,6 +1651,28 @@ export default function Home() {
       r.user_email === myEmail ? { ...r, kimochi: null, kimochi_date: null } : r
     ));
   };
+
+  // ── 週次ふりかえり用：自分＋パートナーのキモチログをマージ ───
+  // パートナーのログはパートナー視点（my↔partner が逆）なので反転して統合する
+  // これにより、どちらの端末から見ても同じふりかえり内容になる
+  const mergedKimochiLog: KimochiLogEntry[] = (() => {
+    const myLog = kimochiLog;
+    const partnerLog = partnerRow?.kimochi_log ?? [];
+    const map = new Map<string, KimochiLogEntry>();
+    // 自分のログを優先
+    for (const e of myLog) map.set(e.date, e);
+    // パートナーのログで自分に無い日を補完（my↔partner を反転）
+    for (const e of partnerLog) {
+      if (!map.has(e.date)) {
+        map.set(e.date, {
+          date:            e.date,
+          my_kimochi:      e.partner_kimochi,
+          partner_kimochi: e.my_kimochi,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+  })();
 
   // ─── 画面分岐 ─────────────────────────────────────────────
   if (screen === "settings") {
@@ -1890,10 +1944,10 @@ export default function Home() {
 
         {/* ── ④ 週次ふりかえりカード ─────────────────────── */}
         {(() => {
-          const { syncCount, closeDays } = analyzeWeeklyLog(kimochiLog);
+          const { syncCount, closeDays } = analyzeWeeklyLog(mergedKimochiLog);
           const reminderHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
           const isWeekend = new Date().getDay()===0 || new Date().getDay()===6;
-          if (kimochiLog.length === 0) return null;
+          if (mergedKimochiLog.length === 0) return null;
           return (
             <div className="rounded-3xl overflow-hidden"
               style={{ border:"1.5px solid #FDEBD0", boxShadow:"0 2px 12px rgba(255,176,133,0.08)" }}>

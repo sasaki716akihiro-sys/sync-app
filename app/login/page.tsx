@@ -42,7 +42,7 @@ export default function LoginPage() {
         router.refresh();
 
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -51,13 +51,23 @@ export default function LoginPage() {
         });
         if (error) {
           if (error.message.includes("already registered")) {
-            setError("このメールアドレスはすでに登録されています。");
+            setError("このメールアドレスはすでに登録されています。ログインタブからお試しください。");
           } else {
             setError(`登録に失敗しました: ${error.message}`);
           }
           return;
         }
-        setSuccess("確認メールを送りました 💌 メールをチェックしてね。");
+        if (data.session) {
+          // メール確認不要の設定：そのままログイン済みになる
+          router.push("/");
+          router.refresh();
+        } else if ((data.user?.identities ?? []).length === 0) {
+          // Supabase のユーザー列挙防止：すでに登録済みのアドレスでも成功を返す
+          setError("このメールアドレスはすでに登録されています。ログインタブからお試しください。");
+        } else {
+          // メール確認が必要な設定：確認リンクをメールで送信済み
+          setSuccess("確認メールを送りました 💌 届いたメールのリンクをクリックすると登録完了です。");
+        }
       }
 
     } catch (err) {

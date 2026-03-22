@@ -1158,11 +1158,19 @@ export default function Home() {
   // partnerEmailRef を最新の partnerRow に追従させる
   useEffect(() => { partnerEmailRef.current = partnerRow?.user_email ?? null; }, [partnerRow]);
 
-  // ── ★ カレンダーは「日付データがある方の行」を優先して表示 ──
+  // ── ★ カレンダーは「より新しい生理開始日を持つ行」を優先して表示 ──
   // 「キモチは別々、カレンダーは一緒」
-  // 優先順位: 自分の行に月日データがあれば自分 → なければパートナーの行を使う
-  const moonRow = (myRow?.moon_start != null ? myRow : null)
-               ?? (partnerRow?.moon_start != null ? partnerRow : null);
+  // 優先順位: 両方にデータがある場合 → moon_start が大きい（新しい）方を使う
+  //           これにより、古い自分のデータよりパートナーの最新期間が正しく表示される
+  const moonRow = (() => {
+    const myMoon      = myRow?.moon_start      != null ? myRow      : null;
+    const partnerMoon = partnerRow?.moon_start != null ? partnerRow : null;
+    if (!myMoon && !partnerMoon) return null;
+    if (!myMoon)      return partnerMoon;
+    if (!partnerMoon) return myMoon;
+    // 両方にデータがある場合：より新しい開始日を優先
+    return myMoon.moon_start! >= partnerMoon.moon_start! ? myMoon : partnerMoon;
+  })();
   const activeMoonStart = moonStart;   // 設定UIの入力値（編集中）
   const activeMoonEnd   = moonEnd;
   const activeMoonYear  = moonYear;
@@ -1260,14 +1268,19 @@ export default function Home() {
     setPeriodDays(calcAveragePeriod(hist));
 
     // 自分の行に月データがあればそれを使用、なければパートナーの行を参照
+    // allRows が渡されない場合（Realtime経由の自行更新）はパートナー行を参照できないため、
+    // 自分の行にデータがない時は moon state を更新しない
+    // → パートナーの生理データが表示されている設定カレンダーが誤ってリセットされるのを防ぐ
     const moonSource = row.moon_start != null
       ? row
-      : allRows?.find(r => r.user_email !== row.user_email && r.moon_start != null) ?? row;
+      : (allRows?.find(r => r.user_email !== row.user_email && r.moon_start != null) ?? null);
 
-    setMoonStart(moonSource.moon_start ?? null);
-    setMoonEnd(moonSource.moon_end ?? null);
-    if (moonSource.moon_year  != null) setMoonYear(moonSource.moon_year);
-    if (moonSource.moon_month != null) setMoonMonth(moonSource.moon_month);
+    if (moonSource != null) {
+      setMoonStart(moonSource.moon_start ?? null);
+      setMoonEnd(moonSource.moon_end ?? null);
+      if (moonSource.moon_year  != null) setMoonYear(moonSource.moon_year);
+      if (moonSource.moon_month != null) setMoonMonth(moonSource.moon_month);
+    }
   }, []);
 
   // ─── 全行ロード ───────────────────────────────────────────
@@ -1356,12 +1369,25 @@ export default function Home() {
             // 自分の行：設定値を反映
             applyMySettings(newRow);
           } else {
-            // パートナーの行：moon データがあれば設定 state に反映
+            // パートナーの行：moon 設定 state を常に同期
+            // ・null の場合もクリアする（パートナーが期間をリセットした時に反映）
+            // ・ただし自分の行にも moon_start がある場合は上書きしない（自分が記録者のケース）
             if (newRow.moon_start != null) {
               setMoonStart(newRow.moon_start);
               setMoonEnd(newRow.moon_end ?? null);
               if (newRow.moon_year  != null) setMoonYear(newRow.moon_year);
               if (newRow.moon_month != null) setMoonMonth(newRow.moon_month);
+            } else {
+              // パートナーがリセット → 自分も moon_start がなければ state をクリア
+              setSyncData(current => {
+                const myCurrentMoonStart =
+                  current.find(r => r.user_email === myEmail)?.moon_start ?? null;
+                if (myCurrentMoonStart == null) {
+                  setMoonStart(null);
+                  setMoonEnd(null);
+                }
+                return current; // syncData 自体は mergeRow で更新済み
+              });
             }
             // ★ パートナーの sync_goal が変わったら自分の画面にも反映
             if (newRow.sync_goal != null) {

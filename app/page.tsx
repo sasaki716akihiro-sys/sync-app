@@ -1169,17 +1169,35 @@ export default function Home() {
   })();
 
   // ── 気づかい提案カードの表示判定 ─────────────────────────
-  // 条件を満たすときだけ表示する（追加設定なしで自動判定）:
-  //   1. パートナーが接続済み
-  //   2. パートナー側に生理データがある（partnerRow.moon_start != null）
-  //   3. 自分には生理データがない（myRow.moon_start == null）
-  //      ← 両者とも記録あり/なしの曖昧ケースは安全側で非表示
-  //   4. 現在が生理期間中（isInMoonPeriod ＝ moonRow = partnerRow で計算済み）
-  const showCareCard =
-    partnerRow !== null &&
-    (partnerRow.moon_start != null) &&
-    (myRow?.moon_start == null) &&
-    isInMoonPeriod;
+  // 【記録者の判定ロジック】
+  // ① 自分の行に moon_start がなく、パートナーの行にある
+  //    → パートナーが記録者 → 表示する
+  // ② 両者の行に moon_start がある（設定保存の誤コピー等で発生しえる）
+  //    → period_history の有無で判別：
+  //      パートナーのみ history あり → パートナーが記録者 → 表示する
+  //      両方あり / 両方なし        → 判定不能 → 安全側で非表示
+  // ③ 自分の行にのみ moon_start がある → 自分が記録者 → 非表示
+  const showCareCard = (() => {
+    if (!partnerRow || !isInMoonPeriod) return false;
+    if (!partnerRow.moon_start) return false; // パートナーに生理データなし
+
+    const myMoonStart = myRow?.moon_start ?? null;
+    if (myMoonStart == null) {
+      // ① 自分の行に生理データがない → パートナーが確実に記録者
+      return true;
+    }
+
+    // ② 両行に moon_start がある → period_history で記録者を判別
+    const myHistLen      = (myRow?.period_history ?? []).length;
+    const partnerHistLen = (partnerRow.period_history ?? []).length;
+    if (partnerHistLen > 0 && myHistLen === 0) {
+      // パートナーのみ完了済み履歴あり → パートナーが記録者
+      return true;
+    }
+
+    // 判定不能（両方あり / 両方なし）→ 安全側で非表示
+    return false;
+  })();
   // 日付ベースで提案文を毎日ローテーション（同じ端末では同じ文言）
   const todaySuggestion = showCareCard
     ? CARE_SUGGESTIONS[new Date().getDate() % CARE_SUGGESTIONS.length]
@@ -1546,15 +1564,17 @@ export default function Home() {
       await supabase.from("sync_status").upsert({
         couple_id:  newCoupleId, user_email: myEmail,
         sync_goal:  syncGoal,
-        moon_start: moonStart,  moon_end:   moonEnd,
-        moon_year:  moonYear,   moon_month: moonMonth,
+        // ★ moon データはここでは保存しない
+        // 　月経データは handleMoonDateChange（カレンダー操作時）で個別保存される
+        // 　ここで moonStart/End を書くと、パートナーの月経データが
+        // 　state 経由で自分の行に誤ってコピーされる事故が起きる
         updated_at: new Date().toISOString(),
       }, { onConflict: "couple_id,user_email" });
     }
     setSaving(false);
     pop("設定を保存したよ 💾");
     setScreen("home");
-  }, [syncGoal, moonStart, moonEnd, moonYear, moonMonth, myEmail, pop]);
+  }, [syncGoal, myEmail, pop]);
 
   // ─── 9a. Sync目標の即時保存 ───────────────────────────────
   const handleGoalChange = useCallback(async (newGoal: number) => {

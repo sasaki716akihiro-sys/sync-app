@@ -732,7 +732,7 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonYear, moonMonth, setMoonYear, setMoonMonth,
   periodHistory,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
-  onSave, saving, onGoalChange, onReminderChange }: {
+  onSave, saving, onConfirmPeriod, onGoalChange, onReminderChange }: {
   onBack:()=>void;
   initialCoupleId:string;
   syncGoal:number; setSyncGoal:(n:number)=>void;
@@ -744,11 +744,21 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string)=>void; saving:boolean;
+  onConfirmPeriod:(startYMD:number, endYMD:number)=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
+  const [confirming, setConfirming] = useState(false);
   const cooldownDays = getCooldownDays(syncGoal);
+
+  // 確定ボタンのハンドラ（ローカルでローディング管理）
+  const handleConfirm = async () => {
+    if (!moonStart || !moonEnd || confirming) return;
+    setConfirming(true);
+    await onConfirmPeriod(moonStart, moonEnd);
+    setConfirming(false);
+  };
 
   // ── 次回予測計算（確定済み履歴のみから直接算出） ────────────
   // ・cycleDays/periodDays state や lastStartDate state には一切依存しない
@@ -797,6 +807,14 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   const predictNote = !predictLabel && confirmedHistory.length >= 1
     ? "次回予測：確定記録が2回分以上になると計算されます"
     : null;
+
+  // 現在の選択（moonStart/moonEnd）が確定済みか判定
+  const toDateStr = (ymd: number) =>
+    `${ymdYear(ymd)}-${String(ymdMonth(ymd)+1).padStart(2,"0")}-${String(ymdDay(ymd)).padStart(2,"0")}`;
+  const isCurrentSelectionConfirmed = moonStart != null && moonEnd != null
+    && confirmedHistory.some(r =>
+        r.start === toDateStr(moonStart) && r.end === toDateStr(moonEnd)
+      );
 
   const prevMonth = () => {
     if (moonMonth===0){ setMoonMonth(11); setMoonYear(moonYear-1); }
@@ -949,6 +967,33 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
                 <button onClick={handleReset} style={{ fontSize:10, color:"#C4A898" }}>リセット</button>
               )}
             </div>
+
+            {/* 確定ボタン / ガイダンス */}
+            {moonStart && !moonEnd && (
+              <p className="mt-2 text-center" style={{ fontSize:11, color:"#C4A898" }}>
+                終了日を選んでください
+              </p>
+            )}
+            {moonStart && moonEnd && (
+              <button
+                onClick={handleConfirm}
+                disabled={confirming || isCurrentSelectionConfirmed}
+                className="mt-2 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                style={{
+                  backgroundColor: isCurrentSelectionConfirmed
+                    ? "rgba(196,180,224,0.3)"
+                    : confirming ? "#FDEBD0" : "#8B7BA8",
+                  color: isCurrentSelectionConfirmed ? "#8B7BA8" : "white",
+                  border: isCurrentSelectionConfirmed ? "1.5px solid #C4B4E0" : "none",
+                }}>
+                {confirming
+                  ? "記録中…"
+                  : isCurrentSelectionConfirmed
+                  ? "✓ 確定済み"
+                  : "この期間で確定する 🌙"}
+              </button>
+            )}
+
             {predictLabel && (
               <div className="mt-2 px-4 py-2.5 rounded-2xl flex items-center gap-2"
                 style={{ backgroundColor:"rgba(255,176,100,0.12)", border:"1.5px dashed #FFB085" }}>
@@ -1614,72 +1659,74 @@ export default function Home() {
     pop("クールダウンをリセットしました");
   }, [coupleId, myEmail, pop]);
 
-  // ─── 8. 設定保存（「保存」ボタン押下時のみ確定・DB書き込み）────────
-  // カレンダー操作は下書き（local state）のみ更新し、DB への書き込みはここで行う
+  // ─── 8. 設定保存（カップルID・目標・リマインド + 期間の表示更新のみ） ────
+  // 「確定」ボタンとは別物：ここでは期間履歴・予測計算には触らない
   const handleSaveSettings = useCallback(async (newCoupleId: string) => {
     setSaving(true);
     setCoupleId(newCoupleId);
     localStorage.setItem("sync_couple_id", newCoupleId);
     if (newCoupleId && myEmail) {
-      // ── 生理期間の保存可否判定 ──────────────────────────────────────
-      // 自分が記録者（moonRow が自分の行 or まだ誰も記録していない）場合のみ保存
-      // パートナーが記録者の場合は上書きしない
       const isMoonOwner = moonRow == null || moonRow.user_email === myEmail;
-
-      let moonPayload: Record<string, unknown> = {};
+      let moonDisplayPayload: Record<string, unknown> = {};
       if (isMoonOwner) {
         const year  = moonStart ? ymdYear(moonStart)  : moonEnd ? ymdYear(moonEnd)  : moonYear;
         const month = moonStart ? ymdMonth(moonStart) : moonEnd ? ymdMonth(moonEnd) : moonMonth;
-
-        // 開始日・終了日が両方確定した場合のみ履歴に追加
-        // → 途中入力・誤入力・開始日のみの状態は履歴に含めない
-        let newHistory = periodHistory;
-        if (moonStart && moonEnd) {
-          const startStr = `${ymdYear(moonStart)}-${String(ymdMonth(moonStart)+1).padStart(2,"0")}-${String(ymdDay(moonStart)).padStart(2,"0")}`;
-          const endStr   = `${ymdYear(moonEnd)}-${String(ymdMonth(moonEnd)+1).padStart(2,"0")}-${String(ymdDay(moonEnd)).padStart(2,"0")}`;
-          newHistory = addToHistory(periodHistory, startStr, endStr);
-          setPeriodHistory(newHistory);
-        }
-        // 常に現在履歴から再計算（stale な state 値 cycleDays/periodDays を引き継がない）
-        // → DB の旧固定値(28/5)が上書き保存され続けるのを防ぐ
-        const newCycle  = calcAverageCycle(newHistory);
-        const newPeriod = calcAveragePeriod(newHistory);
-        setCycleDays(newCycle);
-        setPeriodDays(newPeriod);
-
-        // last_start_date：必ず確定済み履歴の最新開始日のみを使う
-        // draft の moonStart（終了日未確定）は使わない
-        // → 未確定の moonStart が保存されると prediction base が崩れる
-        const lastStart = newHistory.length > 0
-          ? newHistory[newHistory.length - 1].start
-          : null;
-        setLastStartDate_moon(lastStart);
-
-        moonPayload = {
-          moon_start:      moonStart ?? null,
-          moon_end:        moonEnd ?? null,
-          moon_year:       year,
-          moon_month:      month,
-          last_start_date: lastStart,
-          cycle_days:      newCycle,
-          period_days:     newPeriod,
-          period_history:  newHistory,
+        moonDisplayPayload = {
+          moon_start: moonStart ?? null,
+          moon_end:   moonEnd   ?? null,
+          moon_year:  year,
+          moon_month: month,
         };
       }
-
       await supabase.from("sync_status").upsert({
         couple_id:  newCoupleId,
         user_email: myEmail,
         sync_goal:  syncGoal,
-        ...moonPayload,
+        ...moonDisplayPayload,
         updated_at: new Date().toISOString(),
       }, { onConflict: "couple_id,user_email" });
     }
     setSaving(false);
     pop("設定を保存したよ 💾");
     setScreen("home");
-  }, [syncGoal, myEmail, pop, moonStart, moonEnd, moonYear, moonMonth,
-      periodHistory, cycleDays, periodDays, moonRow]);
+  }, [syncGoal, myEmail, pop, moonStart, moonEnd, moonYear, moonMonth, moonRow]);
+
+  // ─── 8b. 生理期間の確定（「この期間で確定する」ボタン押下時のみ） ──────
+  // 確定時のみ period_history / cycle_days / period_days / last_start_date を更新する
+  // → 誤タップ・途中入力・保存前のドラフトは予測に影響しない
+  const handleConfirmPeriod = useCallback(async (startYMD: number, endYMD: number) => {
+    if (!coupleId || !myEmail) return;
+    const isMoonOwner = moonRow == null || moonRow.user_email === myEmail;
+    if (!isMoonOwner) { pop("生理期間はパートナーが記録しています 🌙"); return; }
+
+    const startStr = `${ymdYear(startYMD)}-${String(ymdMonth(startYMD)+1).padStart(2,"0")}-${String(ymdDay(startYMD)).padStart(2,"0")}`;
+    const endStr   = `${ymdYear(endYMD)}-${String(ymdMonth(endYMD)+1).padStart(2,"0")}-${String(ymdDay(endYMD)).padStart(2,"0")}`;
+    const newHistory = addToHistory(periodHistory, startStr, endStr);
+    const newCycle   = calcAverageCycle(newHistory);
+    const newPeriod  = calcAveragePeriod(newHistory);
+    const lastStart  = newHistory[newHistory.length - 1].start;
+
+    setPeriodHistory(newHistory);
+    setCycleDays(newCycle);
+    setPeriodDays(newPeriod);
+    setLastStartDate_moon(lastStart);
+
+    await supabase.from("sync_status").upsert({
+      couple_id:       coupleId,
+      user_email:      myEmail,
+      moon_start:      startYMD,
+      moon_end:        endYMD,
+      moon_year:       ymdYear(startYMD),
+      moon_month:      ymdMonth(startYMD),
+      last_start_date: lastStart,
+      cycle_days:      newCycle,
+      period_days:     newPeriod,
+      period_history:  newHistory,
+      updated_at:      new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+
+    pop("生理期間を記録したよ 🌙");
+  }, [coupleId, myEmail, periodHistory, moonRow, pop]);
 
   // ─── 9a. Sync目標の即時保存 ───────────────────────────────
   const handleGoalChange = useCallback(async (newGoal: number) => {
@@ -1774,6 +1821,7 @@ export default function Home() {
         setMoonYear={setMoonYear} setMoonMonth={setMoonMonth}
         periodHistory={periodHistory}
         onSave={handleSaveSettings} saving={saving}
+        onConfirmPeriod={handleConfirmPeriod}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
         reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}

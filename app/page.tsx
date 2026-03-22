@@ -1169,35 +1169,24 @@ export default function Home() {
   })();
 
   // ── 気づかい提案カードの表示判定 ─────────────────────────
-  // 【記録者の判定ロジック】
-  // ① 自分の行に moon_start がなく、パートナーの行にある
-  //    → パートナーが記録者 → 表示する
-  // ② 両者の行に moon_start がある（設定保存の誤コピー等で発生しえる）
-  //    → period_history の有無で判別：
-  //      パートナーのみ history あり → パートナーが記録者 → 表示する
-  //      両方あり / 両方なし        → 判定不能 → 安全側で非表示
-  // ③ 自分の行にのみ moon_start がある → 自分が記録者 → 非表示
-  const showCareCard = (() => {
-    if (!partnerRow || !isInMoonPeriod) return false;
-    if (!partnerRow.moon_start) return false; // パートナーに生理データなし
-
-    const myMoonStart = myRow?.moon_start ?? null;
-    if (myMoonStart == null) {
-      // ① 自分の行に生理データがない → パートナーが確実に記録者
-      return true;
-    }
-
-    // ② 両行に moon_start がある → period_history で記録者を判別
-    const myHistLen      = (myRow?.period_history ?? []).length;
-    const partnerHistLen = (partnerRow.period_history ?? []).length;
-    if (partnerHistLen > 0 && myHistLen === 0) {
-      // パートナーのみ完了済み履歴あり → パートナーが記録者
-      return true;
-    }
-
-    // 判定不能（両方あり / 両方なし）→ 安全側で非表示
-    return false;
-  })();
+  // 【判定の軸】
+  //   moonRow = 現在の生理表示に使われている行（myRow 優先、なければ partnerRow）
+  //   moonRow.user_email === partnerRow.user_email
+  //     → moonRow がパートナーの行 = パートナーが生理データの保持者（記録者）
+  //     → 自分はパートナー側 → 気づかい提案を表示
+  //   moonRow.user_email !== partnerRow.user_email（= 自分の行）
+  //     → 自分が記録者 → 表示しない
+  //
+  // 【この方式の利点】
+  //   moonRow の導出ロジック（myRow 優先）と完全に一致するため、
+  //   両行にデータがある場合も「myRow を使っている = 自分が記録者」と
+  //   一貫して扱われ、逆表示が起きない。
+  //   判定が曖昧になる period_history 比較は行わず、常に安全側に倒す。
+  const showCareCard =
+    partnerRow !== null &&
+    moonRow !== null &&
+    moonRow.user_email === partnerRow.user_email && // moonRow がパートナーの行
+    isInMoonPeriod;
   // 日付ベースで提案文を毎日ローテーション（同じ端末では同じ文言）
   const todaySuggestion = showCareCard
     ? CARE_SUGGESTIONS[new Date().getDate() % CARE_SUGGESTIONS.length]

@@ -730,7 +730,7 @@ function MoonCalendar({ year, month, startYMD, endYMD, onSelectStart, onSelectEn
 function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonStart, setMoonStart, moonEnd, setMoonEnd,
   moonYear, moonMonth, setMoonYear, setMoonMonth,
-  cycleDays, periodDays, lastStartDate,
+  periodHistory,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
   onSave, saving, onGoalChange, onReminderChange }: {
   onBack:()=>void;
@@ -740,8 +740,7 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonEnd:number|null;   setMoonEnd:(d:number|null)=>void;
   moonYear:number; moonMonth:number;
   setMoonYear:(n:number)=>void; setMoonMonth:(n:number)=>void;
-  cycleDays:number|null; periodDays:number|null;
-  lastStartDate:string|null;
+  periodHistory: PeriodRecord[];
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string)=>void; saving:boolean;
@@ -751,49 +750,51 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
   const cooldownDays = getCooldownDays(syncGoal);
 
-  // ── 次回予測計算 ──────────────────────────────────────────
+  // ── 次回予測計算（確定済み履歴のみから直接算出） ────────────
+  // ・cycleDays/periodDays state や lastStartDate state には一切依存しない
+  // ・draft入力(moonStart/moonEnd)も予測計算に使わない
+  // ・リセット後も periodHistory が残っていれば予測継続、足りなければ非表示
+  const confirmedHistory = periodHistory.filter(r => r.start && r.end);
+  const predCycleLen  = calcAverageCycle(confirmedHistory);   // null if < 2件
+  const predPeriodLen = calcAveragePeriod(confirmedHistory);  // null if < 1件
+
   const { predictStartYMD, predictEndYMD } = (() => {
-    // 基準日：moonStart（今回の開始日）があればそれを使い、次回＝未来にする
-    // なければ lastStartDate（最終確定開始日）にフォールバック
-    const predBase = moonStart
-      ? `${ymdYear(moonStart)}-${String(ymdMonth(moonStart)+1).padStart(2,"0")}-${String(ymdDay(moonStart)).padStart(2,"0")}`
-      : lastStartDate;
-    console.log("[prediction] moonStart:", moonStart, "lastStartDate:", lastStartDate, "predBase:", predBase);
-    console.log("[prediction] cycleDays:", cycleDays, "periodDays:", periodDays);
-    if (!predBase || !cycleDays || !periodDays) {
-      console.log("[prediction] 計算不可 → 表示なし (不足項目:", !predBase?"predBase":!cycleDays?"cycleDays":"periodDays", ")");
+    if (!predCycleLen || !predPeriodLen || confirmedHistory.length < 2) {
       return { predictStartYMD: null, predictEndYMD: null };
     }
-    const base = new Date(predBase);
+    const lastRecord = confirmedHistory[confirmedHistory.length - 1];
+    const base = new Date(lastRecord.start);
     base.setHours(0, 0, 0, 0);
     const nextStart = new Date(base);
-    nextStart.setDate(nextStart.getDate() + cycleDays);
+    nextStart.setDate(nextStart.getDate() + predCycleLen);
     const nextEnd = new Date(nextStart);
-    nextEnd.setDate(nextEnd.getDate() + periodDays - 1);
-    const result = {
+    nextEnd.setDate(nextEnd.getDate() + predPeriodLen - 1);
+    // 不正値ガード：今日 -30日〜+400日の範囲外は異常とみなし非表示
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diffDays = (nextStart.getTime() - today.getTime()) / 86400000;
+    if (diffDays < -30 || diffDays > 400) {
+      return { predictStartYMD: null, predictEndYMD: null };
+    }
+    return {
       predictStartYMD: toYMD(nextStart.getFullYear(), nextStart.getMonth(), nextStart.getDate()),
       predictEndYMD:   toYMD(nextEnd.getFullYear(),   nextEnd.getMonth(),   nextEnd.getDate()),
     };
-    console.log("[prediction] 結果:", result, "期間日数:", periodDays, "日");
-    return result;
   })();
 
-  // ── 開始日のみ選択時：平均期間から仮終了日を表示 ──────────
+  // ── 開始日のみ選択時：過去履歴から仮終了日を表示 ────────────
   const tentativeEndYMD = (() => {
-    if (!moonStart || moonEnd || !periodDays) return null; // 終了日未選択・期間データなしのときだけ
-    const s = new Date(
-      ymdYear(moonStart), ymdMonth(moonStart), ymdDay(moonStart)
-    );
+    if (!moonStart || moonEnd || !predPeriodLen) return null;
+    const s = new Date(ymdYear(moonStart), ymdMonth(moonStart), ymdDay(moonStart));
     const e = new Date(s);
-    e.setDate(e.getDate() + periodDays - 1);
+    e.setDate(e.getDate() + predPeriodLen - 1);
     return toYMD(e.getFullYear(), e.getMonth(), e.getDate());
   })();
 
   const predictLabel = predictStartYMD && predictEndYMD
     ? `次回予測：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
     : null;
-  // 周期計算に必要な2件の確定履歴がない場合の案内
-  const predictNote = !cycleDays && (moonStart != null || lastStartDate != null)
+  // 履歴1件はあるが周期算出に2件必要な場合の案内
+  const predictNote = !predictLabel && confirmedHistory.length >= 1
     ? "次回予測：確定記録が2回分以上になると計算されます"
     : null;
 
@@ -1278,15 +1279,8 @@ export default function Home() {
     const srcHist = periodSource.period_history ?? [];
     const calcedCycle  = calcAverageCycle(srcHist);
     const calcedPeriod = calcAveragePeriod(srcHist);
-    const finalCycle  = calcedCycle   ?? periodSource.cycle_days  ?? null;
-    const finalPeriod = calcedPeriod  ?? periodSource.period_days ?? null;
-    console.log("[applyMySettings] periodSource.user_email:", periodSource.user_email);
-    console.log("[applyMySettings] srcHist (履歴件数):", srcHist.length, srcHist);
-    console.log("[applyMySettings] calcedCycle:", calcedCycle, "/ DB cycle_days:", periodSource.cycle_days, "/ 採用値:", finalCycle);
-    console.log("[applyMySettings] calcedPeriod:", calcedPeriod, "/ DB period_days:", periodSource.period_days, "/ 採用値:", finalPeriod);
-    console.log("[applyMySettings] last_start_date:", periodSource.last_start_date);
-    setCycleDays(finalCycle);
-    setPeriodDays(finalPeriod);
+    setCycleDays(calcedCycle   ?? periodSource.cycle_days  ?? null);
+    setPeriodDays(calcedPeriod ?? periodSource.period_days ?? null);
   }, []);
 
   // ─── 全行ロード ───────────────────────────────────────────
@@ -1650,20 +1644,15 @@ export default function Home() {
         // → DB の旧固定値(28/5)が上書き保存され続けるのを防ぐ
         const newCycle  = calcAverageCycle(newHistory);
         const newPeriod = calcAveragePeriod(newHistory);
-        console.log("[handleSaveSettings] 保存payload:");
-        console.log("  isMoonOwner:", isMoonOwner);
-        console.log("  periodHistory(保存前):", periodHistory);
-        console.log("  newHistory(保存後):", newHistory);
-        console.log("  newCycle:", newCycle, "/ newPeriod:", newPeriod);
-        console.log("  moonStart:", moonStart, "moonEnd:", moonEnd);
         setCycleDays(newCycle);
         setPeriodDays(newPeriod);
 
-        // last_start_date：moonStart があればその値、なければ確定済み履歴の最新開始日
-        // → リセット時も予測が消えずに済む
-        const lastStart = moonStart
-          ? `${ymdYear(moonStart)}-${String(ymdMonth(moonStart)+1).padStart(2,"0")}-${String(ymdDay(moonStart)).padStart(2,"0")}`
-          : (newHistory.length > 0 ? newHistory[newHistory.length - 1].start : null);
+        // last_start_date：必ず確定済み履歴の最新開始日のみを使う
+        // draft の moonStart（終了日未確定）は使わない
+        // → 未確定の moonStart が保存されると prediction base が崩れる
+        const lastStart = newHistory.length > 0
+          ? newHistory[newHistory.length - 1].start
+          : null;
         setLastStartDate_moon(lastStart);
 
         moonPayload = {
@@ -1783,9 +1772,7 @@ export default function Home() {
         moonEnd={moonEnd}     setMoonEnd={setMoonEnd}
         moonYear={moonYear}   moonMonth={moonMonth}
         setMoonYear={setMoonYear} setMoonMonth={setMoonMonth}
-        cycleDays={cycleDays}
-        periodDays={periodDays}
-        lastStartDate={lastStartDate}
+        periodHistory={periodHistory}
         onSave={handleSaveSettings} saving={saving}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}

@@ -743,10 +743,15 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
 
   // ── 次回予測計算 ──────────────────────────────────────────
   const { predictStartYMD, predictEndYMD } = (() => {
-    if (!lastStartDate || !cycleDays || !periodDays) {
+    // 基準日：moonStart（今回の開始日）があればそれを使い、次回＝未来にする
+    // なければ lastStartDate（最終確定開始日）にフォールバック
+    const predBase = moonStart
+      ? `${ymdYear(moonStart)}-${String(ymdMonth(moonStart)+1).padStart(2,"0")}-${String(ymdDay(moonStart)).padStart(2,"0")}`
+      : lastStartDate;
+    if (!predBase || !cycleDays || !periodDays) {
       return { predictStartYMD: null, predictEndYMD: null };
     }
-    const base = new Date(lastStartDate);
+    const base = new Date(predBase);
     base.setHours(0, 0, 0, 0);
     const nextStart = new Date(base);
     nextStart.setDate(nextStart.getDate() + cycleDays);

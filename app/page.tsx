@@ -1249,38 +1249,60 @@ export default function Home() {
   // ─── 自分の行から設定値をstateに反映 ─────────────────────
   // moonStart/End は設定UI の編集用 state として保持
   // 表示判定（isInMoonPeriod）は syncData の moonRow から派生させるため
-  // ここでは自分の行の値をそのまま入力欄に反映するだけでよい
+  // ここでは月経データの参照元（moonSource）を決定して反映するだけでよい
   const applyMySettings = useCallback((row: SyncRow, allRows?: SyncRow[]) => {
     setSyncGoal(row.sync_goal ?? 4);
     setLastSyncDate(row.last_sync_date ?? null);
-    // ムーンデイ予測フィールド
-    if (row.last_start_date != null) setLastStartDate_moon(row.last_start_date);
     // リマインド設定（null の場合はデフォルト値のまま維持し、ロード完了フラグだけ立てる）
     if (row.reminder_weekday != null) setReminderWeekday(row.reminder_weekday);
     if (row.reminder_weekend != null) setReminderWeekend(row.reminder_weekend);
     setReminderLoaded(true); // Supabaseから設定値を受け取ったことを記録
-    // キモチ履歴
+    // キモチ履歴（自分の行から）
     if (row.kimochi_log) setKimochiLog(row.kimochi_log);
-    // 履歴から平均を自動計算（DBの cycle_days / period_days は無視して再計算）
-    const hist = row.period_history ?? [];
-    setPeriodHistory(hist);
-    setCycleDays(calcAverageCycle(hist));
-    setPeriodDays(calcAveragePeriod(hist));
 
-    // 自分の行に月データがあればそれを使用、なければパートナーの行を参照
-    // allRows が渡されない場合（Realtime経由の自行更新）はパートナー行を参照できないため、
-    // 自分の行にデータがない時は moon state を更新しない
-    // → パートナーの生理データが表示されている設定カレンダーが誤ってリセットされるのを防ぐ
-    const moonSource = row.moon_start != null
-      ? row
-      : (allRows?.find(r => r.user_email !== row.user_email && r.moon_start != null) ?? null);
+    // ── 月経データの参照元（moonSource）を決定 ──────────────────────────
+    // moonRow と同じ「最新優先」ロジックで参照元を選ぶ
+    // allRows なし（Realtime経由の自行更新）はパートナー行を参照できないため
+    // moonSource を変えず、自分の行にデータがない時は moon state を更新しない
+    const myMoon      = row.moon_start != null ? row : null;
+    const partnerMoon = allRows?.find(
+      r => r.user_email !== row.user_email && r.moon_start != null
+    ) ?? null;
 
+    let moonSource: SyncRow | null;
+    if (!myMoon && !partnerMoon) {
+      moonSource = null;
+    } else if (!myMoon) {
+      moonSource = partnerMoon;
+    } else if (!partnerMoon) {
+      moonSource = myMoon;
+    } else {
+      // 両方にデータがある場合：より新しい開始日を優先（moonRow と同じロジック）
+      moonSource = myMoon.moon_start! >= partnerMoon.moon_start! ? myMoon : partnerMoon;
+    }
+
+    // 月経カレンダー state（moonStart/End/Year/Month）を moonSource で更新
     if (moonSource != null) {
       setMoonStart(moonSource.moon_start ?? null);
       setMoonEnd(moonSource.moon_end ?? null);
       if (moonSource.moon_year  != null) setMoonYear(moonSource.moon_year);
       if (moonSource.moon_month != null) setMoonMonth(moonSource.moon_month);
     }
+
+    // ── 予測メタデータを moonSource から読み込む ──────────────────────────
+    // last_start_date / cycle_days / period_days は moonSource（記録者の行）を参照
+    // → パートナーが記録者でも次回予測・平均期間を両者で一致させる
+    // period_history は自分の行を使う（自分が記録する際の基データとして別管理）
+    const periodSource = moonSource ?? row;
+    if (periodSource.last_start_date != null) {
+      setLastStartDate_moon(periodSource.last_start_date);
+    }
+    const ownHist = row.period_history ?? [];
+    setPeriodHistory(ownHist);
+    // cycleDays / periodDays は moonSource の保存値を優先、なければ自分の履歴から計算
+    const srcHist = periodSource.period_history ?? [];
+    setCycleDays(periodSource.cycle_days  ?? calcAverageCycle(srcHist));
+    setPeriodDays(periodSource.period_days ?? calcAveragePeriod(srcHist));
   }, []);
 
   // ─── 全行ロード ───────────────────────────────────────────
@@ -1377,6 +1399,15 @@ export default function Home() {
               setMoonEnd(newRow.moon_end ?? null);
               if (newRow.moon_year  != null) setMoonYear(newRow.moon_year);
               if (newRow.moon_month != null) setMoonMonth(newRow.moon_month);
+              // 予測メタデータも同期（パートナーが記録者でも次回予測・平均期間を両者で一致させる）
+              if (newRow.last_start_date != null) {
+                setLastStartDate_moon(newRow.last_start_date);
+              }
+              const partnerHist = newRow.period_history ?? [];
+              if (partnerHist.length > 0 || newRow.cycle_days != null || newRow.period_days != null) {
+                setCycleDays(newRow.cycle_days  ?? calcAverageCycle(partnerHist));
+                setPeriodDays(newRow.period_days ?? calcAveragePeriod(partnerHist));
+              }
             } else {
               // パートナーがリセット → 自分も moon_start がなければ state をクリア
               setSyncData(current => {

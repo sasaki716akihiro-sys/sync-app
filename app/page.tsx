@@ -758,7 +758,10 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
     const predBase = moonStart
       ? `${ymdYear(moonStart)}-${String(ymdMonth(moonStart)+1).padStart(2,"0")}-${String(ymdDay(moonStart)).padStart(2,"0")}`
       : lastStartDate;
+    console.log("[prediction] moonStart:", moonStart, "lastStartDate:", lastStartDate, "predBase:", predBase);
+    console.log("[prediction] cycleDays:", cycleDays, "periodDays:", periodDays);
     if (!predBase || !cycleDays || !periodDays) {
+      console.log("[prediction] 計算不可 → 表示なし (不足項目:", !predBase?"predBase":!cycleDays?"cycleDays":"periodDays", ")");
       return { predictStartYMD: null, predictEndYMD: null };
     }
     const base = new Date(predBase);
@@ -767,10 +770,12 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
     nextStart.setDate(nextStart.getDate() + cycleDays);
     const nextEnd = new Date(nextStart);
     nextEnd.setDate(nextEnd.getDate() + periodDays - 1);
-    return {
+    const result = {
       predictStartYMD: toYMD(nextStart.getFullYear(), nextStart.getMonth(), nextStart.getDate()),
       predictEndYMD:   toYMD(nextEnd.getFullYear(),   nextEnd.getMonth(),   nextEnd.getDate()),
     };
+    console.log("[prediction] 結果:", result, "期間日数:", periodDays, "日");
+    return result;
   })();
 
   // ── 開始日のみ選択時：平均期間から仮終了日を表示 ──────────
@@ -1273,8 +1278,15 @@ export default function Home() {
     const srcHist = periodSource.period_history ?? [];
     const calcedCycle  = calcAverageCycle(srcHist);
     const calcedPeriod = calcAveragePeriod(srcHist);
-    setCycleDays(calcedCycle   ?? periodSource.cycle_days  ?? null);
-    setPeriodDays(calcedPeriod ?? periodSource.period_days ?? null);
+    const finalCycle  = calcedCycle   ?? periodSource.cycle_days  ?? null;
+    const finalPeriod = calcedPeriod  ?? periodSource.period_days ?? null;
+    console.log("[applyMySettings] periodSource.user_email:", periodSource.user_email);
+    console.log("[applyMySettings] srcHist (履歴件数):", srcHist.length, srcHist);
+    console.log("[applyMySettings] calcedCycle:", calcedCycle, "/ DB cycle_days:", periodSource.cycle_days, "/ 採用値:", finalCycle);
+    console.log("[applyMySettings] calcedPeriod:", calcedPeriod, "/ DB period_days:", periodSource.period_days, "/ 採用値:", finalPeriod);
+    console.log("[applyMySettings] last_start_date:", periodSource.last_start_date);
+    setCycleDays(finalCycle);
+    setPeriodDays(finalPeriod);
   }, []);
 
   // ─── 全行ロード ───────────────────────────────────────────
@@ -1638,6 +1650,12 @@ export default function Home() {
         // → DB の旧固定値(28/5)が上書き保存され続けるのを防ぐ
         const newCycle  = calcAverageCycle(newHistory);
         const newPeriod = calcAveragePeriod(newHistory);
+        console.log("[handleSaveSettings] 保存payload:");
+        console.log("  isMoonOwner:", isMoonOwner);
+        console.log("  periodHistory(保存前):", periodHistory);
+        console.log("  newHistory(保存後):", newHistory);
+        console.log("  newCycle:", newCycle, "/ newPeriod:", newPeriod);
+        console.log("  moonStart:", moonStart, "moonEnd:", moonEnd);
         setCycleDays(newCycle);
         setPeriodDays(newPeriod);
 

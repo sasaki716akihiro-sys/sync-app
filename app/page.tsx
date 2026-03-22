@@ -1832,7 +1832,14 @@ export default function Home() {
         ) : isInMoonPeriod ? (
           /* === 生理期間中：しんどさインジケーター === */
           (() => {
-            const shindoness  = calcShindoness(lastStartDate);
+            // isInMoonPeriod が true の時点で moonRow と moonRow.moon_start は必ず non-null
+            // moonRow.moon_start (YYYYMMDD int) → "YYYY-MM-DD" 文字列に変換して渡す
+            // → lastStartDate（自分の行のみの state）を使わないことで、
+            //   どちらの端末から見ても同じ moonRow の値を参照し、結果が一致する
+            const ms = moonRow!.moon_start!;
+            const moonStartDateStr =
+              `${ymdYear(ms)}-${String(ymdMonth(ms)+1).padStart(2,"0")}-${String(ymdDay(ms)).padStart(2,"0")}`;
+            const shindoness  = calcShindoness(moonStartDateStr);
             const borderColor = shindoness >= 80 ? "#F0A899" : shindoness >= 40 ? "#E8C880" : "#A8C9A0";
             const bgColor     = shindoness >= 80 ? "rgba(240,168,153,0.10)" : shindoness >= 40 ? "rgba(184,148,58,0.08)" : "rgba(122,173,114,0.08)";
             const textColor   = shindoness >= 80 ? "#D97B6C" : shindoness >= 40 ? "#B8943A" : "#5A9E7A";

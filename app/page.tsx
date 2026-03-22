@@ -768,15 +768,22 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   const predCycleLen  = calcAverageCycle(confirmedHistory);   // null if < 2件
   const predPeriodLen = calcAveragePeriod(confirmedHistory);  // null if < 1件
 
+  // 1件：period長は実績から、周期は28日参考値を使う（参考ラベル付き）
+  // 2件以上：両方とも実績中央値で計算（正確ラベル）
+  // 0件：予測しない
+  const REFERENCE_CYCLE = 28;
+  const effectiveCycleLen = predCycleLen ?? (confirmedHistory.length >= 1 ? REFERENCE_CYCLE : null);
+  const isReferencePrediction = effectiveCycleLen === REFERENCE_CYCLE && !predCycleLen;
+
   const { predictStartYMD, predictEndYMD } = (() => {
-    if (!predCycleLen || !predPeriodLen || confirmedHistory.length < 2) {
+    if (!effectiveCycleLen || !predPeriodLen || confirmedHistory.length < 1) {
       return { predictStartYMD: null, predictEndYMD: null };
     }
     const lastRecord = confirmedHistory[confirmedHistory.length - 1];
     const base = new Date(lastRecord.start);
     base.setHours(0, 0, 0, 0);
     const nextStart = new Date(base);
-    nextStart.setDate(nextStart.getDate() + predCycleLen);
+    nextStart.setDate(nextStart.getDate() + effectiveCycleLen);
     const nextEnd = new Date(nextStart);
     nextEnd.setDate(nextEnd.getDate() + predPeriodLen - 1);
     // 不正値ガード：今日 -30日〜+400日の範囲外は異常とみなし非表示
@@ -801,11 +808,13 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   })();
 
   const predictLabel = predictStartYMD && predictEndYMD
-    ? `次回予測：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
+    ? isReferencePrediction
+      ? `次回予測（参考）：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
+      : `次回予測：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
     : null;
-  // 履歴1件はあるが周期算出に2件必要な場合の案内
-  const predictNote = !predictLabel && confirmedHistory.length >= 1
-    ? "次回予測：確定記録が2回分以上になると計算されます"
+  // 0件のときだけ案内（1件以上あれば参考予測が出るため不要）
+  const predictNote = !predictLabel && confirmedHistory.length === 0
+    ? "生理期間を1回確定すると参考予測が表示されます"
     : null;
 
   // 現在の選択（moonStart/moonEnd）が確定済みか判定

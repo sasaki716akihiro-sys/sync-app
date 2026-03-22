@@ -1267,10 +1267,14 @@ export default function Home() {
     }
     const ownHist = row.period_history ?? [];
     setPeriodHistory(ownHist);
-    // cycleDays / periodDays は moonSource の保存値を優先、なければ自分の履歴から計算
+    // cycleDays / periodDays：まず履歴から再計算し、不足時のみDB保存値を参照
+    // ※ DB には旧コードの固定値(28/5)が混在している可能性があるため、
+    //   計算可能な場合は常に履歴ベースを優先する
     const srcHist = periodSource.period_history ?? [];
-    setCycleDays(periodSource.cycle_days  ?? calcAverageCycle(srcHist));
-    setPeriodDays(periodSource.period_days ?? calcAveragePeriod(srcHist));
+    const calcedCycle  = calcAverageCycle(srcHist);
+    const calcedPeriod = calcAveragePeriod(srcHist);
+    setCycleDays(calcedCycle   ?? periodSource.cycle_days  ?? null);
+    setPeriodDays(calcedPeriod ?? periodSource.period_days ?? null);
   }, []);
 
   // ─── 全行ロード ───────────────────────────────────────────
@@ -1373,8 +1377,11 @@ export default function Home() {
               }
               const partnerHist = newRow.period_history ?? [];
               if (partnerHist.length > 0 || newRow.cycle_days != null || newRow.period_days != null) {
-                setCycleDays(newRow.cycle_days  ?? calcAverageCycle(partnerHist));
-                setPeriodDays(newRow.period_days ?? calcAveragePeriod(partnerHist));
+                // 履歴から再計算を優先し、不足時のみDB値を参照（固定値汚染を防ぐ）
+                const pCalcCycle  = calcAverageCycle(partnerHist);
+                const pCalcPeriod = calcAveragePeriod(partnerHist);
+                setCycleDays(pCalcCycle   ?? newRow.cycle_days  ?? null);
+                setPeriodDays(pCalcPeriod ?? newRow.period_days ?? null);
               }
             } else {
               // パートナーがリセット → 自分も moon_start がなければ state をクリア
@@ -1618,21 +1625,21 @@ export default function Home() {
         const year  = moonStart ? ymdYear(moonStart)  : moonEnd ? ymdYear(moonEnd)  : moonYear;
         const month = moonStart ? ymdMonth(moonStart) : moonEnd ? ymdMonth(moonEnd) : moonMonth;
 
-        // 開始日・終了日が両方確定した場合のみ履歴に追加して平均を再計算
+        // 開始日・終了日が両方確定した場合のみ履歴に追加
         // → 途中入力・誤入力・開始日のみの状態は履歴に含めない
         let newHistory = periodHistory;
-        let newCycle   = cycleDays;
-        let newPeriod  = periodDays;
         if (moonStart && moonEnd) {
           const startStr = `${ymdYear(moonStart)}-${String(ymdMonth(moonStart)+1).padStart(2,"0")}-${String(ymdDay(moonStart)).padStart(2,"0")}`;
           const endStr   = `${ymdYear(moonEnd)}-${String(ymdMonth(moonEnd)+1).padStart(2,"0")}-${String(ymdDay(moonEnd)).padStart(2,"0")}`;
           newHistory = addToHistory(periodHistory, startStr, endStr);
-          newCycle   = calcAverageCycle(newHistory);
-          newPeriod  = calcAveragePeriod(newHistory);
           setPeriodHistory(newHistory);
-          setCycleDays(newCycle);
-          setPeriodDays(newPeriod);
         }
+        // 常に現在履歴から再計算（stale な state 値 cycleDays/periodDays を引き継がない）
+        // → DB の旧固定値(28/5)が上書き保存され続けるのを防ぐ
+        const newCycle  = calcAverageCycle(newHistory);
+        const newPeriod = calcAveragePeriod(newHistory);
+        setCycleDays(newCycle);
+        setPeriodDays(newPeriod);
 
         // last_start_date：moonStart があればその値、なければ確定済み履歴の最新開始日
         // → リセット時も予測が消えずに済む

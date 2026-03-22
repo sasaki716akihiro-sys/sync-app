@@ -199,6 +199,18 @@ function addKimochiLog(
   return next.slice(-28); // 最大4週分
 }
 
+// ─── 気づかい提案文（パートナーの生理期間中に表示）────────
+// 今後増やしたい場合はここに追加するだけでOK
+const CARE_SUGGESTIONS = [
+  "今日は家事を少し多めに引き受けてみる？ 🏠",
+  "無理に踏み込まず、そっと寄り添うのも大事かも 🌿",
+  "温かい飲み物や好きなお菓子で気づかいを伝えてみる？ ☕",
+  "少し休めるように、できることを代わってみる？ 🤍",
+  "今日は疲れやすいかも。やさしく接してあげてね 🌸",
+  "重たいものや負担になることは、できる範囲で代わろう 💪",
+  "静かにそばにいるだけで、伝わることもあるよ 🌙",
+];
+
 // ─── クールダウン日数 ────────────────────────────────────
 function getCooldownDays(goal: number): number {
   if (goal === 1) return 20;
@@ -1156,6 +1168,23 @@ export default function Home() {
     return todayYMD >= moonRow.moon_start && todayYMD <= tentEndYMD;
   })();
 
+  // ── 気づかい提案カードの表示判定 ─────────────────────────
+  // 条件を満たすときだけ表示する（追加設定なしで自動判定）:
+  //   1. パートナーが接続済み
+  //   2. パートナー側に生理データがある（partnerRow.moon_start != null）
+  //   3. 自分には生理データがない（myRow.moon_start == null）
+  //      ← 両者とも記録あり/なしの曖昧ケースは安全側で非表示
+  //   4. 現在が生理期間中（isInMoonPeriod ＝ moonRow = partnerRow で計算済み）
+  const showCareCard =
+    partnerRow !== null &&
+    (partnerRow.moon_start != null) &&
+    (myRow?.moon_start == null) &&
+    isInMoonPeriod;
+  // 日付ベースで提案文を毎日ローテーション（同じ端末では同じ文言）
+  const todaySuggestion = showCareCard
+    ? CARE_SUGGESTIONS[new Date().getDate() % CARE_SUGGESTIONS.length]
+    : null;
+
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す
   const mergeRow = useCallback((newRow: SyncRow) => {
@@ -1939,6 +1968,26 @@ export default function Home() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* ── ③.5 気づかい提案カード（パートナーの生理期間中のみ） ── */}
+        {showCareCard && todaySuggestion && (
+          <div className="rounded-3xl px-5 py-4 flex flex-col gap-2"
+            style={{
+              backgroundColor: "rgba(196,180,224,0.12)",
+              border: "1.5px solid #D4C4F0",
+              boxShadow: "0 2px 12px rgba(196,180,224,0.15)",
+            }}>
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize:16 }}>🌙</span>
+              <p className="font-bold text-sm" style={{ color:"#8B7BA8" }}>
+                パートナーへの気づかい
+              </p>
+            </div>
+            <p style={{ fontSize:13, color:"#5A4E72", lineHeight:1.6 }}>
+              {todaySuggestion}
+            </p>
           </div>
         )}
 

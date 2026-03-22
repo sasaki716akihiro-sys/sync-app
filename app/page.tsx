@@ -51,30 +51,40 @@ interface KimochiLogEntry {
   partner_kimochi:Kimochi;
 }
 
-// ─── 生理履歴から平均周期・平均期間を計算 ──────────────────
-function calcAverageCycle(history: PeriodRecord[]): number {
-  // 直近3件の開始日の間隔の平均
-  if (history.length < 2) return 28;
-  const recent = history.slice(-3); // 最大3件
-  const intervals: number[] = [];
-  for (let i = 1; i < recent.length; i++) {
-    const prev = new Date(recent[i-1].start).getTime();
-    const curr = new Date(recent[i].start).getTime();
-    intervals.push(Math.round((curr - prev) / 86400000));
-  }
-  return Math.round(intervals.reduce((a,b) => a+b, 0) / intervals.length);
+// ─── 生理履歴から周期・期間を計算（中央値ベース） ──────────
+function calcMedian(arr: number[]): number {
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+    : sorted[mid];
 }
 
-function calcAveragePeriod(history: PeriodRecord[]): number {
-  // 直近3件の期間日数の平均
-  if (history.length < 1) return 5;
-  const recent = history.slice(-3);
-  const days = recent.map(r => {
+// 確定済み履歴（開始・終了両方あり）から周期日数の中央値を返す
+// 2件未満は null（予測不可 → 固定値fallbackしない）
+function calcAverageCycle(history: PeriodRecord[]): number | null {
+  const complete = history.filter(r => r.start && r.end);
+  if (complete.length < 2) return null;
+  const intervals: number[] = [];
+  for (let i = 1; i < complete.length; i++) {
+    const prev = new Date(complete[i-1].start).getTime();
+    const curr = new Date(complete[i].start).getTime();
+    intervals.push(Math.round((curr - prev) / 86400000));
+  }
+  return calcMedian(intervals);
+}
+
+// 確定済み履歴から生理期間日数の中央値を返す
+// 1件は暫定利用、0件は null（予測不可 → 固定値fallbackしない）
+function calcAveragePeriod(history: PeriodRecord[]): number | null {
+  const complete = history.filter(r => r.start && r.end);
+  if (complete.length < 1) return null;
+  const days = complete.map(r => {
     const s = new Date(r.start).getTime();
     const e = new Date(r.end).getTime();
     return Math.round((e - s) / 86400000) + 1;
   });
-  return Math.round(days.reduce((a,b) => a+b, 0) / days.length);
+  return complete.length === 1 ? days[0] : calcMedian(days);
 }
 
 // 履歴に1件追加（20日以内なら直近を上書き）、最大5件に絞る
@@ -730,7 +740,7 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
   moonEnd:number|null;   setMoonEnd:(d:number|null)=>void;
   moonYear:number; moonMonth:number;
   setMoonYear:(n:number)=>void; setMoonMonth:(n:number)=>void;
-  cycleDays:number; periodDays:number;
+  cycleDays:number|null; periodDays:number|null;
   lastStartDate:string|null;
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
@@ -765,7 +775,7 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
 
   // ── 開始日のみ選択時：平均期間から仮終了日を表示 ──────────
   const tentativeEndYMD = (() => {
-    if (!moonStart || moonEnd) return null; // 終了日未選択のときだけ
+    if (!moonStart || moonEnd || !periodDays) return null; // 終了日未選択・期間データなしのときだけ
     const s = new Date(
       ymdYear(moonStart), ymdMonth(moonStart), ymdDay(moonStart)
     );
@@ -776,6 +786,10 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
 
   const predictLabel = predictStartYMD && predictEndYMD
     ? `次回予測：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
+    : null;
+  // 周期計算に必要な2件の確定履歴がない場合の案内
+  const predictNote = !cycleDays && (moonStart != null || lastStartDate != null)
+    ? "次回予測：確定記録が2回分以上になると計算されます"
     : null;
 
   const prevMonth = () => {
@@ -936,6 +950,13 @@ function SettingsScreen({ onBack, initialCoupleId, syncGoal, setSyncGoal,
                 <p style={{ fontSize:11, color:"#C47840", fontWeight:600 }}>{predictLabel}</p>
               </div>
             )}
+            {!predictLabel && predictNote && (
+              <div className="mt-2 px-4 py-2.5 rounded-2xl flex items-center gap-2"
+                style={{ backgroundColor:"rgba(200,200,200,0.1)", border:"1.5px dashed #C4A898" }}>
+                <span style={{ fontSize:14 }}>🔮</span>
+                <p style={{ fontSize:11, color:"#C4A898" }}>{predictNote}</p>
+              </div>
+            )}
 
           </div>
         </div>
@@ -1047,8 +1068,8 @@ export default function Home() {
   const [moonYear,  setMoonYear]  = useState(now.getFullYear());
   const [moonMonth, setMoonMonth] = useState(now.getMonth());
   // ── ムーンデイ予測用 ──────────────────────────────────────
-  const [cycleDays,     setCycleDays]     = useState(28);
-  const [periodDays,    setPeriodDays]    = useState(5);
+  const [cycleDays,     setCycleDays]     = useState<number|null>(null);
+  const [periodDays,    setPeriodDays]    = useState<number|null>(null);
   const [lastStartDate, setLastStartDate_moon] = useState<string|null>(null);
   const [periodHistory, setPeriodHistory] = useState<PeriodRecord[]>([]);
   // ── リマインド設定 ────────────────────────────────────────

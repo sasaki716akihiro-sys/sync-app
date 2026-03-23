@@ -500,6 +500,7 @@ function SyncSuccessCard({ isSyncToday, remainingDays, totalDays, lastSyncDate, 
 function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
+  partnerConfirmedStart, partnerConfirmedEnd,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
   onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod,
   onGoalChange, onReminderChange,
@@ -509,6 +510,8 @@ function SettingsScreen({
   syncGoal:number; setSyncGoal:(n:number)=>void;
   initialConfirmedStart: number | null;
   initialConfirmedEnd:   number | null;
+  partnerConfirmedStart: number | null;
+  partnerConfirmedEnd:   number | null;
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string, cStart:number|null, cEnd:number|null)=>void; saving:boolean;
@@ -531,12 +534,15 @@ function SettingsScreen({
   const [confirmedStart, setConfirmedStart] = useState<number | null>(initialConfirmedStart);
   const [confirmedEnd,   setConfirmedEnd]   = useState<number | null>(initialConfirmedEnd);
   const [draftDate,      setDraftDate]      = useState<number | null>(null);
-  // カレンダーの表示月：confirmed があればその月、なければ今月
-  const _initYear  = initialConfirmedStart
-    ? Math.floor(initialConfirmedStart / 10000)
+  // パートナーが記録者かどうか（自分はnullでパートナーにデータがある場合）
+  const periodFromPartner = confirmedStart === null && partnerConfirmedStart !== null;
+  // カレンダーの表示月：自分またはパートナーの記録があればその月、なければ今月
+  const _effectiveStart = initialConfirmedStart ?? partnerConfirmedStart;
+  const _initYear  = _effectiveStart
+    ? Math.floor(_effectiveStart / 10000)
     : _now.getFullYear();
-  const _initMonth = initialConfirmedStart
-    ? Math.floor((initialConfirmedStart % 10000) / 100) - 1
+  const _initMonth = _effectiveStart
+    ? Math.floor((_effectiveStart % 10000) / 100) - 1
     : _now.getMonth();
   const [calYear,  setCalYear]  = useState(_initYear);
   const [calMonth, setCalMonth] = useState(_initMonth);
@@ -717,10 +723,12 @@ function SettingsScreen({
                   const ymd = _toYMD(calYear, calMonth, d);
 
                   // フェーズ別のカレンダー表示
-                  // phase 0: 開始日選択中 / phase 1: 生理中・終了日選択中 / phase 2: 確定済み
+                  // phase 0: 開始日選択中 / phase 1: 生理中・終了日選択中 / phase 2: 確定済み / partner: パートナー記録中
                   const phase = !confirmedStart ? "start" : !confirmedEnd ? "end" : "done";
-                  const activeSt  = phase === "start" ? draftDate  : confirmedStart;
-                  const activeEnd = phase === "start" ? null
+                  const activeSt  = periodFromPartner ? partnerConfirmedStart
+                                 : phase === "start"  ? draftDate  : confirmedStart;
+                  const activeEnd = periodFromPartner ? partnerConfirmedEnd
+                                 : phase === "start"  ? null
                                  : phase === "end"    ? draftDate
                                  :                      confirmedEnd;
 
@@ -760,7 +768,24 @@ function SettingsScreen({
             </div>
 
             {/* フェーズ別：状態表示 & 確定ボタン */}
-            {!confirmedStart ? (
+            {periodFromPartner ? (
+              /* パートナーが記録中：読み取り専用 */
+              <div className="mt-4 px-4 py-3 rounded-2xl"
+                style={{ backgroundColor:"rgba(255,182,193,0.15)", border:"1px solid #F4A8B8" }}>
+                <p style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
+                  🌸 パートナーが生理中です（{_ymdLabel(partnerConfirmedStart)}〜）
+                </p>
+                {partnerConfirmedEnd ? (
+                  <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                    終了日: {_ymdLabel(partnerConfirmedEnd)}
+                  </p>
+                ) : (
+                  <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                    終了日は未記録です
+                  </p>
+                )}
+              </div>
+            ) : !confirmedStart ? (
               /* Phase 0: 開始日選択 */
               <>
                 <div className="mt-4 px-4 py-3 rounded-2xl"
@@ -1582,6 +1607,8 @@ export default function Home() {
         syncGoal={syncGoal}   setSyncGoal={setSyncGoal}
         initialConfirmedStart={savedMoonStart}
         initialConfirmedEnd={savedMoonEnd}
+        partnerConfirmedStart={partnerMoonStart}
+        partnerConfirmedEnd={partnerMoonEnd}
         onSave={handleSaveSettings} saving={saving}
         onConfirmStart={handleConfirmStart}
         onConfirmEnd={handleConfirmEnd}

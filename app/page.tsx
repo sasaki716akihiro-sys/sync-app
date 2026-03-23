@@ -1644,6 +1644,75 @@ export default function Home() {
               onReset={handleCooldownReset}/>
           </div>
 
+        ) : isInPeriod ? (
+          /* === 生理期間中：is17 ゲートなしで画像カードを直接表示 === */
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-0.5">
+              <div>
+                <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                  今日はお休みモード
+                </p>
+                <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                  ゆっくり過ごしてね 🌸
+                </p>
+              </div>
+            </div>
+            <div className="rounded-3xl overflow-hidden"
+              style={{ border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
+              {/* 女性アイコンカード */}
+              <div className="px-4 pt-4 pb-4"
+                style={{ backgroundColor:"rgba(255,242,246,0.9)" }}>
+                <div className="flex items-center gap-3">
+                  <Image
+                    src={`/images/period-status-${periodLevel}.png`}
+                    alt="お休みモード"
+                    width={80}
+                    height={80}
+                    style={{ objectFit:"contain", borderRadius:12, flexShrink:0 }}
+                  />
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>
+                      🌸 生理{periodDayCount}日目 · お休みモード
+                    </span>
+                    <p className="font-bold text-sm leading-snug" style={{ color:"#4A3728" }}>
+                      {periodCopy.title}
+                    </p>
+                    <p style={{ fontSize:11, color:"#9A7B6A", lineHeight:1.5 }}>
+                      {periodCopy.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="h-px" style={{ backgroundColor:"#FDEBD0" }}/>
+              {/* パートナーのキモチ */}
+              <div className="px-4 pt-3 pb-4"
+                style={{ backgroundColor:"rgba(255,248,240,0.7)" }}>
+                <div className="flex items-center gap-1.5 mb-3">
+                  <span style={{ fontSize:14 }}>🌿</span>
+                  <span className="text-xs font-bold" style={{ color:"#7AAD72" }}>パートナーのキモチ</span>
+                  {partnerKimochi ? (
+                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                      style={{ backgroundColor:"rgba(122,173,114,0.15)", color:"#5A9E7A" }}>
+                      ✓ 回答済み
+                    </span>
+                  ) : (
+                    <span className="ml-auto text-xs flex items-center gap-1" style={{ color:"#C4A898" }}>
+                      <span style={{ animation:"pulse 1.5s infinite", display:"inline-block" }}>●</span>
+                      待ち中…
+                    </span>
+                  )}
+                </div>
+                <KimochiRow
+                  key={`partner-${partnerKimochi ?? "none"}`}
+                  label="" avatar=""
+                  selected={partnerKimochi}
+                  onSelect={()=>{}}
+                  disabled={true}
+                />
+              </div>
+            </div>
+          </div>
+
         ) : (
           /* === 通常：キモチ確認 === */
           <div className="flex flex-col gap-3">
@@ -1694,61 +1763,31 @@ export default function Home() {
                 {/* ─ メインカード ─ */}
                 <div className="rounded-3xl overflow-hidden"
                   style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 24px rgba(255,176,133,0.18)" }}>
-
-                  {isInPeriod ? (
-                    /* 生理期間中：女性アイコンカード */
-                    <div className="px-4 pt-4 pb-4"
-                      style={{ backgroundColor:"rgba(255,242,246,0.9)" }}>
-                      <div className="flex items-center gap-3">
-                        <Image
-                          src={`/images/period-status-${periodLevel}.png`}
-                          alt="お休みモード"
-                          width={80}
-                          height={80}
-                          style={{ objectFit:"contain", borderRadius:12, flexShrink:0 }}
-                        />
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>
-                            🌸 生理{periodDayCount}日目 · お休みモード
-                          </span>
-                          <p className="font-bold text-sm leading-snug" style={{ color:"#4A3728" }}>
-                            {periodCopy.title}
-                          </p>
-                          <p style={{ fontSize:11, color:"#9A7B6A", lineHeight:1.5 }}>
-                            {periodCopy.message}
-                          </p>
-                        </div>
-                      </div>
+                  {/* あなたのキモチ */}
+                  <div className="px-4 pt-4 pb-3"
+                    style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <span style={{ fontSize:14 }}>🌸</span>
+                      <span className="text-xs font-bold" style={{ color:"#B86540" }}>あなたのキモチ</span>
+                      {myKimochi ? (
+                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
+                          ✓ 選択済み
+                        </span>
+                      ) : (
+                        <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
+                          まだ選んでいないよ
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    /* 通常：あなたのキモチ */
-                    <div className="px-4 pt-4 pb-3"
-                      style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <span style={{ fontSize:14 }}>🌸</span>
-                        <span className="text-xs font-bold" style={{ color:"#B86540" }}>あなたのキモチ</span>
-                        {myKimochi ? (
-                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                            style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
-                            ✓ 選択済み
-                          </span>
-                        ) : (
-                          <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
-                            まだ選んでいないよ
-                          </span>
-                        )}
-                      </div>
-                      <KimochiRow
-                        label="" avatar=""
-                        selected={myKimochi}
-                        onSelect={handleKimochiSelect}
-                        disabled={false}
-                      />
-                    </div>
-                  )}
-
+                    <KimochiRow
+                      label="" avatar=""
+                      selected={myKimochi}
+                      onSelect={handleKimochiSelect}
+                      disabled={false}
+                    />
+                  </div>
                   <div className="h-px" style={{ backgroundColor:"#FDEBD0" }}/>
-
                   {/* パートナーのキモチ */}
                   <div className="px-4 pt-3 pb-4"
                     style={{ backgroundColor:"rgba(255,248,240,0.7)" }}>
@@ -1776,7 +1815,6 @@ export default function Home() {
                     />
                   </div>
                 </div>
-
                 {/* マッチバナー */}
                 {showMatch && myKimochi && partnerKimochi && (
                   <MatchBanner me={myKimochi} partner={partnerKimochi} onClose={resetKimochi}/>

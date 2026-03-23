@@ -1028,6 +1028,19 @@ export default function Home() {
       (todayInt >= partnerMoonStart && todayInt <= partnerMoonEnd)
     );
 
+  // ── パートナーの生理日数・レベル ─────────────────────────────
+  const partnerPeriodDayCount = (() => {
+    if (!partnerMoonStart) return 0;
+    const sy = Math.floor(partnerMoonStart / 10000);
+    const sm = Math.floor((partnerMoonStart % 10000) / 100) - 1;
+    const sd = partnerMoonStart % 100;
+    const start = new Date(sy, sm, sd); start.setHours(0,0,0,0);
+    const now   = new Date();           now.setHours(0,0,0,0);
+    return Math.max(1, Math.floor((now.getTime() - start.getTime()) / 86400000) + 1);
+  })();
+  const partnerPeriodLevel = partnerPeriodDayCount <= 2 ? "high" : partnerPeriodDayCount <= 4 ? "mid" : "low";
+  const partnerLevelLabel  = { high: "しんどさが強い頃かも", mid: "少ししんどさが残る頃", low: "少しずつ楽になってくる頃" }[partnerPeriodLevel];
+
   // ── 気づかいカード文言（パートナーが生理中のとき表示） ────────
   const partnerCarePatterns = [
     { emoji: "🌿", title: "今日はゆっくり見守ろう",         message: "近くにいるだけで十分だよ" },
@@ -1368,7 +1381,7 @@ export default function Home() {
 
   // ─── 6. キモチ選択ハンドラ ─────────────────────────────────
   const handleKimochiSelect = useCallback(async (val: Kimochi) => {
-    if (isInPeriod) return; // お休みモード中は入力ガード
+    if (isInPeriod || partnerIsInPeriod) return; // どちらかがお休みモード中は入力ブロック
     setShowMatch(false);
     setShowFireworks(false);
     await saveMyKimochi(val);
@@ -1714,25 +1727,30 @@ export default function Home() {
           </div>
 
         ) : partnerIsInPeriod ? (
-          /* === パートナーが生理期間中：気づかいカード === */
+          /* === パートナーが生理期間中：気づかいカード（キモチ入力なし） === */
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-0.5">
-              <div>
-                <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
-                  今日のキモチを選んでね
-                </p>
-                <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                  言いにくい日も、選ぶだけでOK ☁️
-                </p>
-              </div>
+              <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                パートナーはお休みモード 🌸
+              </p>
             </div>
-            {/* パートナーお休みバッジ */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl"
-              style={{ backgroundColor:"rgba(255,182,193,0.15)", border:"1px solid #F4A8B8" }}>
-              <span style={{ fontSize:14 }}>🌸</span>
-              <span style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
-                パートナーは今日お休みモードです
-              </span>
+            {/* パートナー日数 + レベルカード */}
+            <div className="rounded-3xl px-5 py-5"
+              style={{ backgroundColor:"rgba(255,242,246,0.95)", border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
+              {/* 日数バッジ */}
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
+                style={{ backgroundColor:"rgba(244,168,184,0.25)", border:"1px solid #F4A8B8" }}>
+                <span style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
+                  パートナーの生理 {partnerPeriodDayCount} 日目
+                </span>
+              </div>
+              {/* レベル一言 */}
+              <p className="font-bold leading-snug mb-1" style={{ fontSize:14, color:"#4A3728" }}>
+                {partnerLevelLabel}
+              </p>
+              <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.6 }}>
+                今日はそっと見守ってあげよう
+              </p>
             </div>
             {/* 気づかいカード */}
             <div className="rounded-3xl px-5 py-5"
@@ -1747,20 +1765,6 @@ export default function Home() {
                     {partnerCare.message}
                   </p>
                 </div>
-              </div>
-            </div>
-            {/* 自分のキモチ選択は通常通り表示 */}
-            <div className="rounded-3xl overflow-hidden"
-              style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1.5px solid #FFE0CC", boxShadow:"0 2px 12px rgba(255,176,120,0.1)" }}>
-              <div className="px-4 pt-4 pb-4">
-                <p className="text-xs font-bold mb-3" style={{ color:"#B86540" }}>あなたのキモチ</p>
-                <KimochiRow
-                  key={`my-${myKimochi ?? "none"}`}
-                  label="" avatar=""
-                  selected={myKimochi}
-                  onSelect={handleKimochiSelect}
-                  disabled={false}
-                />
               </div>
             </div>
           </div>

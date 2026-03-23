@@ -1073,6 +1073,20 @@ export default function Home() {
       && r.user_email !== ""
   ) ?? null;
 
+  // ── カップル共有の period_history（自分・パートナー両行をマージ） ──
+  // period_history は user 行ごとに保存されるため、
+  // 表示時に両行を合算・start 重複排除・新しい順に並べる
+  const mergedPeriodHistory: PeriodRecord[] = (() => {
+    const all = [
+      ...(myRow?.period_history ?? []),
+      ...(partnerRow?.period_history ?? []),
+    ];
+    const seen = new Set<string>();
+    return all
+      .filter(r => { if (seen.has(r.start)) return false; seen.add(r.start); return true; })
+      .sort((a, b) => b.start.localeCompare(a.start));
+  })();
+
   // ── 生理期間（syncData の myRow から派生 → Realtime と常に同期） ─
   const savedMoonStart = myRow?.moon_start ?? null;
   const savedMoonEnd   = myRow?.moon_end   ?? null;
@@ -1668,7 +1682,7 @@ export default function Home() {
         initialConfirmedEnd={savedMoonEnd}
         partnerConfirmedStart={partnerMoonStart}
         partnerConfirmedEnd={partnerMoonEnd}
-        periodHistory={myRow?.period_history ?? null}
+        periodHistory={mergedPeriodHistory.length > 0 ? mergedPeriodHistory : null}
         onSave={handleSaveSettings} saving={saving}
         onConfirmStart={handleConfirmStart}
         onConfirmEnd={handleConfirmEnd}

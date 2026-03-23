@@ -1427,6 +1427,15 @@ export default function Home() {
   const isSyncToday = !!lastSyncDate && lastSyncDate.substring(0,10) === todayStr2;
   const isInCooldown = isSyncToday || remainingDays > 0;
 
+  // ── 生理期間中判定 ─────────────────────────────────────
+  // savedMoonStart/End は YYYYMMDD 整数。今日も同形式に変換して比較
+  const todayInt = parseInt(getLocalDateStr().replace(/-/g, ""), 10);
+  const isInPeriod =
+    savedMoonStart !== null &&
+    savedMoonEnd   !== null &&
+    todayInt >= savedMoonStart &&
+    todayInt <= savedMoonEnd;
+
   const resetKimochi = () => {
     setShowMatch(false);
     if (!isInCooldown) setIs17(false);
@@ -1552,6 +1561,14 @@ export default function Home() {
             <span style={{ fontSize:11, color:"#C4A898" }}>🎯</span>
             <span style={{ fontSize:10, color:"#9A7B6A" }}>目標 {syncGoal}回 / お休み{cooldownDays}日</span>
           </div>
+          {/* 生理期間中バッジ */}
+          {isInPeriod && (
+            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:"rgba(255,182,193,0.2)", border:"1px solid #F4A8B8" }}>
+              <span style={{ fontSize:11 }}>🌸</span>
+              <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>お休みモード中</span>
+            </div>
+          )}
         </div>
 
         {/* ── ③ メインカード：状態別に完全分岐 ─────────── */}

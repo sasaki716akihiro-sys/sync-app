@@ -527,6 +527,8 @@ function SettingsScreen({
   const [confirming,       setConfirming]       = useState(false);
   const [resetting,        setResetting]        = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showAllHistory,   setShowAllHistory]   = useState(false);
+  const HISTORY_LIMIT = 3;
   const cooldownDays = getCooldownDays(syncGoal);
 
   // ── 生理期間 ─────────────────────────────────────────────
@@ -912,7 +914,7 @@ function SettingsScreen({
               </p>
             </div>
             <div className="px-5 py-4 flex flex-col gap-2" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-              {[...periodHistory].reverse().map((rec, i) => (
+              {(showAllHistory ? periodHistory : periodHistory.slice(0, HISTORY_LIMIT)).map((rec, i) => (
                 <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-2xl"
                   style={{ backgroundColor:"rgba(139,123,168,0.08)", border:"1px solid #E0D4F0" }}>
                   <span style={{ fontSize:12 }}>🌸</span>
@@ -921,6 +923,16 @@ function SettingsScreen({
                   </span>
                 </div>
               ))}
+              {periodHistory.length > HISTORY_LIMIT && (
+                <button
+                  onClick={() => setShowAllHistory(v => !v)}
+                  className="mt-1 py-2 rounded-2xl text-xs font-semibold active:scale-95 transition-transform"
+                  style={{ color:"#8B7BA8", backgroundColor:"rgba(139,123,168,0.07)", border:"1px solid #E0D4F0" }}>
+                  {showAllHistory
+                    ? "折りたたむ ▲"
+                    : `すべて見る（残り ${periodHistory.length - HISTORY_LIMIT} 件）▼`}
+                </button>
+              )}
             </div>
           </div>
         )}

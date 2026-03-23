@@ -499,6 +499,7 @@ function SyncSuccessCard({ isSyncToday, remainingDays, totalDays, lastSyncDate, 
 // ─── 設定画面 ────────────────────────────────────────────
 function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
+  initialConfirmedStart, initialConfirmedEnd,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
   onSave, saving,
   onGoalChange, onReminderChange,
@@ -506,24 +507,34 @@ function SettingsScreen({
   onBack:()=>void;
   initialCoupleId:string;
   syncGoal:number; setSyncGoal:(n:number)=>void;
+  initialConfirmedStart: number | null;
+  initialConfirmedEnd:   number | null;
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
-  onSave:(coupleId:string)=>void; saving:boolean;
+  onSave:(coupleId:string, cStart:number|null, cEnd:number|null)=>void; saving:boolean;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
   const cooldownDays = getCooldownDays(syncGoal);
 
-  // ── 生理期間：ローカルstateのみ（保存なし） ──────────────
+  // ── 生理期間 ─────────────────────────────────────────────
   // YYYYMMDD 整数で管理（例: 2026年3月17日 → 20260317）
   const _now = new Date();
-  const [calYear,   setCalYear]   = useState(_now.getFullYear());
-  const [calMonth,  setCalMonth]  = useState(_now.getMonth()); // 0-indexed
+  // confirmed は initial props（DB読み込み値）で初期化
+  const [confirmedStart, setConfirmedStart] = useState<number | null>(initialConfirmedStart);
+  const [confirmedEnd,   setConfirmedEnd]   = useState<number | null>(initialConfirmedEnd);
   const [draftStart,     setDraftStart]     = useState<number | null>(null);
   const [draftEnd,       setDraftEnd]       = useState<number | null>(null);
-  const [confirmedStart, setConfirmedStart] = useState<number | null>(null);
-  const [confirmedEnd,   setConfirmedEnd]   = useState<number | null>(null);
+  // カレンダーの表示月：confirmed があればその月、なければ今月
+  const _initYear  = initialConfirmedStart
+    ? Math.floor(initialConfirmedStart / 10000)
+    : _now.getFullYear();
+  const _initMonth = initialConfirmedStart
+    ? Math.floor((initialConfirmedStart % 10000) / 100) - 1
+    : _now.getMonth();
+  const [calYear,  setCalYear]  = useState(_initYear);
+  const [calMonth, setCalMonth] = useState(_initMonth);
 
   // 小さなYMDヘルパー（このコンポーネント内だけで使う）
   const _toYMD = (y: number, m: number, d: number) => y * 10000 + (m + 1) * 100 + d;
@@ -587,7 +598,7 @@ function SettingsScreen({
         <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
           style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>←</button>
         <h1 className="font-bold text-base flex-1" style={{ color:"#8B4513" }}>設定・ふたりのルール</h1>
-        <button onClick={()=>onSave(localCoupleId)} disabled={saving}
+        <button onClick={()=>onSave(localCoupleId, confirmedStart, confirmedEnd)} disabled={saving}
           className="px-4 py-2 rounded-full text-sm font-bold active:scale-95 transition-transform"
           style={{ backgroundColor:saving?"#FDEBD0":"#D97B6C", color:"white" }}>
           {saving ? "保存中…" : "保存 💾"}
@@ -871,6 +882,10 @@ export default function Home() {
   const [coupleIdInput, setCoupleIdInput] = useState("");
   const [syncGoal,  setSyncGoal]  = useState(4);
   const now = new Date();
+  // ── 生理期間（DB保存済みの値） ───────────────────────────
+  const [savedMoonStart, setSavedMoonStart] = useState<number | null>(null);
+  const [savedMoonEnd,   setSavedMoonEnd]   = useState<number | null>(null);
+
   // ── リマインド設定 ────────────────────────────────────────
   const [reminderWeekday, setReminderWeekday] = useState(17);
   const [reminderWeekend, setReminderWeekend] = useState(19);
@@ -940,7 +955,6 @@ export default function Home() {
   }, []);
 
   // ─── 自分の行から設定値をstateに反映 ─────────────────────
-  // 月経データは syncData 派生の moonRow から直接取得するため、ここでは不要
   const applyMySettings = useCallback((row: SyncRow) => {
     setSyncGoal(row.sync_goal ?? 4);
     setLastSyncDate(row.last_sync_date ?? null);
@@ -948,6 +962,9 @@ export default function Home() {
     if (row.reminder_weekend != null) setReminderWeekend(row.reminder_weekend);
     setReminderLoaded(true);
     if (row.kimochi_log) setKimochiLog(row.kimochi_log);
+    // 生理期間の確定済みデータを復元
+    setSavedMoonStart(row.moon_start ?? null);
+    setSavedMoonEnd(row.moon_end   ?? null);
   }, []);
 
   // ─── 全行ロード ───────────────────────────────────────────
@@ -1250,8 +1267,12 @@ export default function Home() {
     pop("クールダウンをリセットしました");
   }, [coupleId, myEmail, pop]);
 
-  // ─── 8. 設定保存（カップルIDと目標のみ・生理期間データには触らない） ────
-  const handleSaveSettings = useCallback(async (newCoupleId: string) => {
+  // ─── 8. 設定保存 ─────────────────────────────────────────
+  const handleSaveSettings = useCallback(async (
+    newCoupleId: string,
+    cStart: number | null,
+    cEnd:   number | null,
+  ) => {
     setSaving(true);
     setCoupleId(newCoupleId);
     localStorage.setItem("sync_couple_id", newCoupleId);
@@ -1260,8 +1281,13 @@ export default function Home() {
         couple_id:  newCoupleId,
         user_email: myEmail,
         sync_goal:  syncGoal,
+        moon_start: cStart,
+        moon_end:   cEnd,
         updated_at: new Date().toISOString(),
       }, { onConflict: "couple_id,user_email" });
+      // 保存成功後にメイン側の saved 値も更新
+      setSavedMoonStart(cStart);
+      setSavedMoonEnd(cEnd);
     }
     setSaving(false);
     pop("設定を保存したよ 💾");
@@ -1355,6 +1381,8 @@ export default function Home() {
         onBack={()=>setScreen("home")}
         initialCoupleId={coupleId}
         syncGoal={syncGoal}   setSyncGoal={setSyncGoal}
+        initialConfirmedStart={savedMoonStart}
+        initialConfirmedEnd={savedMoonEnd}
         onSave={handleSaveSettings} saving={saving}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}

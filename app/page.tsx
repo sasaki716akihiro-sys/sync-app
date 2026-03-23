@@ -783,17 +783,17 @@ function SettingsScreen({
                 <div className="mt-4 px-4 py-3 rounded-2xl"
                   style={{ backgroundColor:"rgba(255,182,193,0.2)", border:"1px solid #F4A8B8" }}>
                   <p style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
-                    🌸 生理中です（{_ymdLabel(confirmedStart)}〜）
+                    🌸 いま生理中です（{_ymdLabel(confirmedStart)}〜）
                   </p>
                   <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                    終わったら終了日をタップして選んでね
+                    終わったら、その日をタップしてね
                   </p>
                 </div>
                 {draftDate && draftDate >= confirmedStart && (
                   <button onClick={handleConfirmEnd} disabled={confirming}
                     className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
                     style={{ backgroundColor: confirming ? "#C4B4E0" : "#8B7BA8", color:"#fff" }}>
-                    {confirming ? "保存中…" : `${_ymdLabel(draftDate)} に終了する 🌙`}
+                    {confirming ? "保存中…" : `${_ymdLabel(draftDate)} を終了日にする 🌙`}
                   </button>
                 )}
                 <div className="mt-2 flex justify-end">
@@ -1032,22 +1032,22 @@ export default function Home() {
   const periodLevel = periodDayCount <= 2 ? "max" : periodDayCount <= 4 ? "mid" : "low";
   const periodPatterns = {
     max: [
-      { emoji: "🤒", title: "今日はかなりしんどい日かも",       message: "できるだけゆっくりしてね" },
-      { emoji: "🤒", title: "無理せずゆっくりしたい日",         message: "あたたかくして、落ち着いて過ごそう" },
-      { emoji: "🤒", title: "まずは休むことを優先しよう",       message: "今日は無理を減らして過ごせたら十分だよ" },
-      { emoji: "🤒", title: "今日はがんばりすぎなくて大丈夫",   message: "少しでも楽に過ごせますように" },
+      { emoji: "🤒", title: "今日はかなりしんどい日かも",     message: "今日はできるだけゆっくりしてね" },
+      { emoji: "🤒", title: "まずは休むことを優先しよう",     message: "あたたかくして過ごせたら十分だよ" },
+      { emoji: "🤒", title: "無理せずゆっくりしたい日",       message: "無理を減らして過ごそう" },
+      { emoji: "🤒", title: "今日はがんばりすぎなくて大丈夫", message: "少しでも楽に過ごせますように" },
     ],
     mid: [
-      { emoji: "😵", title: "少ししんどさが残る頃",             message: "無理のないペースでいこう" },
-      { emoji: "😵", title: "まだ無理はしないでいたい日",       message: "ひと息つきながら過ごそう" },
-      { emoji: "😵", title: "今日は落ち着いて過ごしたいね",     message: "落ち着ける時間を大切にしよう" },
-      { emoji: "😵", title: "ゆるやかに整えていく日",           message: "できることだけで十分だよ" },
+      { emoji: "😵", title: "少ししんどさが残る頃",           message: "できることだけで十分だよ" },
+      { emoji: "😵", title: "今日は落ち着いて過ごしたいね",   message: "ひと息つきながらいこう" },
+      { emoji: "😵", title: "無理のない一日にしよう",         message: "落ち着ける時間を大切にしよう" },
+      { emoji: "😵", title: "ゆるやかに整えていく日",         message: "ゆっくりペースで大丈夫だよ" },
     ],
     low: [
-      { emoji: "😌", title: "少しずつ楽になってくる頃",         message: "自分のペースで過ごそう" },
-      { emoji: "😌", title: "今日は穏やかに過ごせそう",         message: "無理せずゆるくいけたら十分" },
-      { emoji: "😌", title: "すこし軽くなってくるタイミング",   message: "ほっとできる時間を持てるといいね" },
-      { emoji: "😌", title: "やさしく日常に戻していこう",       message: "気負わず穏やかに過ごそう" },
+      { emoji: "😌", title: "少しずつ楽になってくる頃",       message: "自分のペースで過ごそう" },
+      { emoji: "😌", title: "今日は穏やかに過ごせそう",       message: "気負わずゆるくいけたら十分" },
+      { emoji: "😌", title: "やさしく日常に戻していこう",     message: "ほっとできる時間を持てるといいね" },
+      { emoji: "😌", title: "すこし軽くなってくるタイミング", message: "穏やかに過ごせますように" },
     ],
   };
   // periodDayCount でインデックスを固定し、当日中は同じ文言が出るようにする
@@ -1663,36 +1663,32 @@ export default function Home() {
           </div>
 
         ) : isInPeriod ? (
-          /* === 生理期間中：is17 ゲートなしで画像カードを直接表示 === */
+          /* === 生理期間中：お休みモードカード === */
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-0.5">
-              <div>
-                <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
-                  今日はお休みモード
-                </p>
-                <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                  ゆっくり過ごしてね 🌸
-                </p>
-              </div>
+              <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                今日はお休みモード 🌸
+              </p>
             </div>
-            <div className="rounded-3xl overflow-hidden"
-              style={{ border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
-              {/* 生理期間カード（テキスト + 絵文字） */}
-              <div className="px-4 pt-4 pb-4"
-                style={{ backgroundColor:"rgba(255,242,246,0.9)" }}>
-                <div className="flex items-center gap-3">
-                  <span style={{ fontSize:48, flexShrink:0, lineHeight:1 }}>{periodCopy!.emoji}</span>
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>
-                      🌸 生理{periodDayCount}日目 · お休みモード
-                    </span>
-                    <p className="font-bold text-sm leading-snug" style={{ color:"#4A3728" }}>
-                      {periodCopy!.title}
-                    </p>
-                    <p style={{ fontSize:11, color:"#9A7B6A", lineHeight:1.5 }}>
-                      {periodCopy!.message}
-                    </p>
-                  </div>
+            <div className="rounded-3xl px-5 py-5"
+              style={{ backgroundColor:"rgba(255,242,246,0.95)", border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
+              {/* 日数バッジ */}
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
+                style={{ backgroundColor:"rgba(244,168,184,0.25)", border:"1px solid #F4A8B8" }}>
+                <span style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
+                  生理 {periodDayCount} 日目
+                </span>
+              </div>
+              {/* 絵文字 + テキスト */}
+              <div className="flex items-start gap-3">
+                <span style={{ fontSize:44, lineHeight:1, flexShrink:0 }}>{periodCopy!.emoji}</span>
+                <div className="flex flex-col gap-1.5">
+                  <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
+                    {periodCopy!.title}
+                  </p>
+                  <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.6 }}>
+                    {periodCopy!.message}
+                  </p>
                 </div>
               </div>
             </div>

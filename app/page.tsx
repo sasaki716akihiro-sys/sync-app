@@ -51,91 +51,6 @@ interface KimochiLogEntry {
   partner_kimochi:Kimochi;
 }
 
-// ─── 生理履歴から周期・期間を計算（中央値ベース） ──────────
-function calcMedian(arr: number[]): number {
-  const sorted = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
-    : sorted[mid];
-}
-
-// 確定済み履歴（開始・終了両方あり）から周期日数の中央値を返す
-// 2件未満は null（予測不可 → 固定値fallbackしない）
-function calcAverageCycle(history: PeriodRecord[]): number | null {
-  const complete = history.filter(r => r.start && r.end);
-  if (complete.length < 2) return null;
-  const intervals: number[] = [];
-  for (let i = 1; i < complete.length; i++) {
-    const prev = new Date(complete[i-1].start).getTime();
-    const curr = new Date(complete[i].start).getTime();
-    intervals.push(Math.round((curr - prev) / 86400000));
-  }
-  return calcMedian(intervals);
-}
-
-// 確定済み履歴から生理期間日数の中央値を返す
-// 1件は暫定利用、0件は null（予測不可 → 固定値fallbackしない）
-function calcAveragePeriod(history: PeriodRecord[]): number | null {
-  const complete = history.filter(r => r.start && r.end);
-  if (complete.length < 1) return null;
-  const days = complete.map(r => {
-    const s = new Date(r.start).getTime();
-    const e = new Date(r.end).getTime();
-    return Math.round((e - s) / 86400000) + 1;
-  });
-  return complete.length === 1 ? days[0] : calcMedian(days);
-}
-
-// 履歴に1件追加（同一開始日は上書き）、最大5件に絞る
-function addToHistory(
-  history: PeriodRecord[], start: string, end: string
-): PeriodRecord[] {
-  // 同一開始日は置き換え（終了日の修正に対応）
-  const next = [...history.filter(r => r.start !== start), { start, end }];
-  next.sort((a, b) => a.start.localeCompare(b.start));
-  return next.slice(-5); // 最新5件保持
-}
-
-// ─── しんどさレベル計算 ───────────────────────────────────
-function calcShindoness(startDateStr: string | null): number {
-  if (!startDateStr) return 50;
-  const start = new Date(startDateStr); start.setHours(0,0,0,0);
-  const today = new Date();             today.setHours(0,0,0,0);
-  const day = Math.floor((today.getTime() - start.getTime()) / 86400000) + 1;
-  if (day <= 0) return 0;
-  if (day === 1) return 90;
-  if (day === 2) return 100;
-  if (day === 3) return 60;
-  if (day === 4) return 30;
-  return 10;
-}
-
-// ─── しんどさイラスト（PNG切り替え） ─────────────────────
-function ShindonessIllustration({ level }: { level: number }) {
-  const src = level >= 80
-    ? "/images/period-status-max.png"
-    : level >= 40
-    ? "/images/period-status-mid.png"
-    : "/images/period-status-low.png";
-
-  const alt = level >= 80
-    ? "かなりしんどい状態のイラスト"
-    : level >= 40
-    ? "しんどい状態のイラスト"
-    : "少し回復してきた状態のイラスト";
-
-  return (
-    <Image
-      src={src}
-      alt={alt}
-      width={200}
-      height={160}
-      style={{ objectFit: "contain", mixBlendMode: "multiply" }}
-      priority
-    />
-  );
-}
 // ─── 週次ふりかえりロジック ────────────────────────────────
 // 気持ちの距離：0=完全一致 1=近い 2=ズレあり
 function kimochiDistance(a: Kimochi, b: Kimochi): number {
@@ -193,43 +108,6 @@ function addKimochiLog(
   next.sort((a,b) => a.date.localeCompare(b.date));
   return next.slice(-28); // 最大4週分
 }
-
-// ─── 気づかい提案文（しんどさレベル別）─────────────────
-// high: しんどさ≥80（生理1〜2日目：一番つらい時期）
-// mid:  しんどさ≥40（生理3〜4日目：ピーク過ぎてまだしんどい）
-// low:  しんどさ<40（生理5日目以降・終わりかけ）
-const CARE_SUGGESTIONS_BY_LEVEL: Record<"high" | "mid" | "low", string[]> = {
-  high: [
-    "今日は一番しんどい時期かも。できるだけそっとしてあげてね 🌙",
-    "痛みがピークの日。家事は全部引き受けてあげよう 🏠",
-    "何も言わなくていい。ただそばにいてあげるだけでいいよ 🤍",
-    "今日は無理をさせないで。休める時間を作ってあげよう 🛌",
-    "温かいもの（飲み物・湯たんぽなど）を差し入れしてみて ☕",
-    "「何か必要なものある？」のひとことで十分伝わるよ 🌸",
-    "今日はとくに刺激しないで、静かに過ごせる環境を作ろう 🌿",
-    "体がしんどい分、精神的にも繊細になってる。やさしくね 💜",
-  ],
-  mid: [
-    "ピークは過ぎてきたかも。でもまだ無理させないでね 🌿",
-    "重い荷物や力仕事は代わってあげよう 💪",
-    "「体、どう？」の一言が心に響くよ 🌸",
-    "今日は外食や楽な夕食で、料理の負担を減らしてあげよう 🍜",
-    "お風呂のあとに温かい飲み物を用意してみて ☕",
-    "家事は少し多めに担当してみる？ きっと助かってるよ 🏠",
-    "まだ疲れやすい時期。早めに休める雰囲気を作ってあげよう 🌙",
-    "「ゆっくりしていいよ」って声をかけてみて 🤍",
-    "元気そうに見えても無理してるかも。気にかけてあげてね 🌷",
-  ],
-  low: [
-    "もうすぐ終わりそう。いつも頑張ってるね 🌸",
-    "体調が戻ってきたころ。好きなものでも一緒に食べよう 🍰",
-    "「今月もお疲れさま」のひとことが嬉しいかも 💬",
-    "元気が戻ってきたなら、一緒に出かける計画を立ててみて 🌤️",
-    "さりげなく「最近どう？」って聞いてみるのも大事だよ 🌿",
-    "小さな気づかいが積み重なって、信頼になるよ 🤍",
-    "回復期でも、無理させないようにね。焦らなくて大丈夫 🌷",
-  ],
-};
 
 // ─── クールダウン日数 ────────────────────────────────────
 function getCooldownDays(goal: number): number {
@@ -618,244 +496,24 @@ function SyncSuccessCard({ isSyncToday, remainingDays, totalDays, lastSyncDate, 
   );
 }
 
-// ─── ムーンデイカレンダー ────────────────────────────────
-// moon_start / moon_end は YYYYMMDD 形式の整数で管理
-// 例：2026年3月16日 → 20260316
-// → 月をまたぐ期間も年月日の大小比較だけで正しく判定できる
-const MONTH_NAMES = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
-
-function toYMD(year: number, month: number, day: number): number {
-  return year * 10000 + (month + 1) * 100 + day; // month は 0-indexed
-}
-function ymdYear(ymd: number)  { return Math.floor(ymd / 10000); }
-function ymdMonth(ymd: number) { return Math.floor((ymd % 10000) / 100) - 1; } // 0-indexed
-function ymdDay(ymd: number)   { return ymd % 100; }
-function ymdLabel(ymd: number) {
-  return `${ymdMonth(ymd)+1}月${ymdDay(ymd)}日`;
-}
-// YYYYMMDD int → "YYYY-MM-DD" 文字列
-function ymdToDateStr(ymd: number): string {
-  return `${ymdYear(ymd)}-${String(ymdMonth(ymd)+1).padStart(2,"0")}-${String(ymdDay(ymd)).padStart(2,"0")}`;
-}
-
-function MoonCalendar({ year, month, startYMD, endYMD, onSelectStart, onSelectEnd,
-  predictStartYMD, predictEndYMD, tentativeEndYMD }: {
-  year:number; month:number;
-  startYMD:number|null; endYMD:number|null;
-  onSelectStart:(ymd:number)=>void; onSelectEnd:(ymd:number)=>void;
-  predictStartYMD?:number|null; predictEndYMD?:number|null;
-  tentativeEndYMD?:number|null; // 開始日のみ選択時の仮終了日
-}) {
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  const firstDow    = new Date(year, month, 1).getDay();
-  const cells: (number|null)[] = [
-    ...Array(firstDow).fill(null),
-    ...Array.from({length:daysInMonth}, (_,i) => i+1),
-  ];
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const handleDay = (d: number) => {
-    const ymd = toYMD(year, month, d);
-    if (startYMD === null || (startYMD !== null && endYMD !== null)) {
-      onSelectStart(ymd);
-    } else {
-      if (ymd < startYMD) onSelectStart(ymd);
-      else onSelectEnd(ymd);
-    }
-  };
-
-  return (
-    <div>
-      <div className="grid grid-cols-7 mb-1">
-        {["日","月","火","水","木","金","土"].map(d=>(
-          <div key={d} className="text-center"
-            style={{ fontSize:10, color:"#C4A898", fontWeight:600, paddingBottom:4 }}>{d}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-y-1">
-        {cells.map((d,i) => {
-          if (!d) return <div key={i}/>;
-          const ymd    = toYMD(year, month, d);
-          const active = (startYMD !== null && endYMD !== null && ymd >= startYMD && ymd <= endYMD)
-                      || ymd === startYMD || ymd === endYMD;
-          const isEdge = ymd === startYMD || ymd === endYMD;
-          // 仮終了日（開始日のみ選択時・平均期間で計算）
-          const isTentative = !active && !endYMD
-            && startYMD != null && tentativeEndYMD != null
-            && ymd > startYMD && ymd <= tentativeEndYMD;
-          // 次回予測期間
-          const isPredicted = !active && !isTentative
-            && predictStartYMD != null && predictEndYMD != null
-            && ymd >= predictStartYMD && ymd <= predictEndYMD;
-          const isPredictEdge = ymd === predictStartYMD || ymd === predictEndYMD;
-          return (
-            <button key={i} onClick={()=>handleDay(d)}
-              className="flex items-center justify-center rounded-full transition-all duration-150 active:scale-90 mx-auto"
-              style={{ width:32, height:32,
-                backgroundColor: active      ? "#C4B4E0"
-                               : isTentative ? "rgba(196,180,224,0.25)"
-                               : isPredicted ? "rgba(255,176,100,0.18)" : "transparent",
-                color:           active      ? "#fff"
-                               : isTentative ? "#8B7BA8"
-                               : isPredicted ? "#C47840" : "#4A3728",
-                fontWeight:      (isEdge || isPredictEdge) ? 700 : 400,
-                fontSize:        13,
-                outline:         isEdge        ? "2px solid #8B7BA8"
-                               : isTentative   ? "1.5px dashed #C4B4E0"
-                               : isPredictEdge ? "2px dashed #FFB085"
-                               : isPredicted   ? "1px dashed #FFB085"
-                               : "none",
-                outlineOffset:   1 }}>
-              {d}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ─── 設定画面 ────────────────────────────────────────────
 function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
-  confirmedStart, confirmedEnd, periodHistory,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
-  onSave, saving, onConfirmPeriod, onResetPeriod, onDeleteHistory,
+  onSave, saving,
   onGoalChange, onReminderChange,
 }: {
   onBack:()=>void;
   initialCoupleId:string;
   syncGoal:number; setSyncGoal:(n:number)=>void;
-  confirmedStart: number | null;
-  confirmedEnd: number | null;
-  periodHistory: PeriodRecord[];
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string)=>void; saving:boolean;
-  onConfirmPeriod:(startYMD:number, endYMD:number)=>Promise<void>;
-  onResetPeriod:()=>Promise<void>;
-  onDeleteHistory:(start:string)=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
-  const [confirming, setConfirming] = useState(false);
-  const [resetting,  setResetting]  = useState(false);
   const cooldownDays = getCooldownDays(syncGoal);
-  const now = new Date();
-
-  // ── ドラフト state（ローカルのみ・DBへの書き込みなし） ──────
-  const [draftStart, setDraftStart] = useState<number|null>(confirmedStart);
-  const [draftEnd,   setDraftEnd]   = useState<number|null>(confirmedEnd);
-  const [calYear,    setCalYear]    = useState(
-    confirmedStart ? ymdYear(confirmedStart) : now.getFullYear()
-  );
-  const [calMonth,   setCalMonth]   = useState(
-    confirmedStart ? ymdMonth(confirmedStart) : now.getMonth()
-  );
-
-  // 確定ボタン
-  const handleConfirm = async () => {
-    if (!draftStart || !draftEnd || confirming) return;
-    setConfirming(true);
-    await onConfirmPeriod(draftStart, draftEnd);
-    setConfirming(false);
-  };
-
-  // リセットボタン（ドラフト消去 + DB上の生理期間を消去）
-  const handleReset = async () => {
-    if (resetting) return;
-    setResetting(true);
-    setDraftStart(null);
-    setDraftEnd(null);
-    await onResetPeriod();
-    setResetting(false);
-  };
-
-  // ── 次回予測計算（確定済み履歴のみから直接算出） ────────────
-  // ・draft入力(draftStart/draftEnd)は予測計算に使わない
-  // ・履歴不足時は無理に表示しない
-  const confirmedHistory = periodHistory.filter(r => r.start && r.end);
-  const predCycleLen  = calcAverageCycle(confirmedHistory);   // null if < 2件
-  const predPeriodLen = calcAveragePeriod(confirmedHistory);  // null if < 1件
-
-  // 1件：period長は実績から、周期は28日参考値（参考ラベル付き）
-  // 2件以上：実績中央値で計算
-  // 0件：予測しない
-  const REFERENCE_CYCLE = 28;
-  const effectiveCycleLen = predCycleLen ?? (confirmedHistory.length >= 1 ? REFERENCE_CYCLE : null);
-  const isReferencePrediction = effectiveCycleLen === REFERENCE_CYCLE && !predCycleLen;
-
-  const { predictStartYMD, predictEndYMD } = (() => {
-    if (!effectiveCycleLen || !predPeriodLen || confirmedHistory.length < 1) {
-      return { predictStartYMD: null, predictEndYMD: null };
-    }
-    const lastRecord = confirmedHistory[confirmedHistory.length - 1];
-    const base = new Date(lastRecord.start);
-    base.setHours(0, 0, 0, 0);
-    const nextStart = new Date(base);
-    nextStart.setDate(nextStart.getDate() + effectiveCycleLen);
-    const nextEnd = new Date(nextStart);
-    nextEnd.setDate(nextEnd.getDate() + predPeriodLen - 1);
-    const today = new Date(); today.setHours(0,0,0,0);
-    const diffDays = (nextStart.getTime() - today.getTime()) / 86400000;
-    if (diffDays < -30 || diffDays > 400) {
-      return { predictStartYMD: null, predictEndYMD: null };
-    }
-    return {
-      predictStartYMD: toYMD(nextStart.getFullYear(), nextStart.getMonth(), nextStart.getDate()),
-      predictEndYMD:   toYMD(nextEnd.getFullYear(),   nextEnd.getMonth(),   nextEnd.getDate()),
-    };
-  })();
-
-  // 開始日のみ選択時：過去履歴から仮終了日を表示
-  const tentativeEndYMD = (() => {
-    if (!draftStart || draftEnd || !predPeriodLen) return null;
-    const s = new Date(ymdYear(draftStart), ymdMonth(draftStart), ymdDay(draftStart));
-    const e = new Date(s);
-    e.setDate(e.getDate() + predPeriodLen - 1);
-    return toYMD(e.getFullYear(), e.getMonth(), e.getDate());
-  })();
-
-  const predictLabel = predictStartYMD && predictEndYMD
-    ? isReferencePrediction
-      ? `次回予測（参考）：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
-      : `次回予測：${ymdLabel(predictStartYMD)} 〜 ${ymdLabel(predictEndYMD)}`
-    : null;
-  const predictNote = !predictLabel && confirmedHistory.length === 0
-    ? "生理期間を1回確定すると参考予測が表示されます"
-    : null;
-
-  // ドラフトが既に確定済みの状態かどうか
-  const isDraftConfirmed = draftStart != null && draftEnd != null
-    && draftStart === confirmedStart && draftEnd === confirmedEnd;
-
-  const prevMonth = () => {
-    if (calMonth===0){ setCalMonth(11); setCalYear(calYear-1); }
-    else setCalMonth(calMonth-1);
-  };
-  const nextMonth = () => {
-    if (calMonth===11){ setCalMonth(0); setCalYear(calYear+1); }
-    else setCalMonth(calMonth+1);
-  };
-
-  const rangeLabel = draftStart
-    ? draftEnd
-      ? `${ymdLabel(draftStart)} 〜 ${ymdLabel(draftEnd)}`
-      : tentativeEndYMD
-        ? `${ymdLabel(draftStart)} 〜 ${ymdLabel(tentativeEndYMD)}（予測）`
-        : `${ymdLabel(draftStart)} 〜 （終了日を選んでね）`
-    : "開始日をタップしてね";
-
-  const handleSelectStart = (ymd: number) => {
-    setDraftStart(ymd);
-    setDraftEnd(null);
-    setCalYear(ymdYear(ymd));
-    setCalMonth(ymdMonth(ymd));
-  };
-  const handleSelectEnd = (ymd: number) => {
-    setDraftEnd(ymd);
-  };
 
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor:"#FFFBF5", color:"#4A3728" }}>
@@ -922,133 +580,18 @@ function SettingsScreen({
           </div>
         </div>
 
-        {/* ムーンデイ */}
+        {/* 生理期間機能（準備中） */}
         <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
           <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
             <div className="flex items-center gap-1.5">
               <span style={{ fontSize:16 }}>🌙</span>
-              <p className="font-bold text-sm" style={{ color:"#B86540" }}>生理期間（自動お休みモード）</p>
+              <p className="font-bold text-sm" style={{ color:"#B86540" }}>生理期間（準備中）</p>
             </div>
-            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-              期間を選ぶと自動でお休みモードになるよ
-            </p>
           </div>
-          <div className="px-4 py-4" style={{ backgroundColor:"rgba(255,255,255,0.80)" }}>
-            <div className="flex items-center justify-between mb-4">
-              <button onClick={prevMonth} className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>‹</button>
-              <p className="font-bold text-sm" style={{ color:"#4A3728" }}>{calYear}年 {MONTH_NAMES[calMonth]}</p>
-              <button onClick={nextMonth} className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>›</button>
-            </div>
-            <MoonCalendar year={calYear} month={calMonth}
-              startYMD={draftStart} endYMD={draftEnd}
-              onSelectStart={handleSelectStart}
-              onSelectEnd={handleSelectEnd}
-              predictStartYMD={draftEnd ? predictStartYMD : null}
-              predictEndYMD={draftEnd ? predictEndYMD : null}
-              tentativeEndYMD={tentativeEndYMD}/>
-            {/* 凡例 */}
-            <div className="flex items-center gap-3 mt-2 px-1 flex-wrap">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"#C4B4E0" }}/>
-                <span style={{ fontSize:10, color:"#8B7BA8" }}>今回</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"rgba(196,180,224,0.25)", border:"1.5px dashed #C4B4E0" }}/>
-                <span style={{ fontSize:10, color:"#8B7BA8" }}>仮終了（予測）</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"rgba(255,176,100,0.35)", border:"1px dashed #FFB085" }}/>
-                <span style={{ fontSize:10, color:"#C47840" }}>次回予測</span>
-              </div>
-            </div>
-            <div className="mt-3 px-4 py-3 rounded-2xl flex items-center justify-between gap-2"
-              style={{ backgroundColor:draftStart?"rgba(196,180,224,0.2)":"rgba(253,235,208,0.5)", border:"1px solid #D4C4F0" }}>
-              <div className="flex items-center gap-2">
-                <span style={{ fontSize:14 }}>🌙</span>
-                <p style={{ fontSize:11, color:"#8B7BA8" }}>{rangeLabel}</p>
-              </div>
-              {(draftStart || confirmedStart) && (
-                <button onClick={handleReset} disabled={resetting}
-                  style={{ fontSize:10, color:"#C4A898" }}>
-                  {resetting ? "…" : "リセット"}
-                </button>
-              )}
-            </div>
-
-            {/* 確定ボタン / ガイダンス */}
-            {draftStart && !draftEnd && (
-              <p className="mt-2 text-center" style={{ fontSize:11, color:"#C4A898" }}>
-                終了日を選んでください
-              </p>
-            )}
-            {draftStart && draftEnd && (
-              <button
-                onClick={handleConfirm}
-                disabled={confirming || isDraftConfirmed}
-                className="mt-2 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
-                style={{
-                  backgroundColor: isDraftConfirmed
-                    ? "rgba(196,180,224,0.3)"
-                    : confirming ? "#FDEBD0" : "#8B7BA8",
-                  color: isDraftConfirmed ? "#8B7BA8" : "white",
-                  border: isDraftConfirmed ? "1.5px solid #C4B4E0" : "none",
-                }}>
-                {confirming
-                  ? "記録中…"
-                  : isDraftConfirmed
-                  ? "✓ 確定済み"
-                  : "この期間で確定する 🌙"}
-              </button>
-            )}
-
-            {predictLabel && (
-              <div className="mt-2 px-4 py-2.5 rounded-2xl flex items-center gap-2"
-                style={{ backgroundColor:"rgba(255,176,100,0.12)", border:"1.5px dashed #FFB085" }}>
-                <span style={{ fontSize:14 }}>🔮</span>
-                <p style={{ fontSize:11, color:"#C47840", fontWeight:600 }}>{predictLabel}</p>
-              </div>
-            )}
-            {!predictLabel && predictNote && (
-              <div className="mt-2 px-4 py-2.5 rounded-2xl flex items-center gap-2"
-                style={{ backgroundColor:"rgba(200,200,200,0.1)", border:"1.5px dashed #C4A898" }}>
-                <span style={{ fontSize:14 }}>🔮</span>
-                <p style={{ fontSize:11, color:"#C4A898" }}>{predictNote}</p>
-              </div>
-            )}
-
+          <div className="px-5 py-5 flex items-center justify-center" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+            <p style={{ fontSize:13, color:"#C4A898" }}>この機能は近日公開予定です 🌸</p>
           </div>
         </div>
-
-        {/* 確定済み履歴 */}
-        {confirmedHistory.length > 0 && (
-          <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
-            <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
-              <p className="font-bold text-sm" style={{ color:"#B86540" }}>📋 確定済み履歴</p>
-              <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>予測の計算に使われる記録です</p>
-            </div>
-            <div className="px-4 py-3 flex flex-col gap-2" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-              {[...confirmedHistory].reverse().map((record) => (
-                  <div key={record.start} className="flex items-center justify-between px-3 py-2 rounded-2xl"
-                    style={{ backgroundColor:"rgba(196,180,224,0.1)", border:"1px solid #E8DFF5" }}>
-                    <div className="flex items-center gap-2">
-                      <span style={{ fontSize:12 }}>🌙</span>
-                      <span style={{ fontSize:12, color:"#8B7BA8" }}>
-                        {record.start} 〜 {record.end}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => onDeleteHistory(record.start)}
-                      className="px-2 py-1 rounded-xl text-xs active:scale-90 transition-transform"
-                      style={{ backgroundColor:"rgba(255,100,100,0.1)", color:"#D97B6C", border:"1px solid rgba(217,123,108,0.3)" }}>
-                      削除
-                    </button>
-                  </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* リマインド設定 */}
         <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
@@ -1205,78 +748,6 @@ export default function Home() {
 
   // partnerEmailRef を最新の partnerRow に追従させる
   useEffect(() => { partnerEmailRef.current = partnerRow?.user_email ?? null; }, [partnerRow]);
-
-  // ── ★ カレンダーは「より新しい生理開始日を持つ行」を優先して表示 ──
-  // 「キモチは別々、カレンダーは一緒」
-  // 優先順位: 両方にデータがある場合 → moon_start が大きい（新しい）方を使う
-  //           これにより、古い自分のデータよりパートナーの最新期間が正しく表示される
-  const moonRow = (() => {
-    const myMoon      = myRow?.moon_start      != null ? myRow      : null;
-    const partnerMoon = partnerRow?.moon_start != null ? partnerRow : null;
-    if (!myMoon && !partnerMoon) return null;
-    if (!myMoon)      return partnerMoon;
-    if (!partnerMoon) return myMoon;
-    // 両方にデータがある場合：より新しい開始日を優先
-    return myMoon.moon_start! >= partnerMoon.moon_start! ? myMoon : partnerMoon;
-  })();
-
-  // 確定済み生理履歴（moonRow の保持者の行から取得）
-  const periodHistory: PeriodRecord[] = moonRow?.period_history ?? [];
-
-  // isInMoonPeriod は syncData 由来の moonRow で判定
-  // → パートナーが設定を変更した瞬間に自動反映される
-  const todayDate  = now.getDate(), todayYear = now.getFullYear(), todayMonth = now.getMonth();
-  const todayYMD = toYMD(todayYear, todayMonth, todayDate);
-
-  const isInMoonPeriod = (() => {
-    if (!moonRow || moonRow.moon_start == null) return false;
-
-    // 終了日が確定している場合：その範囲内かどうか
-    if (moonRow.moon_end != null) {
-      return todayYMD >= moonRow.moon_start && todayYMD <= moonRow.moon_end;
-    }
-
-    // 開始日のみ（仮終了日）：履歴から計算した期間日数を使う
-    const pd = calcAveragePeriod(periodHistory) ?? 5;
-    const startD = new Date(
-      ymdYear(moonRow.moon_start), ymdMonth(moonRow.moon_start), ymdDay(moonRow.moon_start)
-    );
-    const tentEnd = new Date(startD);
-    tentEnd.setDate(tentEnd.getDate() + pd - 1);
-    const tentEndYMD = toYMD(tentEnd.getFullYear(), tentEnd.getMonth(), tentEnd.getDate());
-    return todayYMD >= moonRow.moon_start && todayYMD <= tentEndYMD;
-  })();
-
-  // ── 気づかい提案カードの表示判定 ─────────────────────────
-  // 【判定の軸】
-  //   moonRow = 現在の生理表示に使われている行（myRow 優先、なければ partnerRow）
-  //   moonRow.user_email === partnerRow.user_email
-  //     → moonRow がパートナーの行 = パートナーが生理データの保持者（記録者）
-  //     → 自分はパートナー側 → 気づかい提案を表示
-  //   moonRow.user_email !== partnerRow.user_email（= 自分の行）
-  //     → 自分が記録者 → 表示しない
-  //
-  // 【この方式の利点】
-  //   moonRow の導出ロジック（myRow 優先）と完全に一致するため、
-  //   両行にデータがある場合も「myRow を使っている = 自分が記録者」と
-  //   一貫して扱われ、逆表示が起きない。
-  //   判定が曖昧になる period_history 比較は行わず、常に安全側に倒す。
-  const showCareCard =
-    partnerRow !== null &&
-    moonRow !== null &&
-    moonRow.user_email === partnerRow.user_email && // moonRow がパートナーの行
-    isInMoonPeriod;
-  // しんどさレベルに応じた提案文を日付ベースでローテーション
-  const todaySuggestion = (() => {
-    if (!showCareCard || !moonRow?.moon_start) return null;
-    const ms = moonRow.moon_start.toString();
-    const startStr = `${ms.slice(0,4)}-${ms.slice(4,6)}-${ms.slice(6,8)}`;
-    const shindoness = calcShindoness(startStr);
-    const level: "high" | "mid" | "low" =
-      shindoness >= 80 ? "high" : shindoness >= 40 ? "mid" : "low";
-    const pool = CARE_SUGGESTIONS_BY_LEVEL[level];
-    return pool[new Date().getDate() % pool.length];
-  })();
 
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す
@@ -1621,69 +1092,6 @@ export default function Home() {
     setScreen("home");
   }, [syncGoal, myEmail, pop]);
 
-  // ─── 8b. 生理期間の確定 ──────────────────────────────────────
-  // 確定時のみ period_history と現在期間（moon_start/end）を更新する
-  // draft は DB に書き込まない
-  const handleConfirmPeriod = useCallback(async (startYMD: number, endYMD: number) => {
-    if (!coupleId || !myEmail) return;
-    const isMoonOwner = moonRow == null || moonRow.user_email === myEmail;
-    if (!isMoonOwner) { pop("生理期間はパートナーが記録しています 🌙"); return; }
-
-    const newHistory = addToHistory(periodHistory, ymdToDateStr(startYMD), ymdToDateStr(endYMD));
-
-    await supabase.from("sync_status").upsert({
-      couple_id:      coupleId,
-      user_email:     myEmail,
-      moon_start:     startYMD,
-      moon_end:       endYMD,
-      moon_year:      ymdYear(startYMD),
-      moon_month:     ymdMonth(startYMD),
-      period_history: newHistory,
-      updated_at:     new Date().toISOString(),
-    }, { onConflict: "couple_id,user_email" });
-
-    pop("生理期間を記録したよ 🌙");
-  }, [coupleId, myEmail, periodHistory, moonRow, pop]);
-
-  // ─── 8c. 生理期間のリセット（現在の表示期間を消去・履歴は残す） ──
-  const handleResetPeriod = useCallback(async () => {
-    if (!coupleId || !myEmail) return;
-    const isMoonOwner = moonRow == null || moonRow.user_email === myEmail;
-    if (!isMoonOwner) { pop("生理期間はパートナーが記録しています 🌙"); return; }
-
-    await supabase.from("sync_status").upsert({
-      couple_id:  coupleId,
-      user_email: myEmail,
-      moon_start: null,
-      moon_end:   null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "couple_id,user_email" });
-
-    pop("生理期間をリセットしたよ 🌙");
-  }, [coupleId, myEmail, moonRow, pop]);
-
-  // ─── 8d. 生理履歴の1件削除 ────────────────────────────────
-  const handleDeleteHistory = useCallback(async (start: string) => {
-    if (!coupleId || !myEmail) return;
-    const isMoonOwner = moonRow == null || moonRow.user_email === myEmail;
-    if (!isMoonOwner) { pop("生理期間はパートナーが記録しています 🌙"); return; }
-
-    const newHistory = periodHistory.filter(r => r.start !== start);
-    // 削除されたエントリが現在の確定期間かどうか判定
-    const isCurrentRecord = moonRow?.moon_start != null
-      && ymdToDateStr(moonRow.moon_start) === start;
-
-    await supabase.from("sync_status").upsert({
-      couple_id:      coupleId,
-      user_email:     myEmail,
-      period_history: newHistory,
-      ...(isCurrentRecord ? { moon_start: null, moon_end: null } : {}),
-      updated_at:     new Date().toISOString(),
-    }, { onConflict: "couple_id,user_email" });
-
-    pop("履歴を削除したよ 🗑️");
-  }, [coupleId, myEmail, periodHistory, moonRow, pop]);
-
   // ─── 9a. Sync目標の即時保存 ───────────────────────────────
   const handleGoalChange = useCallback(async (newGoal: number) => {
     if (!coupleId || !myEmail) return;
@@ -1771,13 +1179,7 @@ export default function Home() {
         onBack={()=>setScreen("home")}
         initialCoupleId={coupleId}
         syncGoal={syncGoal}   setSyncGoal={setSyncGoal}
-        confirmedStart={moonRow?.moon_start ?? null}
-        confirmedEnd={moonRow?.moon_end ?? null}
-        periodHistory={periodHistory}
         onSave={handleSaveSettings} saving={saving}
-        onConfirmPeriod={handleConfirmPeriod}
-        onResetPeriod={handleResetPeriod}
-        onDeleteHistory={handleDeleteHistory}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
         reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}
@@ -1860,14 +1262,6 @@ export default function Home() {
             <span style={{ fontSize:11, color:"#C4A898" }}>🎯</span>
             <span style={{ fontSize:10, color:"#9A7B6A" }}>目標 {syncGoal}回 / お休み{cooldownDays}日</span>
           </div>
-          {/* 生理期間バッジ */}
-          {isInMoonPeriod && (
-            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
-              style={{ backgroundColor:"rgba(196,180,224,0.2)", border:"1px solid #D4C4F0" }}>
-              <span style={{ fontSize:11 }}>🌙</span>
-              <span style={{ fontSize:10, color:"#8B7BA8", fontWeight:600 }}>生理期間中</span>
-            </div>
-          )}
         </div>
 
         {/* ── ③ メインカード：状態別に完全分岐 ─────────── */}
@@ -1885,39 +1279,6 @@ export default function Home() {
               lastSyncDate={lastSyncDate!}
               onReset={handleCooldownReset}/>
           </div>
-
-        ) : isInMoonPeriod ? (
-          /* === 生理期間中：しんどさインジケーター === */
-          (() => {
-            // isInMoonPeriod が true の時点で moonRow と moonRow.moon_start は必ず non-null
-            // moonRow.moon_start (YYYYMMDD int) → "YYYY-MM-DD" 文字列に変換して渡す
-            // → lastStartDate（自分の行のみの state）を使わないことで、
-            //   どちらの端末から見ても同じ moonRow の値を参照し、結果が一致する
-            const ms = moonRow!.moon_start!;
-            const moonStartDateStr =
-              `${ymdYear(ms)}-${String(ymdMonth(ms)+1).padStart(2,"0")}-${String(ymdDay(ms)).padStart(2,"0")}`;
-            const shindoness  = calcShindoness(moonStartDateStr);
-            const borderColor = shindoness >= 80 ? "#F0A899" : shindoness >= 40 ? "#E8C880" : "#A8C9A0";
-            const bgColor     = shindoness >= 80 ? "rgba(240,168,153,0.10)" : shindoness >= 40 ? "rgba(184,148,58,0.08)" : "rgba(122,173,114,0.08)";
-            const textColor   = shindoness >= 80 ? "#D97B6C" : shindoness >= 40 ? "#B8943A" : "#5A9E7A";
-            const label       = shindoness >= 80 ? "かなりしんどい時期だよ。\nそっと見守ってあげてね 💜"
-                              : shindoness >= 40 ? "まだしんどさが残っているよ。\n優しくしてあげてね 🌿"
-                              : "少しずつ回復してきているよ。\nもうすぐ元気になるね 🌱";
-            return (
-              <div className="rounded-3xl overflow-hidden"
-                style={{ backgroundColor: bgColor, border:`1.5px solid ${borderColor}` }}>
-                <div className="flex flex-col items-center gap-3 px-5 py-5">
-                  <ShindonessIllustration level={shindoness} />
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-base" style={{ color: textColor }}>しんどさレベル：</span>
-                    <span className="font-bold" style={{ fontSize:22, color: textColor }}>{shindoness}%</span>
-                  </div>
-                  <p className="text-xs text-center leading-relaxed whitespace-pre-line"
-                    style={{ color: textColor, opacity:0.85 }}>{label}</p>
-                </div>
-              </div>
-            );
-          })()
 
         ) : (
           /* === 通常：キモチ確認 === */
@@ -2032,26 +1393,6 @@ export default function Home() {
                 )}
               </>
             )}
-          </div>
-        )}
-
-        {/* ── ③.5 気づかい提案カード（パートナーの生理期間中のみ） ── */}
-        {showCareCard && todaySuggestion && (
-          <div className="rounded-3xl px-5 py-4 flex flex-col gap-2"
-            style={{
-              backgroundColor: "rgba(196,180,224,0.12)",
-              border: "1.5px solid #D4C4F0",
-              boxShadow: "0 2px 12px rgba(196,180,224,0.15)",
-            }}>
-            <div className="flex items-center gap-2">
-              <span style={{ fontSize:16 }}>🌙</span>
-              <p className="font-bold text-sm" style={{ color:"#8B7BA8" }}>
-                パートナーへの気づかい
-              </p>
-            </div>
-            <p style={{ fontSize:13, color:"#5A4E72", lineHeight:1.6 }}>
-              {todaySuggestion}
-            </p>
           </div>
         )}
 

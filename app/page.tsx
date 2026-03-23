@@ -1871,7 +1871,7 @@ export default function Home() {
                       今日のキモチを選んでね
                     </p>
                     <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                      言いにくい日も、選ぶだけでOK ☁️
+                      言いにくい日も、選ぶだけでいいよ ☁️
                     </p>
                   </div>
                   {!is17 ? (

@@ -1677,33 +1677,6 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              <div className="h-px" style={{ backgroundColor:"#FDEBD0" }}/>
-              {/* パートナーのキモチ */}
-              <div className="px-4 pt-3 pb-4"
-                style={{ backgroundColor:"rgba(255,248,240,0.7)" }}>
-                <div className="flex items-center gap-1.5 mb-3">
-                  <span style={{ fontSize:14 }}>🌿</span>
-                  <span className="text-xs font-bold" style={{ color:"#7AAD72" }}>パートナーのキモチ</span>
-                  {partnerKimochi ? (
-                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                      style={{ backgroundColor:"rgba(122,173,114,0.15)", color:"#5A9E7A" }}>
-                      ✓ 回答済み
-                    </span>
-                  ) : (
-                    <span className="ml-auto text-xs flex items-center gap-1" style={{ color:"#C4A898" }}>
-                      <span style={{ animation:"pulse 1.5s infinite", display:"inline-block" }}>●</span>
-                      待ち中…
-                    </span>
-                  )}
-                </div>
-                <KimochiRow
-                  key={`partner-${partnerKimochi ?? "none"}`}
-                  label="" avatar=""
-                  selected={partnerKimochi}
-                  onSelect={()=>{}}
-                  disabled={true}
-                />
-              </div>
             </div>
           </div>
 

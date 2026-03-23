@@ -734,7 +734,7 @@ function SettingsScreen({
   onSave:(coupleId:string)=>void; saving:boolean;
   onConfirmPeriod:(startYMD:number, endYMD:number)=>Promise<void>;
   onResetPeriod:()=>Promise<void>;
-  onDeleteHistory:(index:number)=>Promise<void>;
+  onDeleteHistory:(start:string)=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
@@ -1029,9 +1029,7 @@ function SettingsScreen({
               <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>予測の計算に使われる記録です</p>
             </div>
             <div className="px-4 py-3 flex flex-col gap-2" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-              {[...confirmedHistory].reverse().map((record, i) => {
-                const originalIndex = confirmedHistory.length - 1 - i;
-                return (
+              {[...confirmedHistory].reverse().map((record) => (
                   <div key={record.start} className="flex items-center justify-between px-3 py-2 rounded-2xl"
                     style={{ backgroundColor:"rgba(196,180,224,0.1)", border:"1px solid #E8DFF5" }}>
                     <div className="flex items-center gap-2">
@@ -1041,14 +1039,13 @@ function SettingsScreen({
                       </span>
                     </div>
                     <button
-                      onClick={() => onDeleteHistory(originalIndex)}
+                      onClick={() => onDeleteHistory(record.start)}
                       className="px-2 py-1 rounded-xl text-xs active:scale-90 transition-transform"
                       style={{ backgroundColor:"rgba(255,100,100,0.1)", color:"#D97B6C", border:"1px solid rgba(217,123,108,0.3)" }}>
                       削除
                     </button>
                   </div>
-                );
-              })}
+              ))}
             </div>
           </div>
         )}
@@ -1666,17 +1663,15 @@ export default function Home() {
   }, [coupleId, myEmail, moonRow, pop]);
 
   // ─── 8d. 生理履歴の1件削除 ────────────────────────────────
-  const handleDeleteHistory = useCallback(async (index: number) => {
+  const handleDeleteHistory = useCallback(async (start: string) => {
     if (!coupleId || !myEmail) return;
     const isMoonOwner = moonRow == null || moonRow.user_email === myEmail;
     if (!isMoonOwner) { pop("生理期間はパートナーが記録しています 🌙"); return; }
 
-    const newHistory = periodHistory.filter((_, i) => i !== index);
+    const newHistory = periodHistory.filter(r => r.start !== start);
     // 削除されたエントリが現在の確定期間かどうか判定
-    const deletedRecord = periodHistory[index];
-    const isCurrentRecord = deletedRecord != null
-      && moonRow?.moon_start != null
-      && ymdToDateStr(moonRow.moon_start) === deletedRecord.start;
+    const isCurrentRecord = moonRow?.moon_start != null
+      && ymdToDateStr(moonRow.moon_start) === start;
 
     await supabase.from("sync_status").upsert({
       couple_id:      coupleId,

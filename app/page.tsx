@@ -986,6 +986,13 @@ export default function Home() {
   // ── 生理期間（syncData の myRow から派生 → Realtime と常に同期） ─
   const savedMoonStart = myRow?.moon_start ?? null;
   const savedMoonEnd   = myRow?.moon_end   ?? null;
+  // ── 生理期間中判定（useCallback より前に置き、stale closure を防ぐ） ─
+  const todayInt   = parseInt(today.replace(/-/g, ""), 10);
+  const isInPeriod =
+    savedMoonStart !== null &&
+    savedMoonEnd   !== null &&
+    todayInt >= savedMoonStart &&
+    todayInt <= savedMoonEnd;
 
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
@@ -1282,6 +1289,7 @@ export default function Home() {
 
   // ─── 6. キモチ選択ハンドラ ─────────────────────────────────
   const handleKimochiSelect = useCallback(async (val: Kimochi) => {
+    if (isInPeriod) return; // お休みモード中は入力ガード
     setShowMatch(false);
     setShowFireworks(false);
     await saveMyKimochi(val);
@@ -1306,7 +1314,7 @@ export default function Home() {
       }
       return current;
     });
-  }, [saveMyKimochi, saveKimochiLog, myEmail, pop]);
+  }, [saveMyKimochi, saveKimochiLog, myEmail, pop, isInPeriod]);
 
   // ─── 7. クールダウンリセット ───────────────────────────────
   const handleCooldownReset = useCallback(async () => {
@@ -1427,15 +1435,6 @@ export default function Home() {
   const todayStr2  = getLocalDateStr();
   const isSyncToday = !!lastSyncDate && lastSyncDate.substring(0,10) === todayStr2;
   const isInCooldown = isSyncToday || remainingDays > 0;
-
-  // ── 生理期間中判定 ─────────────────────────────────────
-  // savedMoonStart/End は YYYYMMDD 整数。今日も同形式に変換して比較
-  const todayInt = parseInt(getLocalDateStr().replace(/-/g, ""), 10);
-  const isInPeriod =
-    savedMoonStart !== null &&
-    savedMoonEnd   !== null &&
-    todayInt >= savedMoonStart &&
-    todayInt <= savedMoonEnd;
 
   const resetKimochi = () => {
     setShowMatch(false);
@@ -1645,23 +1644,32 @@ export default function Home() {
                     <div className="flex items-center gap-1.5 mb-3">
                       <span style={{ fontSize:14 }}>🌸</span>
                       <span className="text-xs font-bold" style={{ color:"#B86540" }}>あなたのキモチ</span>
-                      {myKimochi && (
+                      {isInPeriod ? (
+                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor:"rgba(255,182,193,0.2)", color:"#C46880" }}>
+                          🌸 お休み中
+                        </span>
+                      ) : myKimochi ? (
                         <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
                           style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
                           ✓ 選択済み
                         </span>
-                      )}
-                      {!myKimochi && (
+                      ) : (
                         <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
                           まだ選んでいないよ
                         </span>
                       )}
                     </div>
+                    {isInPeriod && (
+                      <p style={{ fontSize:11, color:"#C46880", marginBottom:8 }}>
+                        生理期間中はお休みモードのため、今日の入力はお休みです
+                      </p>
+                    )}
                     <KimochiRow
                       label="" avatar=""
                       selected={myKimochi}
                       onSelect={handleKimochiSelect}
-                      disabled={false}
+                      disabled={isInPeriod}
                     />
                   </div>
 

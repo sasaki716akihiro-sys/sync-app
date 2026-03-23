@@ -1461,20 +1461,39 @@ export default function Home() {
     pop("生理開始日を記録したよ 🌸");
   }, [coupleId, myEmail, pop]);
 
-  // ─── 8c. 生理終了日の記録 ────────────────────────────────
+  // ─── 8c. 生理終了日の記録 + period_history への追記 ─────
   const handleConfirmEnd = useCallback(async (end: number) => {
-    if (!coupleId || !myEmail) return;
+    if (!coupleId || !myEmail || !savedMoonStart) return;
+
+    // YYYYMMDD 整数 → "YYYY-MM-DD" 文字列
+    const toDateStr = (n: number) => {
+      const y = Math.floor(n / 10000);
+      const m = String(Math.floor((n % 10000) / 100)).padStart(2, "0");
+      const d = String(n % 100).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    };
+    const startStr = toDateStr(savedMoonStart);
+    const endStr   = toDateStr(end);
+
+    // 既存履歴（同じ start がすでにあれば end を更新、なければ末尾に追加）
+    const existing: PeriodRecord[] = myRow?.period_history ?? [];
+    const newHistory: PeriodRecord[] = existing.some(r => r.start === startStr)
+      ? existing.map(r => r.start === startStr ? { start: startStr, end: endStr } : r)
+      : [...existing, { start: startStr, end: endStr }];
+
     await supabase.from("sync_status").upsert({
-      couple_id:  coupleId,
-      user_email: myEmail,
-      moon_end:   end,
-      updated_at: new Date().toISOString(),
+      couple_id:      coupleId,
+      user_email:     myEmail,
+      moon_end:       end,
+      period_history: newHistory,
+      updated_at:     new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
+
     setSyncData(prev => prev.map(r =>
-      r.user_email === myEmail ? { ...r, moon_end: end } : r
+      r.user_email === myEmail ? { ...r, moon_end: end, period_history: newHistory } : r
     ));
     pop("生理終了日を記録したよ 🌙");
-  }, [coupleId, myEmail, pop]);
+  }, [coupleId, myEmail, savedMoonStart, myRow, pop]);
 
   const handleResetPeriod = useCallback(async () => {
     if (!coupleId || !myEmail) return;

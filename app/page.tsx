@@ -520,8 +520,10 @@ function SettingsScreen({
   const _now = new Date();
   const [calYear,   setCalYear]   = useState(_now.getFullYear());
   const [calMonth,  setCalMonth]  = useState(_now.getMonth()); // 0-indexed
-  const [draftStart, setDraftStart] = useState<number | null>(null);
-  const [draftEnd,   setDraftEnd]   = useState<number | null>(null);
+  const [draftStart,     setDraftStart]     = useState<number | null>(null);
+  const [draftEnd,       setDraftEnd]       = useState<number | null>(null);
+  const [confirmedStart, setConfirmedStart] = useState<number | null>(null);
+  const [confirmedEnd,   setConfirmedEnd]   = useState<number | null>(null);
 
   // 小さなYMDヘルパー（このコンポーネント内だけで使う）
   const _toYMD = (y: number, m: number, d: number) => y * 10000 + (m + 1) * 100 + d;
@@ -560,11 +562,22 @@ function SettingsScreen({
     }
   };
 
-  // 案内文
+  // 確定ボタン押下：draft → confirmed に移し、draft をクリア
+  const handleConfirmDraft = () => {
+    if (!draftStart || !draftEnd) return;
+    setConfirmedStart(draftStart);
+    setConfirmedEnd(draftEnd);
+    setDraftStart(null);
+    setDraftEnd(null);
+  };
+
+  // 案内文（draft中 > confirmed済み > 未選択 の優先順）
   const rangeLabel = (() => {
-    if (!draftStart) return "開始日を選んでね";
-    if (!draftEnd)   return "終了日を選んでね";
-    return `${_ymdLabel(draftStart)} 〜 ${_ymdLabel(draftEnd)} を選択中`;
+    if (draftStart && !draftEnd) return "終了日を選んでね";
+    if (draftStart && draftEnd)  return `${_ymdLabel(draftStart)} 〜 ${_ymdLabel(draftEnd)} を選択中`;
+    if (confirmedStart && confirmedEnd)
+      return `${_ymdLabel(confirmedStart)} 〜 ${_ymdLabel(confirmedEnd)} を確定済み ✓`;
+    return "開始日を選んでね";
   })();
 
   return (
@@ -682,12 +695,22 @@ function SettingsScreen({
 
                 return cells.map((d, i) => {
                   if (d == null) return <div key={i} />;
-                  const ymd     = _toYMD(calYear, calMonth, d);
-                  const isStart = ymd === draftStart;
-                  const isEnd   = ymd === draftEnd;
-                  const isEdge  = isStart || isEnd;
-                  const isRange = draftStart !== null && draftEnd !== null
-                    && ymd > draftStart && ymd < draftEnd;
+                  const ymd = _toYMD(calYear, calMonth, d);
+
+                  // draft 優先、なければ confirmed を表示
+                  const activeSt  = draftStart  ?? confirmedStart;
+                  const activeEnd = draftStart ? draftEnd : confirmedEnd;
+                  const isConfirmedMode = !draftStart && !!confirmedStart;
+
+                  const isEdge  = ymd === activeSt || ymd === activeEnd;
+                  const isRange = activeSt !== null && activeEnd !== null
+                    && ymd > activeSt && ymd < activeEnd;
+
+                  // confirmed モードは少し強い色
+                  const edgeBg    = isConfirmedMode ? "#6B5A90" : "#8B7BA8";
+                  const edgeLine  = isConfirmedMode ? "#6B5A90" : "#8B7BA8";
+                  const rangeBg   = isConfirmedMode ? "rgba(139,123,168,0.28)" : "rgba(196,180,224,0.35)";
+                  const rangeText = isConfirmedMode ? "#5A4A80" : "#6B5A8A";
 
                   return (
                     <button key={i}
@@ -698,13 +721,13 @@ function SettingsScreen({
                         height:          32,
                         fontSize:        13,
                         fontWeight:      isEdge ? 700 : 400,
-                        backgroundColor: isEdge  ? "#8B7BA8"
-                                       : isRange ? "rgba(196,180,224,0.35)"
+                        backgroundColor: isEdge  ? edgeBg
+                                       : isRange ? rangeBg
                                        : "transparent",
                         color:           isEdge  ? "#fff"
-                                       : isRange ? "#6B5A8A"
+                                       : isRange ? rangeText
                                        : "#4A3728",
-                        outline:         isEdge  ? "2px solid #8B7BA8" : "none",
+                        outline:         isEdge  ? `2px solid ${edgeLine}` : "none",
                         outlineOffset:   1,
                       }}>
                       {d}
@@ -717,14 +740,31 @@ function SettingsScreen({
             {/* 案内文 */}
             <div className="mt-4 px-4 py-3 rounded-2xl flex items-center gap-2"
               style={{
-                backgroundColor: draftStart ? "rgba(196,180,224,0.15)" : "rgba(253,235,208,0.5)",
-                border: `1px solid ${draftStart ? "#C4B4E0" : "#FDEBD0"}`,
+                backgroundColor: (draftStart || confirmedStart)
+                  ? "rgba(196,180,224,0.15)" : "rgba(253,235,208,0.5)",
+                border: `1px solid ${(draftStart || confirmedStart) ? "#C4B4E0" : "#FDEBD0"}`,
               }}>
               <span style={{ fontSize:14 }}>🌙</span>
-              <p style={{ fontSize:11, color: draftStart ? "#8B7BA8" : "#C4A898" }}>
+              <p style={{
+                fontSize:   11,
+                color:      confirmedStart && !draftStart ? "#6B5A90"
+                          : draftStart                   ? "#8B7BA8"
+                          :                                "#C4A898",
+                fontWeight: confirmedStart && !draftStart ? 600 : 400,
+              }}>
                 {rangeLabel}
               </p>
             </div>
+
+            {/* 確定ボタン（draftStart と draftEnd が両方ある時だけ表示） */}
+            {draftStart && draftEnd && (
+              <button
+                onClick={handleConfirmDraft}
+                className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                style={{ backgroundColor:"#8B7BA8", color:"#fff" }}>
+                この期間で確定する 🌙
+              </button>
+            )}
 
           </div>
         </div>

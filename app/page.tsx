@@ -1031,9 +1031,9 @@ export default function Home() {
   })();
   const periodLevel = periodDayCount <= 2 ? "max" : periodDayCount <= 4 ? "mid" : "low";
   const periodCopy  = {
-    max: { title: "今日はかなりしんどい日かも",   message: "無理せず、できるだけゆっくりしてね" },
-    mid: { title: "少ししんどさが残る頃",         message: "落ち着いて、無理のない一日にしよう" },
-    low: { title: "少しずつ楽になってくる頃",     message: "穏やかに過ごせそうなら、それで十分" },
+    max: { emoji: "🤒", title: "今日はかなりしんどい日かも",   message: "無理せず、できるだけゆっくりしてね" },
+    mid: { emoji: "😵", title: "少ししんどさが残る頃",         message: "落ち着いて、無理のない一日にしよう" },
+    low: { emoji: "😌", title: "少しずつ楽になってくる頃",     message: "穏やかに過ごせそうなら、それで十分" },
   }[periodLevel];
 
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
@@ -1659,26 +1659,20 @@ export default function Home() {
             </div>
             <div className="rounded-3xl overflow-hidden"
               style={{ border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
-              {/* 女性アイコンカード */}
+              {/* 生理期間カード（テキスト + 絵文字） */}
               <div className="px-4 pt-4 pb-4"
                 style={{ backgroundColor:"rgba(255,242,246,0.9)" }}>
                 <div className="flex items-center gap-3">
-                  <Image
-                    src={`/images/period-status-${periodLevel}.png`}
-                    alt="お休みモード"
-                    width={80}
-                    height={80}
-                    style={{ objectFit:"contain", borderRadius:12, flexShrink:0 }}
-                  />
+                  <span style={{ fontSize:48, flexShrink:0, lineHeight:1 }}>{periodCopy!.emoji}</span>
                   <div className="flex flex-col gap-1 min-w-0">
                     <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>
                       🌸 生理{periodDayCount}日目 · お休みモード
                     </span>
                     <p className="font-bold text-sm leading-snug" style={{ color:"#4A3728" }}>
-                      {periodCopy.title}
+                      {periodCopy!.title}
                     </p>
                     <p style={{ fontSize:11, color:"#9A7B6A", lineHeight:1.5 }}>
-                      {periodCopy.message}
+                      {periodCopy!.message}
                     </p>
                   </div>
                 </div>

@@ -1096,7 +1096,7 @@ export default function Home() {
     const seen = new Set<string>();
     return all
       .filter(r => { if (seen.has(r.start)) return false; seen.add(r.start); return true; })
-      .sort((a, b) => b.start.localeCompare(a.start));
+      .reverse(); // 挿入順の逆順＝直近に入力したものが先頭
   })();
 
   // ── 生理期間（syncData の myRow から派生 → Realtime と常に同期） ─

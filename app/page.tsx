@@ -501,6 +501,7 @@ function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
   partnerConfirmedStart, partnerConfirmedEnd,
+  periodHistory,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
   onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod,
   onGoalChange, onReminderChange,
@@ -512,6 +513,7 @@ function SettingsScreen({
   initialConfirmedEnd:   number | null;
   partnerConfirmedStart: number | null;
   partnerConfirmedEnd:   number | null;
+  periodHistory: PeriodRecord[] | null;
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string, cStart:number|null, cEnd:number|null)=>void; saving:boolean;
@@ -828,10 +830,10 @@ function SettingsScreen({
                   )}
                 </div>
                 {showResetConfirm && (
-                  <div className="mt-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+                  <div className="mt-2 px-4 py-3 rounded-2xl flex flex-col gap-2"
                     style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
-                    <p style={{ fontSize:11, color:"#D97B6C" }}>本当にリセットしますか？</p>
-                    <div className="flex items-center gap-2">
+                    <p style={{ fontSize:11, color:"#D97B6C" }}>今の記録だけを消します。過去の履歴は残ります。</p>
+                    <div className="flex items-center justify-end gap-2">
                       <button onClick={() => setShowResetConfirm(false)}
                         className="px-3 py-1.5 rounded-xl text-xs"
                         style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>
@@ -840,7 +842,7 @@ function SettingsScreen({
                       <button onClick={handleReset} disabled={resetting}
                         className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
                         style={{ backgroundColor: resetting ? "#FDEBD0" : "#D97B6C", color:"#fff" }}>
-                        {resetting ? "…" : "消す"}
+                        {resetting ? "…" : "リセットする"}
                       </button>
                     </div>
                   </div>
@@ -849,23 +851,35 @@ function SettingsScreen({
             ) : (
               /* Phase 2: 開始・終了どちらも記録済み */
               <>
-                <div className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between gap-2"
+                {/* 記録済みバッジ */}
+                <div className="mt-4 px-4 py-3 rounded-2xl"
                   style={{ backgroundColor:"rgba(139,123,168,0.1)", border:"1px solid #C4B4E0" }}>
                   <p style={{ fontSize:11, color:"#6B5A90", fontWeight:600 }}>
                     ✓ {_ymdLabel(confirmedStart)} 〜 {_ymdLabel(confirmedEnd)} を記録済み
                   </p>
+                  <p style={{ fontSize:10, color:"#C4A898", marginTop:2 }}>
+                    履歴に保存されました
+                  </p>
+                </div>
+                {/* 次の生理を記録する */}
+                <button
+                  onClick={() => { setConfirmedStart(null); setConfirmedEnd(null); setDraftDate(null); }}
+                  className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                  style={{ backgroundColor:"#C46880", color:"#fff" }}>
+                  次の生理を記録する 🌸
+                </button>
+                {/* リセット（current のみ削除） */}
+                <div className="mt-2 flex justify-end">
                   {!showResetConfirm && (
                     <button onClick={() => setShowResetConfirm(true)}
-                      style={{ fontSize:10, color:"#C4A898", whiteSpace:"nowrap", flexShrink:0 }}>
-                      リセット
-                    </button>
+                      style={{ fontSize:10, color:"#C4A898" }}>この記録を消す</button>
                   )}
                 </div>
                 {showResetConfirm && (
-                  <div className="mt-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+                  <div className="mt-2 px-4 py-3 rounded-2xl flex flex-col gap-2"
                     style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
-                    <p style={{ fontSize:11, color:"#D97B6C" }}>本当にリセットしますか？</p>
-                    <div className="flex items-center gap-2">
+                    <p style={{ fontSize:11, color:"#D97B6C" }}>今の記録だけを消します。過去の履歴は残ります。</p>
+                    <div className="flex items-center justify-end gap-2">
                       <button onClick={() => setShowResetConfirm(false)}
                         className="px-3 py-1.5 rounded-xl text-xs"
                         style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>
@@ -874,7 +888,7 @@ function SettingsScreen({
                       <button onClick={handleReset} disabled={resetting}
                         className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
                         style={{ backgroundColor: resetting ? "#FDEBD0" : "#D97B6C", color:"#fff" }}>
-                        {resetting ? "…" : "消す"}
+                        {resetting ? "…" : "リセットする"}
                       </button>
                     </div>
                   </div>
@@ -884,6 +898,32 @@ function SettingsScreen({
 
           </div>
         </div>
+
+        {/* 記録済み履歴 */}
+        {periodHistory && periodHistory.length > 0 && (
+          <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #E8D8F0" }}>
+            <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(240,232,250,0.7)" }}>
+              <div className="flex items-center gap-1.5">
+                <span style={{ fontSize:16 }}>🗓️</span>
+                <p className="font-bold text-sm" style={{ color:"#6B5A90" }}>記録済み履歴</p>
+              </div>
+              <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                リセットしても、ここには残ります
+              </p>
+            </div>
+            <div className="px-5 py-4 flex flex-col gap-2" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+              {[...periodHistory].reverse().map((rec, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-2xl"
+                  style={{ backgroundColor:"rgba(139,123,168,0.08)", border:"1px solid #E0D4F0" }}>
+                  <span style={{ fontSize:12 }}>🌸</span>
+                  <span style={{ fontSize:12, color:"#6B5A90", fontWeight:500 }}>
+                    {rec.start} 〜 {rec.end}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* リマインド設定 */}
         <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
@@ -1628,6 +1668,7 @@ export default function Home() {
         initialConfirmedEnd={savedMoonEnd}
         partnerConfirmedStart={partnerMoonStart}
         partnerConfirmedEnd={partnerMoonEnd}
+        periodHistory={myRow?.period_history ?? null}
         onSave={handleSaveSettings} saving={saving}
         onConfirmStart={handleConfirmStart}
         onConfirmEnd={handleConfirmEnd}

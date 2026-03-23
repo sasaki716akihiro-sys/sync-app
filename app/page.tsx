@@ -937,10 +937,6 @@ export default function Home() {
   const [coupleIdInput, setCoupleIdInput] = useState("");
   const [syncGoal,  setSyncGoal]  = useState(4);
   const now = new Date();
-  // ── 生理期間（DB保存済みの値） ───────────────────────────
-  const [savedMoonStart, setSavedMoonStart] = useState<number | null>(null);
-  const [savedMoonEnd,   setSavedMoonEnd]   = useState<number | null>(null);
-
   // ── リマインド設定 ────────────────────────────────────────
   const [reminderWeekday, setReminderWeekday] = useState(17);
   const [reminderWeekend, setReminderWeekend] = useState(19);
@@ -987,6 +983,10 @@ export default function Home() {
       && r.user_email !== ""
   ) ?? null;
 
+  // ── 生理期間（syncData の myRow から派生 → Realtime と常に同期） ─
+  const savedMoonStart = myRow?.moon_start ?? null;
+  const savedMoonEnd   = myRow?.moon_end   ?? null;
+
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
   const partnerKimochi: Kimochi = partnerRow?.kimochi_date?.substring(0,10) === today
@@ -1017,9 +1017,7 @@ export default function Home() {
     if (row.reminder_weekend != null) setReminderWeekend(row.reminder_weekend);
     setReminderLoaded(true);
     if (row.kimochi_log) setKimochiLog(row.kimochi_log);
-    // 生理期間の確定済みデータを復元
-    setSavedMoonStart(row.moon_start ?? null);
-    setSavedMoonEnd(row.moon_end   ?? null);
+    // 生理期間は syncData → myRow から派生するため、ここでの個別セットは不要
   }, []);
 
   // ─── 全行ロード ───────────────────────────────────────────
@@ -1332,8 +1330,10 @@ export default function Home() {
       moon_end:   cEnd,
       updated_at: new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
-    setSavedMoonStart(cStart);
-    setSavedMoonEnd(cEnd);
+    // syncData を楽観的更新 → myRow から派生する savedMoonStart/End が即反映される
+    setSyncData(prev => prev.map(r =>
+      r.user_email === myEmail ? { ...r, moon_start: cStart, moon_end: cEnd } : r
+    ));
     pop("生理期間を保存したよ 🌙");
   }, [coupleId, myEmail, pop]);
 
@@ -1346,8 +1346,9 @@ export default function Home() {
       moon_end:   null,
       updated_at: new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
-    setSavedMoonStart(null);
-    setSavedMoonEnd(null);
+    setSyncData(prev => prev.map(r =>
+      r.user_email === myEmail ? { ...r, moon_start: null, moon_end: null } : r
+    ));
     pop("生理期間をリセットしたよ 🗑️");
   }, [coupleId, myEmail, pop]);
 
@@ -1369,9 +1370,9 @@ export default function Home() {
         moon_end:   cEnd,
         updated_at: new Date().toISOString(),
       }, { onConflict: "couple_id,user_email" });
-      // 保存成功後にメイン側の saved 値も更新
-      setSavedMoonStart(cStart);
-      setSavedMoonEnd(cEnd);
+      setSyncData(prev => prev.map(r =>
+        r.user_email === myEmail ? { ...r, moon_start: cStart, moon_end: cEnd } : r
+      ));
     }
     setSaving(false);
     pop("設定を保存したよ 💾");

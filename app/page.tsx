@@ -580,16 +580,77 @@ function SettingsScreen({
           </div>
         </div>
 
-        {/* 生理期間機能（準備中） */}
+        {/* 生理期間（土台） */}
         <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
+          {/* ヘッダー */}
           <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
             <div className="flex items-center gap-1.5">
               <span style={{ fontSize:16 }}>🌙</span>
-              <p className="font-bold text-sm" style={{ color:"#B86540" }}>生理期間（準備中）</p>
+              <p className="font-bold text-sm" style={{ color:"#B86540" }}>生理期間（自動お休みモード）</p>
             </div>
+            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+              期間を選ぶと自動でお休みモードになるよ
+            </p>
           </div>
-          <div className="px-5 py-5 flex items-center justify-center" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-            <p style={{ fontSize:13, color:"#C4A898" }}>この機能は近日公開予定です 🌸</p>
+
+          {/* カレンダーエリア */}
+          <div className="px-4 py-4" style={{ backgroundColor:"rgba(255,255,255,0.80)" }}>
+
+            {/* 月ナビゲーション（表示のみ・タップ無効） */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor:"#FFE0CC", color:"#B86540", opacity:0.4 }}>‹</div>
+              <p className="font-bold text-sm" style={{ color:"#4A3728" }}>
+                {new Date().getFullYear()}年 {new Date().getMonth() + 1}月
+              </p>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor:"#FFE0CC", color:"#B86540", opacity:0.4 }}>›</div>
+            </div>
+
+            {/* 曜日ヘッダー */}
+            <div className="grid grid-cols-7 mb-1">
+              {["日","月","火","水","木","金","土"].map(d => (
+                <div key={d} className="text-center"
+                  style={{ fontSize:10, color:"#C4A898", fontWeight:600, paddingBottom:4 }}>{d}</div>
+              ))}
+            </div>
+
+            {/* 日付グリッド（表示のみ・操作なし） */}
+            <div className="grid grid-cols-7 gap-y-1">
+              {(() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth();
+                const firstDow = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const cells: (number | null)[] = [
+                  ...Array(firstDow).fill(null),
+                  ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+                ];
+                while (cells.length % 7 !== 0) cells.push(null);
+                return cells.map((d, i) => (
+                  d == null
+                    ? <div key={i} />
+                    : <div key={i}
+                        className="flex items-center justify-center rounded-full mx-auto"
+                        style={{ width:32, height:32, fontSize:13, color:"#4A3728" }}>
+                        {d}
+                      </div>
+                ));
+              })()}
+            </div>
+
+            {/* 案内文エリア */}
+            <div className="mt-4 px-4 py-3 rounded-2xl text-center"
+              style={{ backgroundColor:"rgba(196,180,224,0.08)", border:"1px dashed #C4B4E0" }}>
+              <p style={{ fontSize:12, color:"#8B7BA8" }}>
+                開始日を選べるように準備中です 🌙
+              </p>
+              <p style={{ fontSize:10, color:"#C4A898", marginTop:4 }}>
+                この機能は段階的に再構築中です
+              </p>
+            </div>
+
           </div>
         </div>
 

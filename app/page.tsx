@@ -1019,6 +1019,23 @@ export default function Home() {
       (todayInt >= savedMoonStart && todayInt <= savedMoonEnd)   // 範囲内
     );
 
+  // ── 生理何日目か（1-based）としんどさレベル ───────────────
+  const periodDayCount = (() => {
+    if (!savedMoonStart) return 0;
+    const sy = Math.floor(savedMoonStart / 10000);
+    const sm = Math.floor((savedMoonStart % 10000) / 100) - 1;
+    const sd = savedMoonStart % 100;
+    const start = new Date(sy, sm, sd); start.setHours(0,0,0,0);
+    const now   = new Date();           now.setHours(0,0,0,0);
+    return Math.max(1, Math.floor((now.getTime() - start.getTime()) / 86400000) + 1);
+  })();
+  const periodLevel = periodDayCount <= 2 ? "max" : periodDayCount <= 4 ? "mid" : "low";
+  const periodCopy  = {
+    max: { title: "今日はかなりしんどい日かも",   message: "無理せず、できるだけゆっくりしてね" },
+    mid: { title: "少ししんどさが残る頃",         message: "落ち着いて、無理のない一日にしよう" },
+    low: { title: "少しずつ楽になってくる頃",     message: "穏やかに過ごせそうなら、それで十分" },
+  }[periodLevel];
+
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
   const partnerKimochi: Kimochi = partnerRow?.kimochi_date?.substring(0,10) === today
@@ -1678,40 +1695,57 @@ export default function Home() {
                 <div className="rounded-3xl overflow-hidden"
                   style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 24px rgba(255,176,133,0.18)" }}>
 
-                  {/* あなたのキモチ */}
-                  <div className="px-4 pt-4 pb-3"
-                    style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <span style={{ fontSize:14 }}>🌸</span>
-                      <span className="text-xs font-bold" style={{ color:"#B86540" }}>あなたのキモチ</span>
-                      {isInPeriod ? (
-                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                          style={{ backgroundColor:"rgba(255,182,193,0.2)", color:"#C46880" }}>
-                          🌸 お休み中
-                        </span>
-                      ) : myKimochi ? (
-                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                          style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
-                          ✓ 選択済み
-                        </span>
-                      ) : (
-                        <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
-                          まだ選んでいないよ
-                        </span>
-                      )}
+                  {isInPeriod ? (
+                    /* 生理期間中：女性アイコンカード */
+                    <div className="px-4 pt-4 pb-4"
+                      style={{ backgroundColor:"rgba(255,242,246,0.9)" }}>
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={`/images/period-status-${periodLevel}.png`}
+                          alt="お休みモード"
+                          width={80}
+                          height={80}
+                          style={{ objectFit:"contain", borderRadius:12, flexShrink:0 }}
+                        />
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>
+                            🌸 生理{periodDayCount}日目 · お休みモード
+                          </span>
+                          <p className="font-bold text-sm leading-snug" style={{ color:"#4A3728" }}>
+                            {periodCopy.title}
+                          </p>
+                          <p style={{ fontSize:11, color:"#9A7B6A", lineHeight:1.5 }}>
+                            {periodCopy.message}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    {isInPeriod && (
-                      <p style={{ fontSize:11, color:"#C46880", marginBottom:8 }}>
-                        生理期間中はお休みモードのため、今日の入力はお休みです
-                      </p>
-                    )}
-                    <KimochiRow
-                      label="" avatar=""
-                      selected={myKimochi}
-                      onSelect={handleKimochiSelect}
-                      disabled={isInPeriod}
-                    />
-                  </div>
+                  ) : (
+                    /* 通常：あなたのキモチ */
+                    <div className="px-4 pt-4 pb-3"
+                      style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <span style={{ fontSize:14 }}>🌸</span>
+                        <span className="text-xs font-bold" style={{ color:"#B86540" }}>あなたのキモチ</span>
+                        {myKimochi ? (
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                            style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
+                            ✓ 選択済み
+                          </span>
+                        ) : (
+                          <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
+                            まだ選んでいないよ
+                          </span>
+                        )}
+                      </div>
+                      <KimochiRow
+                        label="" avatar=""
+                        selected={myKimochi}
+                        onSelect={handleKimochiSelect}
+                        disabled={false}
+                      />
+                    </div>
+                  )}
 
                   <div className="h-px" style={{ backgroundColor:"#FDEBD0" }}/>
 

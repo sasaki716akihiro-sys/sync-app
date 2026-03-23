@@ -501,7 +501,7 @@ function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
-  onSave, saving, onConfirmPeriod, onResetPeriod,
+  onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod,
   onGoalChange, onReminderChange,
 }: {
   onBack:()=>void;
@@ -512,7 +512,8 @@ function SettingsScreen({
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string, cStart:number|null, cEnd:number|null)=>void; saving:boolean;
-  onConfirmPeriod:(cStart:number, cEnd:number)=>Promise<void>;
+  onConfirmStart:(start:number)=>Promise<void>;
+  onConfirmEnd:(end:number)=>Promise<void>;
   onResetPeriod:()=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
@@ -529,8 +530,7 @@ function SettingsScreen({
   // confirmed は initial props（DB読み込み値）で初期化
   const [confirmedStart, setConfirmedStart] = useState<number | null>(initialConfirmedStart);
   const [confirmedEnd,   setConfirmedEnd]   = useState<number | null>(initialConfirmedEnd);
-  const [draftStart,     setDraftStart]     = useState<number | null>(null);
-  const [draftEnd,       setDraftEnd]       = useState<number | null>(null);
+  const [draftDate,      setDraftDate]      = useState<number | null>(null);
   // カレンダーの表示月：confirmed があればその月、なければ今月
   const _initYear  = initialConfirmedStart
     ? Math.floor(initialConfirmedStart / 10000)
@@ -559,34 +559,30 @@ function SettingsScreen({
     else setCalMonth(calMonth + 1);
   };
 
-  // 日付タップハンドラ
+  // 日付タップハンドラ（フェーズ共通：タップした日を draft に）
   const handleDayTap = (day: number) => {
-    const ymd = _toYMD(calYear, calMonth, day);
-    // 未選択 or 両方そろっている → 選び直し開始
-    if (draftStart === null || draftEnd !== null) {
-      setDraftStart(ymd);
-      setDraftEnd(null);
-      return;
-    }
-    // 開始日のみ選択中
-    if (ymd < draftStart) {
-      // タップ日が開始日より前 → 新しい開始日にする
-      setDraftStart(ymd);
-    } else {
-      // 開始日以降（同日含む）→ 終了日にする
-      setDraftEnd(ymd);
-    }
+    setDraftDate(_toYMD(calYear, calMonth, day));
   };
 
-  // 確定ボタン押下：local確定 → 即DB保存
-  const handleConfirmDraft = async () => {
-    if (!draftStart || !draftEnd || confirming) return;
+  // 開始日確定
+  const handleConfirmStart = async () => {
+    if (!draftDate || confirming) return;
     setConfirming(true);
-    await onConfirmPeriod(draftStart, draftEnd);
-    setConfirmedStart(draftStart);
-    setConfirmedEnd(draftEnd);
-    setDraftStart(null);
-    setDraftEnd(null);
+    await onConfirmStart(draftDate);
+    setConfirmedStart(draftDate);
+    setConfirmedEnd(null); // 新しい開始のため終了日リセット
+    setDraftDate(null);
+    setConfirming(false);
+  };
+
+  // 終了日確定
+  const handleConfirmEnd = async () => {
+    if (!draftDate || confirming) return;
+    if (confirmedStart && draftDate < confirmedStart) return;
+    setConfirming(true);
+    await onConfirmEnd(draftDate);
+    setConfirmedEnd(draftDate);
+    setDraftDate(null);
     setConfirming(false);
   };
 
@@ -597,20 +593,11 @@ function SettingsScreen({
     await onResetPeriod();
     setConfirmedStart(null);
     setConfirmedEnd(null);
-    setDraftStart(null);
-    setDraftEnd(null);
+    setDraftDate(null);
     setShowResetConfirm(false);
     setResetting(false);
   };
 
-  // 案内文（draft中 > confirmed済み > 未選択 の優先順）
-  const rangeLabel = (() => {
-    if (draftStart && !draftEnd) return "終了日を選んでね";
-    if (draftStart && draftEnd)  return `${_ymdLabel(draftStart)} 〜 ${_ymdLabel(draftEnd)} を選択中`;
-    if (confirmedStart && confirmedEnd)
-      return `${_ymdLabel(confirmedStart)} 〜 ${_ymdLabel(confirmedEnd)} を確定済み ✓`;
-    return "開始日を選んでね";
-  })();
 
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor:"#FFFBF5", color:"#4A3728" }}>
@@ -686,7 +673,7 @@ function SettingsScreen({
               <p className="font-bold text-sm" style={{ color:"#B86540" }}>生理期間（自動お休みモード）</p>
             </div>
             <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-              期間を選ぶと自動でお休みモードになるよ
+              開始日を記録すると自動でお休みモードになるよ
             </p>
           </div>
 
@@ -729,20 +716,23 @@ function SettingsScreen({
                   if (d == null) return <div key={i} />;
                   const ymd = _toYMD(calYear, calMonth, d);
 
-                  // draft 優先、なければ confirmed を表示
-                  const activeSt  = draftStart  ?? confirmedStart;
-                  const activeEnd = draftStart ? draftEnd : confirmedEnd;
-                  const isConfirmedMode = !draftStart && !!confirmedStart;
+                  // フェーズ別のカレンダー表示
+                  // phase 0: 開始日選択中 / phase 1: 生理中・終了日選択中 / phase 2: 確定済み
+                  const phase = !confirmedStart ? "start" : !confirmedEnd ? "end" : "done";
+                  const activeSt  = phase === "start" ? draftDate  : confirmedStart;
+                  const activeEnd = phase === "start" ? null
+                                 : phase === "end"    ? draftDate
+                                 :                      confirmedEnd;
 
-                  const isEdge  = ymd === activeSt || ymd === activeEnd;
+                  const isEdge  = (activeSt  !== null && ymd === activeSt)
+                               || (activeEnd !== null && ymd === activeEnd);
                   const isRange = activeSt !== null && activeEnd !== null
                     && ymd > activeSt && ymd < activeEnd;
 
-                  // confirmed モードは少し強い色
-                  const edgeBg    = isConfirmedMode ? "#6B5A90" : "#8B7BA8";
-                  const edgeLine  = isConfirmedMode ? "#6B5A90" : "#8B7BA8";
-                  const rangeBg   = isConfirmedMode ? "rgba(139,123,168,0.28)" : "rgba(196,180,224,0.35)";
-                  const rangeText = isConfirmedMode ? "#5A4A80" : "#6B5A8A";
+                  const edgeBg    = (ymd === confirmedStart) ? "#6B5A90" : "#8B7BA8";
+                  const edgeLine  = (ymd === confirmedStart) ? "#6B5A90" : "#8B7BA8";
+                  const rangeBg   = phase === "done" ? "rgba(139,123,168,0.28)" : "rgba(196,180,224,0.35)";
+                  const rangeText = phase === "done" ? "#5A4A80" : "#6B5A8A";
 
                   return (
                     <button key={i}
@@ -769,67 +759,102 @@ function SettingsScreen({
               })()}
             </div>
 
-            {/* 案内文 */}
-            <div className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between gap-2"
-              style={{
-                backgroundColor: (draftStart || confirmedStart)
-                  ? "rgba(196,180,224,0.15)" : "rgba(253,235,208,0.5)",
-                border: `1px solid ${(draftStart || confirmedStart) ? "#C4B4E0" : "#FDEBD0"}`,
-              }}>
-              <div className="flex items-center gap-2 min-w-0">
-                <span style={{ fontSize:14 }}>🌙</span>
-                <p style={{
-                  fontSize:   11,
-                  color:      confirmedStart && !draftStart ? "#6B5A90"
-                            : draftStart                   ? "#8B7BA8"
-                            :                                "#C4A898",
-                  fontWeight: confirmedStart && !draftStart ? 600 : 400,
-                }}>
-                  {rangeLabel}
-                </p>
-              </div>
-              {/* リセットボタン：confirmed があり draft 操作中でない時だけ表示 */}
-              {confirmedStart && !draftStart && (
-                <button
-                  onClick={() => setShowResetConfirm(true)}
-                  style={{ fontSize:10, color:"#C4A898", whiteSpace:"nowrap", flexShrink:0 }}>
-                  リセット
-                </button>
-              )}
-            </div>
-
-            {/* インライン確認（リセット） */}
-            {showResetConfirm && (
-              <div className="mt-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
-                style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
-                <p style={{ fontSize:11, color:"#D97B6C" }}>本当にリセットしますか？</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowResetConfirm(false)}
-                    className="px-3 py-1.5 rounded-xl text-xs"
-                    style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>
-                    キャンセル
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    disabled={resetting}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
-                    style={{ backgroundColor: resetting ? "#FDEBD0" : "#D97B6C", color:"#fff" }}>
-                    {resetting ? "…" : "消す"}
-                  </button>
+            {/* フェーズ別：状態表示 & 確定ボタン */}
+            {!confirmedStart ? (
+              /* Phase 0: 開始日選択 */
+              <>
+                <div className="mt-4 px-4 py-3 rounded-2xl"
+                  style={{ backgroundColor:"rgba(253,235,208,0.5)", border:"1px solid #FDEBD0" }}>
+                  <p style={{ fontSize:11, color:"#C4A898" }}>
+                    🌙 開始日をタップして選んでね
+                  </p>
                 </div>
-              </div>
-            )}
-
-            {/* 確定ボタン（draftStart と draftEnd が両方ある時だけ表示） */}
-            {draftStart && draftEnd && (
-              <button
-                onClick={handleConfirmDraft}
-                disabled={confirming}
-                className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
-                style={{ backgroundColor: confirming ? "#C4B4E0" : "#8B7BA8", color:"#fff" }}>
-                {confirming ? "保存中…" : "この期間で確定する 🌙"}
-              </button>
+                {draftDate && (
+                  <button onClick={handleConfirmStart} disabled={confirming}
+                    className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                    style={{ backgroundColor: confirming ? "#F4A8B8" : "#C46880", color:"#fff" }}>
+                    {confirming ? "保存中…" : `${_ymdLabel(draftDate)} から開始する 🌸`}
+                  </button>
+                )}
+              </>
+            ) : !confirmedEnd ? (
+              /* Phase 1: 生理中 → 終了日選択 */
+              <>
+                <div className="mt-4 px-4 py-3 rounded-2xl"
+                  style={{ backgroundColor:"rgba(255,182,193,0.2)", border:"1px solid #F4A8B8" }}>
+                  <p style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
+                    🌸 生理中です（{_ymdLabel(confirmedStart)}〜）
+                  </p>
+                  <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                    終わったら終了日をタップして選んでね
+                  </p>
+                </div>
+                {draftDate && draftDate >= confirmedStart && (
+                  <button onClick={handleConfirmEnd} disabled={confirming}
+                    className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                    style={{ backgroundColor: confirming ? "#C4B4E0" : "#8B7BA8", color:"#fff" }}>
+                    {confirming ? "保存中…" : `${_ymdLabel(draftDate)} に終了する 🌙`}
+                  </button>
+                )}
+                <div className="mt-2 flex justify-end">
+                  {!showResetConfirm && (
+                    <button onClick={() => setShowResetConfirm(true)}
+                      style={{ fontSize:10, color:"#C4A898" }}>リセット</button>
+                  )}
+                </div>
+                {showResetConfirm && (
+                  <div className="mt-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+                    style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
+                    <p style={{ fontSize:11, color:"#D97B6C" }}>本当にリセットしますか？</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setShowResetConfirm(false)}
+                        className="px-3 py-1.5 rounded-xl text-xs"
+                        style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>
+                        キャンセル
+                      </button>
+                      <button onClick={handleReset} disabled={resetting}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                        style={{ backgroundColor: resetting ? "#FDEBD0" : "#D97B6C", color:"#fff" }}>
+                        {resetting ? "…" : "消す"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Phase 2: 開始・終了どちらも記録済み */
+              <>
+                <div className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between gap-2"
+                  style={{ backgroundColor:"rgba(139,123,168,0.1)", border:"1px solid #C4B4E0" }}>
+                  <p style={{ fontSize:11, color:"#6B5A90", fontWeight:600 }}>
+                    ✓ {_ymdLabel(confirmedStart)} 〜 {_ymdLabel(confirmedEnd)} を記録済み
+                  </p>
+                  {!showResetConfirm && (
+                    <button onClick={() => setShowResetConfirm(true)}
+                      style={{ fontSize:10, color:"#C4A898", whiteSpace:"nowrap", flexShrink:0 }}>
+                      リセット
+                    </button>
+                  )}
+                </div>
+                {showResetConfirm && (
+                  <div className="mt-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+                    style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
+                    <p style={{ fontSize:11, color:"#D97B6C" }}>本当にリセットしますか？</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setShowResetConfirm(false)}
+                        className="px-3 py-1.5 rounded-xl text-xs"
+                        style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>
+                        キャンセル
+                      </button>
+                      <button onClick={handleReset} disabled={resetting}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                        style={{ backgroundColor: resetting ? "#FDEBD0" : "#D97B6C", color:"#fff" }}>
+                        {resetting ? "…" : "消す"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
           </div>
@@ -989,10 +1014,10 @@ export default function Home() {
   // ── 生理期間中判定（useCallback より前に置き、stale closure を防ぐ） ─
   const todayInt   = parseInt(today.replace(/-/g, ""), 10);
   const isInPeriod =
-    savedMoonStart !== null &&
-    savedMoonEnd   !== null &&
-    todayInt >= savedMoonStart &&
-    todayInt <= savedMoonEnd;
+    savedMoonStart !== null && (
+      savedMoonEnd === null ||                                    // 開始後・未終了 → ずっとON
+      (todayInt >= savedMoonStart && todayInt <= savedMoonEnd)   // 範囲内
+    );
 
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
@@ -1328,21 +1353,35 @@ export default function Home() {
     pop("クールダウンをリセットしました");
   }, [coupleId, myEmail, pop]);
 
-  // ─── 8b. 生理期間の即時保存（確定ボタン押下時） ──────────
-  const handleConfirmPeriod = useCallback(async (cStart: number, cEnd: number) => {
+  // ─── 8b. 生理開始日の記録 ────────────────────────────────
+  const handleConfirmStart = useCallback(async (start: number) => {
     if (!coupleId || !myEmail) return;
     await supabase.from("sync_status").upsert({
       couple_id:  coupleId,
       user_email: myEmail,
-      moon_start: cStart,
-      moon_end:   cEnd,
+      moon_start: start,
+      moon_end:   null,
       updated_at: new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
-    // syncData を楽観的更新 → myRow から派生する savedMoonStart/End が即反映される
     setSyncData(prev => prev.map(r =>
-      r.user_email === myEmail ? { ...r, moon_start: cStart, moon_end: cEnd } : r
+      r.user_email === myEmail ? { ...r, moon_start: start, moon_end: null } : r
     ));
-    pop("生理期間を保存したよ 🌙");
+    pop("生理開始日を記録したよ 🌸");
+  }, [coupleId, myEmail, pop]);
+
+  // ─── 8c. 生理終了日の記録 ────────────────────────────────
+  const handleConfirmEnd = useCallback(async (end: number) => {
+    if (!coupleId || !myEmail) return;
+    await supabase.from("sync_status").upsert({
+      couple_id:  coupleId,
+      user_email: myEmail,
+      moon_end:   end,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+    setSyncData(prev => prev.map(r =>
+      r.user_email === myEmail ? { ...r, moon_end: end } : r
+    ));
+    pop("生理終了日を記録したよ 🌙");
   }, [coupleId, myEmail, pop]);
 
   const handleResetPeriod = useCallback(async () => {
@@ -1477,7 +1516,8 @@ export default function Home() {
         initialConfirmedStart={savedMoonStart}
         initialConfirmedEnd={savedMoonEnd}
         onSave={handleSaveSettings} saving={saving}
-        onConfirmPeriod={handleConfirmPeriod}
+        onConfirmStart={handleConfirmStart}
+        onConfirmEnd={handleConfirmEnd}
         onResetPeriod={handleResetPeriod}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}

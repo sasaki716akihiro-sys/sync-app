@@ -501,7 +501,7 @@ function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
-  onSave, saving,
+  onSave, saving, onConfirmPeriod,
   onGoalChange, onReminderChange,
 }: {
   onBack:()=>void;
@@ -512,10 +512,12 @@ function SettingsScreen({
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string, cStart:number|null, cEnd:number|null)=>void; saving:boolean;
+  onConfirmPeriod:(cStart:number, cEnd:number)=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
+  const [confirming, setConfirming] = useState(false);
   const cooldownDays = getCooldownDays(syncGoal);
 
   // ── 生理期間 ─────────────────────────────────────────────
@@ -573,13 +575,16 @@ function SettingsScreen({
     }
   };
 
-  // 確定ボタン押下：draft → confirmed に移し、draft をクリア
-  const handleConfirmDraft = () => {
-    if (!draftStart || !draftEnd) return;
+  // 確定ボタン押下：local確定 → 即DB保存
+  const handleConfirmDraft = async () => {
+    if (!draftStart || !draftEnd || confirming) return;
+    setConfirming(true);
+    await onConfirmPeriod(draftStart, draftEnd);
     setConfirmedStart(draftStart);
     setConfirmedEnd(draftEnd);
     setDraftStart(null);
     setDraftEnd(null);
+    setConfirming(false);
   };
 
   // 案内文（draft中 > confirmed済み > 未選択 の優先順）
@@ -771,9 +776,10 @@ function SettingsScreen({
             {draftStart && draftEnd && (
               <button
                 onClick={handleConfirmDraft}
+                disabled={confirming}
                 className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
-                style={{ backgroundColor:"#8B7BA8", color:"#fff" }}>
-                この期間で確定する 🌙
+                style={{ backgroundColor: confirming ? "#C4B4E0" : "#8B7BA8", color:"#fff" }}>
+                {confirming ? "保存中…" : "この期間で確定する 🌙"}
               </button>
             )}
 
@@ -1267,6 +1273,21 @@ export default function Home() {
     pop("クールダウンをリセットしました");
   }, [coupleId, myEmail, pop]);
 
+  // ─── 8b. 生理期間の即時保存（確定ボタン押下時） ──────────
+  const handleConfirmPeriod = useCallback(async (cStart: number, cEnd: number) => {
+    if (!coupleId || !myEmail) return;
+    await supabase.from("sync_status").upsert({
+      couple_id:  coupleId,
+      user_email: myEmail,
+      moon_start: cStart,
+      moon_end:   cEnd,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+    setSavedMoonStart(cStart);
+    setSavedMoonEnd(cEnd);
+    pop("生理期間を保存したよ 🌙");
+  }, [coupleId, myEmail, pop]);
+
   // ─── 8. 設定保存 ─────────────────────────────────────────
   const handleSaveSettings = useCallback(async (
     newCoupleId: string,
@@ -1384,6 +1405,7 @@ export default function Home() {
         initialConfirmedStart={savedMoonStart}
         initialConfirmedEnd={savedMoonEnd}
         onSave={handleSaveSettings} saving={saving}
+        onConfirmPeriod={handleConfirmPeriod}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
         reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}

@@ -515,6 +515,58 @@ function SettingsScreen({
   const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
   const cooldownDays = getCooldownDays(syncGoal);
 
+  // ── 生理期間：ローカルstateのみ（保存なし） ──────────────
+  // YYYYMMDD 整数で管理（例: 2026年3月17日 → 20260317）
+  const _now = new Date();
+  const [calYear,   setCalYear]   = useState(_now.getFullYear());
+  const [calMonth,  setCalMonth]  = useState(_now.getMonth()); // 0-indexed
+  const [draftStart, setDraftStart] = useState<number | null>(null);
+  const [draftEnd,   setDraftEnd]   = useState<number | null>(null);
+
+  // 小さなYMDヘルパー（このコンポーネント内だけで使う）
+  const _toYMD = (y: number, m: number, d: number) => y * 10000 + (m + 1) * 100 + d;
+  const _ymdLabel = (ymd: number) => {
+    const m = Math.floor((ymd % 10000) / 100);
+    const d = ymd % 100;
+    return `${m}月${d}日`;
+  };
+
+  // 月ナビゲーション
+  const prevMonth = () => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1); }
+    else setCalMonth(calMonth - 1);
+  };
+  const nextMonth = () => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1); }
+    else setCalMonth(calMonth + 1);
+  };
+
+  // 日付タップハンドラ
+  const handleDayTap = (day: number) => {
+    const ymd = _toYMD(calYear, calMonth, day);
+    // 未選択 or 両方そろっている → 選び直し開始
+    if (draftStart === null || draftEnd !== null) {
+      setDraftStart(ymd);
+      setDraftEnd(null);
+      return;
+    }
+    // 開始日のみ選択中
+    if (ymd < draftStart) {
+      // タップ日が開始日より前 → 新しい開始日にする
+      setDraftStart(ymd);
+    } else {
+      // 開始日以降（同日含む）→ 終了日にする
+      setDraftEnd(ymd);
+    }
+  };
+
+  // 案内文
+  const rangeLabel = (() => {
+    if (!draftStart) return "開始日を選んでね";
+    if (!draftEnd)   return "終了日を選んでね";
+    return `${_ymdLabel(draftStart)} 〜 ${_ymdLabel(draftEnd)} を選択中`;
+  })();
+
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor:"#FFFBF5", color:"#4A3728" }}>
       <div className="flex items-center gap-3 px-4 py-5 sticky top-0 z-10"
@@ -580,7 +632,7 @@ function SettingsScreen({
           </div>
         </div>
 
-        {/* 生理期間（土台） */}
+        {/* 生理期間 */}
         <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
           {/* ヘッダー */}
           <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
@@ -596,15 +648,17 @@ function SettingsScreen({
           {/* カレンダーエリア */}
           <div className="px-4 py-4" style={{ backgroundColor:"rgba(255,255,255,0.80)" }}>
 
-            {/* 月ナビゲーション（表示のみ・タップ無効） */}
+            {/* 月ナビゲーション */}
             <div className="flex items-center justify-between mb-4">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor:"#FFE0CC", color:"#B86540", opacity:0.4 }}>‹</div>
+              <button onClick={prevMonth}
+                className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>‹</button>
               <p className="font-bold text-sm" style={{ color:"#4A3728" }}>
-                {new Date().getFullYear()}年 {new Date().getMonth() + 1}月
+                {calYear}年 {calMonth + 1}月
               </p>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor:"#FFE0CC", color:"#B86540", opacity:0.4 }}>›</div>
+              <button onClick={nextMonth}
+                className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>›</button>
             </div>
 
             {/* 曜日ヘッダー */}
@@ -615,39 +669,60 @@ function SettingsScreen({
               ))}
             </div>
 
-            {/* 日付グリッド（表示のみ・操作なし） */}
+            {/* 日付グリッド */}
             <div className="grid grid-cols-7 gap-y-1">
               {(() => {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = now.getMonth();
-                const firstDow = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const firstDow  = new Date(calYear, calMonth, 1).getDay();
+                const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
                 const cells: (number | null)[] = [
                   ...Array(firstDow).fill(null),
                   ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
                 ];
                 while (cells.length % 7 !== 0) cells.push(null);
-                return cells.map((d, i) => (
-                  d == null
-                    ? <div key={i} />
-                    : <div key={i}
-                        className="flex items-center justify-center rounded-full mx-auto"
-                        style={{ width:32, height:32, fontSize:13, color:"#4A3728" }}>
-                        {d}
-                      </div>
-                ));
+
+                return cells.map((d, i) => {
+                  if (d == null) return <div key={i} />;
+                  const ymd     = _toYMD(calYear, calMonth, d);
+                  const isStart = ymd === draftStart;
+                  const isEnd   = ymd === draftEnd;
+                  const isEdge  = isStart || isEnd;
+                  const isRange = draftStart !== null && draftEnd !== null
+                    && ymd > draftStart && ymd < draftEnd;
+
+                  return (
+                    <button key={i}
+                      onClick={() => handleDayTap(d)}
+                      className="flex items-center justify-center rounded-full mx-auto active:scale-90 transition-all duration-150"
+                      style={{
+                        width:           32,
+                        height:          32,
+                        fontSize:        13,
+                        fontWeight:      isEdge ? 700 : 400,
+                        backgroundColor: isEdge  ? "#8B7BA8"
+                                       : isRange ? "rgba(196,180,224,0.35)"
+                                       : "transparent",
+                        color:           isEdge  ? "#fff"
+                                       : isRange ? "#6B5A8A"
+                                       : "#4A3728",
+                        outline:         isEdge  ? "2px solid #8B7BA8" : "none",
+                        outlineOffset:   1,
+                      }}>
+                      {d}
+                    </button>
+                  );
+                });
               })()}
             </div>
 
-            {/* 案内文エリア */}
-            <div className="mt-4 px-4 py-3 rounded-2xl text-center"
-              style={{ backgroundColor:"rgba(196,180,224,0.08)", border:"1px dashed #C4B4E0" }}>
-              <p style={{ fontSize:12, color:"#8B7BA8" }}>
-                開始日を選べるように準備中です 🌙
-              </p>
-              <p style={{ fontSize:10, color:"#C4A898", marginTop:4 }}>
-                この機能は段階的に再構築中です
+            {/* 案内文 */}
+            <div className="mt-4 px-4 py-3 rounded-2xl flex items-center gap-2"
+              style={{
+                backgroundColor: draftStart ? "rgba(196,180,224,0.15)" : "rgba(253,235,208,0.5)",
+                border: `1px solid ${draftStart ? "#C4B4E0" : "#FDEBD0"}`,
+              }}>
+              <span style={{ fontSize:14 }}>🌙</span>
+              <p style={{ fontSize:11, color: draftStart ? "#8B7BA8" : "#C4A898" }}>
+                {rangeLabel}
               </p>
             </div>
 

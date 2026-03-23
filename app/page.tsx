@@ -501,7 +501,7 @@ function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
-  onSave, saving, onConfirmPeriod,
+  onSave, saving, onConfirmPeriod, onResetPeriod,
   onGoalChange, onReminderChange,
 }: {
   onBack:()=>void;
@@ -513,11 +513,14 @@ function SettingsScreen({
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(coupleId:string, cStart:number|null, cEnd:number|null)=>void; saving:boolean;
   onConfirmPeriod:(cStart:number, cEnd:number)=>Promise<void>;
+  onResetPeriod:()=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
-  const [localCoupleId, setLocalCoupleId] = useState(initialCoupleId);
-  const [confirming, setConfirming] = useState(false);
+  const [localCoupleId,    setLocalCoupleId]    = useState(initialCoupleId);
+  const [confirming,       setConfirming]       = useState(false);
+  const [resetting,        setResetting]        = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const cooldownDays = getCooldownDays(syncGoal);
 
   // ── 生理期間 ─────────────────────────────────────────────
@@ -585,6 +588,19 @@ function SettingsScreen({
     setDraftStart(null);
     setDraftEnd(null);
     setConfirming(false);
+  };
+
+  // リセット押下：DB削除 → ローカルstateをすべてクリア
+  const handleReset = async () => {
+    if (resetting) return;
+    setResetting(true);
+    await onResetPeriod();
+    setConfirmedStart(null);
+    setConfirmedEnd(null);
+    setDraftStart(null);
+    setDraftEnd(null);
+    setShowResetConfirm(false);
+    setResetting(false);
   };
 
   // 案内文（draft中 > confirmed済み > 未選択 の優先順）
@@ -754,23 +770,56 @@ function SettingsScreen({
             </div>
 
             {/* 案内文 */}
-            <div className="mt-4 px-4 py-3 rounded-2xl flex items-center gap-2"
+            <div className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between gap-2"
               style={{
                 backgroundColor: (draftStart || confirmedStart)
                   ? "rgba(196,180,224,0.15)" : "rgba(253,235,208,0.5)",
                 border: `1px solid ${(draftStart || confirmedStart) ? "#C4B4E0" : "#FDEBD0"}`,
               }}>
-              <span style={{ fontSize:14 }}>🌙</span>
-              <p style={{
-                fontSize:   11,
-                color:      confirmedStart && !draftStart ? "#6B5A90"
-                          : draftStart                   ? "#8B7BA8"
-                          :                                "#C4A898",
-                fontWeight: confirmedStart && !draftStart ? 600 : 400,
-              }}>
-                {rangeLabel}
-              </p>
+              <div className="flex items-center gap-2 min-w-0">
+                <span style={{ fontSize:14 }}>🌙</span>
+                <p style={{
+                  fontSize:   11,
+                  color:      confirmedStart && !draftStart ? "#6B5A90"
+                            : draftStart                   ? "#8B7BA8"
+                            :                                "#C4A898",
+                  fontWeight: confirmedStart && !draftStart ? 600 : 400,
+                }}>
+                  {rangeLabel}
+                </p>
+              </div>
+              {/* リセットボタン：confirmed があり draft 操作中でない時だけ表示 */}
+              {confirmedStart && !draftStart && (
+                <button
+                  onClick={() => setShowResetConfirm(true)}
+                  style={{ fontSize:10, color:"#C4A898", whiteSpace:"nowrap", flexShrink:0 }}>
+                  リセット
+                </button>
+              )}
             </div>
+
+            {/* インライン確認（リセット） */}
+            {showResetConfirm && (
+              <div className="mt-2 px-4 py-3 rounded-2xl flex items-center justify-between gap-3"
+                style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
+                <p style={{ fontSize:11, color:"#D97B6C" }}>本当にリセットしますか？</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowResetConfirm(false)}
+                    className="px-3 py-1.5 rounded-xl text-xs"
+                    style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    disabled={resetting}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                    style={{ backgroundColor: resetting ? "#FDEBD0" : "#D97B6C", color:"#fff" }}>
+                    {resetting ? "…" : "消す"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* 確定ボタン（draftStart と draftEnd が両方ある時だけ表示） */}
             {draftStart && draftEnd && (
@@ -1288,6 +1337,20 @@ export default function Home() {
     pop("生理期間を保存したよ 🌙");
   }, [coupleId, myEmail, pop]);
 
+  const handleResetPeriod = useCallback(async () => {
+    if (!coupleId || !myEmail) return;
+    await supabase.from("sync_status").upsert({
+      couple_id:  coupleId,
+      user_email: myEmail,
+      moon_start: null,
+      moon_end:   null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+    setSavedMoonStart(null);
+    setSavedMoonEnd(null);
+    pop("生理期間をリセットしたよ 🗑️");
+  }, [coupleId, myEmail, pop]);
+
   // ─── 8. 設定保存 ─────────────────────────────────────────
   const handleSaveSettings = useCallback(async (
     newCoupleId: string,
@@ -1406,6 +1469,7 @@ export default function Home() {
         initialConfirmedEnd={savedMoonEnd}
         onSave={handleSaveSettings} saving={saving}
         onConfirmPeriod={handleConfirmPeriod}
+        onResetPeriod={handleResetPeriod}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
         reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}

@@ -1095,13 +1095,17 @@ export default function Home() {
       ...(partnerRow?.period_history ?? []),
     ];
     const seen = new Set<string>();
-    // created_at 降順（旧データは start 降順で代用）
+    // created_at がある（新データ）を優先し DESC、ない（旧データ）は start DESC
     return all
       .filter(r => { if (seen.has(r.start)) return false; seen.add(r.start); return true; })
       .sort((a, b) => {
-        const ta = a.created_at ?? a.start;
-        const tb = b.created_at ?? b.start;
-        return tb > ta ? 1 : tb < ta ? -1 : 0;
+        const aHas = !!a.created_at;
+        const bHas = !!b.created_at;
+        if (aHas && !bHas) return -1;           // a（新）を先に
+        if (!aHas && bHas) return 1;            // b（新）を先に
+        if (aHas && bHas)                       // 両方新：created_at DESC
+          return b.created_at! > a.created_at! ? 1 : b.created_at! < a.created_at! ? -1 : 0;
+        return b.start > a.start ? 1 : b.start < a.start ? -1 : 0; // 両方旧：start DESC
       });
   })();
 

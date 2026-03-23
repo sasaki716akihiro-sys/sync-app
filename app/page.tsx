@@ -40,8 +40,9 @@ interface SyncRow {
 
 // 生理履歴の1件
 interface PeriodRecord {
-  start: string; // YYYY-MM-DD
-  end:   string; // YYYY-MM-DD
+  start:      string;  // YYYY-MM-DD
+  end:        string;  // YYYY-MM-DD
+  created_at?: string; // ISO 8601 — ない場合は start で代用（旧データ互換）
 }
 
 // キモチ履歴の1件（週次ふりかえり用）
@@ -1094,9 +1095,14 @@ export default function Home() {
       ...(partnerRow?.period_history ?? []),
     ];
     const seen = new Set<string>();
+    // created_at 降順（旧データは start 降順で代用）
     return all
       .filter(r => { if (seen.has(r.start)) return false; seen.add(r.start); return true; })
-      .reverse(); // 挿入順の逆順＝直近に入力したものが先頭
+      .sort((a, b) => {
+        const ta = a.created_at ?? a.start;
+        const tb = b.created_at ?? b.start;
+        return tb > ta ? 1 : tb < ta ? -1 : 0;
+      });
   })();
 
   // ── 生理期間（syncData の myRow から派生 → Realtime と常に同期） ─
@@ -1543,9 +1549,10 @@ export default function Home() {
 
     // 既存履歴（同じ start がすでにあれば end を更新、なければ末尾に追加）
     const existing: PeriodRecord[] = myRow?.period_history ?? [];
+    const now = new Date().toISOString();
     const newHistory: PeriodRecord[] = existing.some(r => r.start === startStr)
-      ? existing.map(r => r.start === startStr ? { start: startStr, end: endStr } : r)
-      : [...existing, { start: startStr, end: endStr }];
+      ? existing.map(r => r.start === startStr ? { ...r, end: endStr, created_at: now } : r)
+      : [...existing, { start: startStr, end: endStr, created_at: now }];
 
     await supabase.from("sync_status").upsert({
       couple_id:      coupleId,

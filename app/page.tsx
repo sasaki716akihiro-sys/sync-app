@@ -504,7 +504,7 @@ function SettingsScreen({
   partnerConfirmedStart, partnerConfirmedEnd,
   periodHistory,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
-  onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod,
+  onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod, onDeleteHistory,
   onGoalChange, onReminderChange,
 }: {
   onBack:()=>void;
@@ -521,6 +521,7 @@ function SettingsScreen({
   onConfirmStart:(start:number)=>Promise<void>;
   onConfirmEnd:(end:number)=>Promise<void>;
   onResetPeriod:()=>Promise<void>;
+  onDeleteHistory:(start:string)=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
@@ -529,6 +530,8 @@ function SettingsScreen({
   const [resetting,        setResetting]        = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showAllHistory,   setShowAllHistory]   = useState(false);
+  const [deletingStart,    setDeletingStart]    = useState<string | null>(null);
+  const [deleting,         setDeleting]         = useState(false);
   const HISTORY_LIMIT = 3;
   const cooldownDays = getCooldownDays(syncGoal);
 
@@ -915,13 +918,54 @@ function SettingsScreen({
               </p>
             </div>
             <div className="px-5 py-4 flex flex-col gap-2" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-              {(showAllHistory ? periodHistory : periodHistory.slice(0, HISTORY_LIMIT)).map((rec, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-2xl"
-                  style={{ backgroundColor:"rgba(139,123,168,0.08)", border:"1px solid #E0D4F0" }}>
-                  <span style={{ fontSize:12 }}>🌸</span>
-                  <span style={{ fontSize:12, color:"#6B5A90", fontWeight:500 }}>
-                    {rec.start} 〜 {rec.end}
-                  </span>
+              {(showAllHistory ? periodHistory : periodHistory.slice(0, HISTORY_LIMIT)).map((rec) => (
+                <div key={rec.start}>
+                  {deletingStart === rec.start ? (
+                    /* 削除確認インライン */
+                    <div className="px-3 py-2.5 rounded-2xl flex flex-col gap-2"
+                      style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
+                      <p style={{ fontSize:11, color:"#D97B6C", fontWeight:600 }}>
+                        {rec.start} 〜 {rec.end} を削除しますか？
+                      </p>
+                      <p style={{ fontSize:10, color:"#C4A898" }}>
+                        削除すると、今後の予測や自動計算には使われなくなります
+                      </p>
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => setDeletingStart(null)}
+                          className="px-3 py-1.5 rounded-xl text-xs"
+                          style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>
+                          キャンセル
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setDeleting(true);
+                            await onDeleteHistory(rec.start);
+                            setDeletingStart(null);
+                            setDeleting(false);
+                          }}
+                          disabled={deleting}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                          style={{ backgroundColor: deleting ? "#FDEBD0" : "#D97B6C", color:"#fff" }}>
+                          {deleting ? "…" : "削除する"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 通常表示 */
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-2xl"
+                      style={{ backgroundColor:"rgba(139,123,168,0.08)", border:"1px solid #E0D4F0" }}>
+                      <span style={{ fontSize:12 }}>🌸</span>
+                      <span className="flex-1" style={{ fontSize:12, color:"#6B5A90", fontWeight:500 }}>
+                        {rec.start} 〜 {rec.end}
+                      </span>
+                      <button
+                        onClick={() => setDeletingStart(rec.start)}
+                        className="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                        style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C", fontSize:12, flexShrink:0 }}>
+                        ×
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               {periodHistory.length > HISTORY_LIMIT && (
@@ -1587,6 +1631,22 @@ export default function Home() {
     pop("生理期間をリセットしたよ 🗑️");
   }, [coupleId, myEmail, pop]);
 
+  // ─── 8d. 生理履歴削除 ───────────────────────────────────────
+  const handleDeleteHistory = useCallback(async (startToDelete: string) => {
+    if (!coupleId || !myEmail) return;
+    const newHistory = (myRow?.period_history ?? []).filter(r => r.start !== startToDelete);
+    await supabase.from("sync_status").upsert({
+      couple_id:      coupleId,
+      user_email:     myEmail,
+      period_history: newHistory,
+      updated_at:     new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+    setSyncData(prev => prev.map(r =>
+      r.user_email === myEmail ? { ...r, period_history: newHistory } : r
+    ));
+    pop("履歴を削除したよ 🗑️");
+  }, [coupleId, myEmail, myRow, pop]);
+
   // ─── 8. 設定保存 ─────────────────────────────────────────
   const handleSaveSettings = useCallback(async (
     newCoupleId: string,
@@ -1710,6 +1770,7 @@ export default function Home() {
         onConfirmStart={handleConfirmStart}
         onConfirmEnd={handleConfirmEnd}
         onResetPeriod={handleResetPeriod}
+        onDeleteHistory={handleDeleteHistory}
         onGoalChange={handleGoalChange}
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
         reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}

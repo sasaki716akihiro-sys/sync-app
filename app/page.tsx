@@ -1030,11 +1030,29 @@ export default function Home() {
     return Math.max(1, Math.floor((now.getTime() - start.getTime()) / 86400000) + 1);
   })();
   const periodLevel = periodDayCount <= 2 ? "max" : periodDayCount <= 4 ? "mid" : "low";
-  const periodCopy  = {
-    max: { emoji: "🤒", title: "今日はかなりしんどい日かも",   message: "無理せず、できるだけゆっくりしてね" },
-    mid: { emoji: "😵", title: "少ししんどさが残る頃",         message: "落ち着いて、無理のない一日にしよう" },
-    low: { emoji: "😌", title: "少しずつ楽になってくる頃",     message: "穏やかに過ごせそうなら、それで十分" },
-  }[periodLevel];
+  const periodPatterns = {
+    max: [
+      { emoji: "🤒", title: "今日はかなりしんどい日かも",       message: "できるだけゆっくりしてね" },
+      { emoji: "🤒", title: "無理せずゆっくりしたい日",         message: "あたたかくして、落ち着いて過ごそう" },
+      { emoji: "🤒", title: "まずは休むことを優先しよう",       message: "今日は無理を減らして過ごせたら十分だよ" },
+      { emoji: "🤒", title: "今日はがんばりすぎなくて大丈夫",   message: "少しでも楽に過ごせますように" },
+    ],
+    mid: [
+      { emoji: "😵", title: "少ししんどさが残る頃",             message: "無理のないペースでいこう" },
+      { emoji: "😵", title: "まだ無理はしないでいたい日",       message: "ひと息つきながら過ごそう" },
+      { emoji: "😵", title: "今日は落ち着いて過ごしたいね",     message: "落ち着ける時間を大切にしよう" },
+      { emoji: "😵", title: "ゆるやかに整えていく日",           message: "できることだけで十分だよ" },
+    ],
+    low: [
+      { emoji: "😌", title: "少しずつ楽になってくる頃",         message: "自分のペースで過ごそう" },
+      { emoji: "😌", title: "今日は穏やかに過ごせそう",         message: "無理せずゆるくいけたら十分" },
+      { emoji: "😌", title: "すこし軽くなってくるタイミング",   message: "ほっとできる時間を持てるといいね" },
+      { emoji: "😌", title: "やさしく日常に戻していこう",       message: "気負わず穏やかに過ごそう" },
+    ],
+  };
+  // periodDayCount でインデックスを固定し、当日中は同じ文言が出るようにする
+  const periodCopyList = periodPatterns[periodLevel];
+  const periodCopy = periodCopyList[periodDayCount % periodCopyList.length];
 
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;

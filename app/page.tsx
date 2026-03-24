@@ -982,6 +982,133 @@ function SettingsScreen({
           </div>
         )}
 
+        {/* 次回予測 */}
+        {(() => {
+          // 予測用：実際の開始日で降順ソート（completed のみ）
+          const completed = (periodHistory ?? [])
+            .filter(r => r.start && r.end)
+            .sort((a, b) => (b.start > a.start ? 1 : b.start < a.start ? -1 : 0));
+          const n = completed.length;
+
+          const daysDiff = (from: string, to: string) =>
+            Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000);
+          const duration = (r: PeriodRecord) => daysDiff(r.start, r.end) + 1;
+          const addDays = (dateStr: string, days: number) => {
+            const d = new Date(dateStr);
+            d.setDate(d.getDate() + days);
+            return getLocalDateStr(d);
+          };
+          const fmtDate = (s: string) => {
+            const [, m, d] = s.split("-");
+            return `${parseInt(m)}月${parseInt(d)}日`;
+          };
+
+          const headerSection = (isRef: boolean) => (
+            <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(240,232,250,0.7)" }}>
+              <div className="flex items-center gap-1.5">
+                <span style={{ fontSize:16 }}>🔮</span>
+                <p className="font-bold text-sm" style={{ color:"#6B5A90" }}>
+                  次回予測{isRef ? "（参考）" : ""}
+                </p>
+                {isRef && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                    style={{ backgroundColor:"rgba(196,180,224,0.35)", color:"#8B7BA8", fontSize:10 }}>
+                    参考
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                {isRef ? "履歴が少ないため、参考値として表示しています" : "直近3件の履歴をもとに計算しています"}
+              </p>
+            </div>
+          );
+
+          if (n === 0) {
+            return (
+              <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #E8D8F0" }}>
+                {headerSection(false)}
+                <div className="px-5 py-4 flex flex-col gap-2" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+                  <div className="px-4 py-3 rounded-2xl text-center"
+                    style={{ backgroundColor:"rgba(139,123,168,0.06)", border:"1px dashed #C4B4E0" }}>
+                    <p style={{ fontSize:12, color:"#8B7BA8" }}>🌙</p>
+                    <p style={{ fontSize:12, color:"#8B7BA8", marginTop:4 }}>
+                      履歴がたまると、次回予測が表示されます
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          const top3 = completed.slice(0, 3);
+          let cycleUsed: number;
+          let durUsed: number;
+          let isRef: boolean;
+          let cycleNote: string;
+          let note: string;
+
+          if (n === 1) {
+            cycleUsed = 28;
+            durUsed = duration(top3[0]);
+            isRef = true;
+            cycleNote = "周期：28日（初期値）";
+            note = "履歴が3件たまると、正式な予測に切り替わります";
+          } else if (n === 2) {
+            cycleUsed = daysDiff(top3[1].start, top3[0].start);
+            durUsed = Math.round((duration(top3[0]) + duration(top3[1])) / 2);
+            isRef = true;
+            cycleNote = `周期：${cycleUsed}日`;
+            note = "あと1件で、より安定した予測になります";
+          } else {
+            const c1 = daysDiff(top3[1].start, top3[0].start);
+            const c2 = daysDiff(top3[2].start, top3[1].start);
+            cycleUsed = Math.round((c1 + c2) / 2);
+            const durs = [duration(top3[0]), duration(top3[1]), duration(top3[2])].sort((a, b) => a - b);
+            durUsed = durs[1];
+            isRef = false;
+            cycleNote = `周期：${cycleUsed}日`;
+            note = "直近3件の履歴から計算しています";
+          }
+
+          const nextStart = addDays(top3[0].start, cycleUsed);
+          const nextEnd   = addDays(nextStart, durUsed - 1);
+
+          return (
+            <div className="rounded-3xl overflow-hidden" style={{ border: isRef ? "1.5px solid #C4B4E0" : "1.5px solid #8B7BA8" }}>
+              {headerSection(isRef)}
+              <div className="px-5 py-4 flex flex-col gap-3" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+                {/* 予測日程 */}
+                <div className="px-4 py-3 rounded-2xl"
+                  style={{
+                    backgroundColor: isRef ? "rgba(196,180,224,0.12)" : "rgba(139,123,168,0.1)",
+                    border: isRef ? "1px dashed #C4B4E0" : "1px solid #C4B4E0",
+                  }}>
+                  <p style={{ fontSize:10, color:"#A898C4", fontWeight:600, marginBottom:4 }}>
+                    予測開始日
+                  </p>
+                  <p className="font-bold" style={{ fontSize:20, color: isRef ? "#8B7BA8" : "#6B5A90" }}>
+                    {fmtDate(nextStart)}
+                    <span style={{ fontSize:12, color:"#A898C4", fontWeight:400, marginLeft:4 }}>ごろ〜</span>
+                  </p>
+                  <p style={{ fontSize:11, color:"#A898C4", marginTop:2 }}>
+                    〜 {fmtDate(nextEnd)}（{durUsed}日間）
+                  </p>
+                </div>
+                {/* 計算根拠 */}
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                  style={{ backgroundColor:"rgba(139,123,168,0.05)" }}>
+                  <span style={{ fontSize:11, color:"#A898C4" }}>📊</span>
+                  <p style={{ fontSize:11, color:"#A898C4" }}>{cycleNote}　期間：{durUsed}日</p>
+                </div>
+                {/* 補足 */}
+                <p style={{ fontSize:10, color: isRef ? "#B8A8C8" : "#8B7BA8", textAlign:"center" }}>
+                  {note}
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* リマインド設定 */}
         <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
           <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>

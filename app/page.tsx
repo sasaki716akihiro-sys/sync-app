@@ -1099,6 +1099,126 @@ function LoadingScreen() {
   );
 }
 
+// ─── Perfect Sync 花火オーバーレイ ───────────────────────────
+function PerfectSyncOverlay({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 6000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
+  const colors = ["#FFD700","#FF6B9D","#FF8C42","#7EC8E3","#A8E6CF","#FFB7C5","#C3A6FF"];
+
+  // 花火バースト位置（固定）
+  const bursts = [
+    { x:18, y:16, c:"#FFD700", d:0    },
+    { x:80, y:12, c:"#FF6B9D", d:0.22 },
+    { x:50, y:25, c:"#C3A6FF", d:0.10 },
+    { x:12, y:64, c:"#7EC8E3", d:0.42 },
+    { x:84, y:60, c:"#A8E6CF", d:0.33 },
+    { x:50, y:78, c:"#FF8C42", d:0.58 },
+  ];
+  const DIST   = 52;
+  const ANGLES = Array.from({ length: 12 }, (_, i) => i * 30);
+
+  // コンフェッティ（決定論的）
+  const confetti = Array.from({ length: 28 }, (_, i) => ({
+    x:   (i * 41 + 3) % 96,
+    d:   (i * 0.11) % 1.8,
+    dur: 2.2 + (i * 0.19) % 1.2,
+    sz:  6 + (i * 7) % 10,
+    c:   colors[i % colors.length],
+    sq:  i % 3 !== 0,
+  }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+      style={{ backgroundColor:"rgba(10,5,20,0.88)", backdropFilter:"blur(4px)" }}
+      onClick={onClose}>
+      <style>{`
+        @keyframes ps_burst {
+          0%   { transform:translate(0,0) scale(1); opacity:1; }
+          100% { transform:translate(var(--ptx),var(--pty)) scale(0); opacity:0; }
+        }
+        @keyframes ps_ring {
+          0%   { transform:scale(0); opacity:0.85; }
+          100% { transform:scale(5); opacity:0; }
+        }
+        @keyframes ps_confetti {
+          0%   { transform:translateY(-20px) rotate(0deg); opacity:1; }
+          80%  { opacity:1; }
+          100% { transform:translateY(105vh) rotate(800deg); opacity:0; }
+        }
+        @keyframes ps_pop {
+          0%   { transform:scale(0.2) rotate(-10deg); opacity:0; }
+          65%  { transform:scale(1.14) rotate(2deg);  opacity:1; }
+          100% { transform:scale(1)   rotate(0deg);   opacity:1; }
+        }
+        @keyframes ps_glow {
+          0%,100% { filter:drop-shadow(0 0 18px rgba(255,220,80,0.8)); }
+          50%     { filter:drop-shadow(0 0 36px rgba(255,140,100,1)); }
+        }
+      `}</style>
+
+      {/* コンフェッティ */}
+      {confetti.map((c, i) => (
+        <div key={i} className="absolute pointer-events-none"
+          style={{
+            left:`${c.x}%`, top:"-12px",
+            width:c.sz, height:c.sz,
+            borderRadius: c.sq ? "2px" : "50%",
+            backgroundColor: c.c,
+            animation:`ps_confetti ${c.dur}s ease-in ${c.d}s infinite`,
+          }}/>
+      ))}
+
+      {/* 花火バースト */}
+      {bursts.map((b, bi) => (
+        <div key={bi} className="absolute pointer-events-none"
+          style={{ left:`${b.x}%`, top:`${b.y}%` }}>
+          <div style={{
+            position:"absolute", left:-16, top:-16, width:32, height:32,
+            border:`3px solid ${b.c}`, borderRadius:"50%",
+            animation:`ps_ring 1.1s ease-out ${b.d}s 2 forwards`,
+          }}/>
+          {ANGLES.map((angle, ai) => {
+            const rad = angle * Math.PI / 180;
+            const tx  = Math.round(Math.cos(rad) * DIST);
+            const ty  = Math.round(Math.sin(rad) * DIST);
+            return (
+              <div key={ai} style={{
+                position:"absolute", width:7, height:7, borderRadius:"50%",
+                backgroundColor: b.c,
+                ["--ptx" as string]: `${tx}px`,
+                ["--pty" as string]: `${ty}px`,
+                animation:`ps_burst 1.1s ease-out ${b.d + ai * 0.018}s 2 forwards`,
+              }}/>
+            );
+          })}
+        </div>
+      ))}
+
+      {/* メインテキスト */}
+      <div className="relative z-10 flex flex-col items-center gap-4 text-center px-8 pointer-events-none select-none"
+        style={{ animation:"ps_pop 0.65s cubic-bezier(0.34,1.56,0.64,1) 0.15s both" }}>
+        <span style={{ fontSize:76, animation:"ps_glow 2s ease-in-out 0.8s infinite" }}>💛</span>
+        <p style={{
+          fontSize:38, fontWeight:900, letterSpacing:"0.02em", lineHeight:1.1,
+          background:"linear-gradient(135deg,#FFE566 0%,#FFB085 50%,#FF6B9D 100%)",
+          WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+        }}>
+          Perfect Sync
+        </p>
+        <p style={{ fontSize:17, color:"rgba(255,255,255,0.95)", fontWeight:600 }}>
+          ✨ ふたりの気持ちがそろったよ ✨
+        </p>
+        <p style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginTop:4 }}>
+          タップで閉じる
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── 接続画面 ─────────────────────────────────────────────
 function ConnectScreen({
   onBack,
@@ -1313,8 +1433,9 @@ export default function Home() {
   const [screen,       setScreen]       = useState<Screen>("home");
   const [saving,       setSaving]       = useState(false);
   const [coupleId,     setCoupleId]     = useState("");
-  const [isConnected,  setIsConnected]  = useState(false);
-  const [partnerEmail, setPartnerEmail] = useState<string | null>(null);
+  const [isConnected,     setIsConnected]     = useState(false);
+  const [partnerEmail,    setPartnerEmail]    = useState<string | null>(null);
+  const [showPerfectSync, setShowPerfectSync] = useState(false);
 
   // ── ★ source of truth: DBの行をそのまま保持 ─────────────
   // myRow / partnerRow は myEmail で毎回派生させる
@@ -1411,6 +1532,16 @@ export default function Home() {
 
   const partnerKimochi: Kimochi = partnerRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(partnerRow.kimochi) : null;
+
+  // ─── Perfect Sync 検知：両者が○になった瞬間に花火 ──────────
+  // sessionStorage で「今日すでに見た」なら再表示しない
+  useEffect(() => {
+    if (myKimochi !== "circle" || partnerKimochi !== "circle") return;
+    const key = `ps_shown_${today}`;
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return;
+    sessionStorage?.setItem(key, "1");
+    setShowPerfectSync(true);
+  }, [myKimochi, partnerKimochi, today]);
 
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す
@@ -1834,6 +1965,7 @@ export default function Home() {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
 
       <Toast msg={toast.msg} on={toast.on}/>
+      {showPerfectSync && <PerfectSyncOverlay onClose={() => setShowPerfectSync(false)} />}
 
       <div className="w-full max-w-sm flex flex-col px-4 pt-6 pb-10 gap-4">
 

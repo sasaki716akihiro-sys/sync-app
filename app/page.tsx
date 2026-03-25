@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
+import { fetchCoupleRows } from "@/app/actions/sync";
 import { createClient } from "@/lib/supabase/client";
 
 // ─── Supabaseクライアントはモジュールレベルで1度だけ生成 ──────
@@ -1376,16 +1377,33 @@ export default function Home() {
   // ─── 全行ロード ───────────────────────────────────────────
   const loadAll = useCallback(async (cid: string, email: string) => {
     if (!cid || !email) return;
-    const { data, error } = await supabase
-      .from("sync_status").select("*").eq("couple_id", cid);
-    if (error) { console.error("[Sync] loadAll:", error); return; }
-    if (!data?.length) return;
+
+    // ① サーバーアクション経由でRLSをバイパスして取得（推奨）
+    let data: SyncRow[] | null = null;
+    try {
+      const serverRows = await fetchCoupleRows(cid);
+      if (serverRows && serverRows.length > 0) {
+        data = serverRows as unknown as SyncRow[];
+      }
+    } catch {
+      /* サーバーアクション失敗 → フォールバックへ */
+    }
+
+    // ② フォールバック：クライアント側クエリ（RLSが許可している場合のみ全件取得）
+    if (!data) {
+      const { data: clientData, error } = await supabase
+        .from("sync_status").select("*").eq("couple_id", cid);
+      if (error) { console.error("[Sync] loadAll:", error); return; }
+      data = (clientData ?? []) as SyncRow[];
+    }
+
+    if (!data.length) return;
 
     console.log("[Sync] loadAll 結果:", data.length, "件",
       data.map(r => `${r.user_email}(couple_id=${r.couple_id})`));
 
     // syncData にすべての行をセット（仕分けはレンダー時に myEmail で行う）
-    setSyncData(data as SyncRow[]);
+    setSyncData(data);
 
     // 自分の行から設定値を復元（全行渡してパートナーの月データも参照）
     const myR = (data as SyncRow[]).find(r => r.user_email === email);
@@ -1583,16 +1601,14 @@ export default function Home() {
     return () => clearInterval(id);
   }, [coupleId, myEmail, pop]);
 
-  // ─── 4c. パートナー未検出時の定期再ロード ──────────────────
-  // Realtimeが届かない・タイミングズレ・相手が後から登録した
-  // ケースをすべてカバーするため、パートナーが見つかるまで5秒ごとに全件再ロード
+  // ─── 4c. サーバーアクション経由の定期全件ロード ─────────────
+  // RLSバイパスで確実にパートナー行を取得する。
+  // ・パートナー未接続中 → 接続検出のため常時実行
+  // ・接続後 → Realtimeが届かない場合のキモチ同期フォールバック
   useEffect(() => {
     if (!coupleId || !myEmail) return;
     const id = setInterval(async () => {
-      if (!partnerEmailRef.current) {
-        console.log("[Sync] パートナー未検出：loadAll再試行");
-        await loadAll(coupleId, myEmail);
-      }
+      await loadAll(coupleId, myEmail);
     }, 5000);
     return () => clearInterval(id);
   }, [coupleId, myEmail, loadAll]);

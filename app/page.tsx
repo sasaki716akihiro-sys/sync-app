@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
-import { checkConnection, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
+import { checkConnection, disconnectCouple, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
 import { createClient } from "@/lib/supabase/client";
 
 // ─── Supabaseクライアントはモジュールレベルで1度だけ生成 ──────
@@ -445,6 +445,7 @@ function SettingsScreen({
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
   onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod, onDeleteHistory,
   onGoalChange, onReminderChange,
+  isConnected, partnerEmail, onDisconnect,
 }: {
   onBack:()=>void;
   syncGoal:number; setSyncGoal:(n:number)=>void;
@@ -460,13 +461,18 @@ function SettingsScreen({
   onDeleteHistory:(start:string)=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
+  isConnected: boolean;
+  partnerEmail: string | null;
+  onDisconnect: () => Promise<void>;
 }) {
-  const [confirming,       setConfirming]       = useState(false);
-  const [resetting,        setResetting]        = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showAllHistory,   setShowAllHistory]   = useState(false);
-  const [deletingStart,    setDeletingStart]    = useState<string | null>(null);
-  const [deleting,         setDeleting]         = useState(false);
+  const [confirming,            setConfirming]            = useState(false);
+  const [resetting,             setResetting]             = useState(false);
+  const [showResetConfirm,      setShowResetConfirm]      = useState(false);
+  const [showAllHistory,        setShowAllHistory]        = useState(false);
+  const [deletingStart,         setDeletingStart]         = useState<string | null>(null);
+  const [deleting,              setDeleting]              = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [disconnecting,         setDisconnecting]         = useState(false);
   const HISTORY_LIMIT = 3;
   const cooldownDays = getCooldownDays(syncGoal);
 
@@ -1032,6 +1038,51 @@ function SettingsScreen({
           </div>
         </div>
 
+        {/* ── パートナー接続 ─────────────────────────────── */}
+        {isConnected && (
+          <div className="rounded-3xl px-5 py-5 flex flex-col gap-3"
+            style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1.5px solid #FDEBD0", boxShadow:"0 2px 12px rgba(255,200,150,0.10)" }}>
+            <p className="font-bold text-sm" style={{ color:"#8B4513" }}>🔗 パートナー接続</p>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl"
+              style={{ backgroundColor:"rgba(122,173,114,0.12)", border:"1px solid #A8C9A0" }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block", flexShrink:0 }}/>
+              <span style={{ fontSize:12, color:"#4A7A5A", wordBreak:"break-all" }}>{partnerEmail}</span>
+            </div>
+            {!showDisconnectConfirm ? (
+              <button onClick={()=>setShowDisconnectConfirm(true)}
+                className="w-full py-2.5 rounded-2xl text-sm font-bold active:scale-95 transition-transform"
+                style={{ backgroundColor:"rgba(255,230,230,0.7)", border:"1px solid #F4A8A8", color:"#C45050" }}>
+                接続を解除する
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2 rounded-2xl px-4 py-3"
+                style={{ backgroundColor:"rgba(255,240,240,0.8)", border:"1px solid #F4A8A8" }}>
+                <p className="text-xs text-center font-bold" style={{ color:"#C45050" }}>本当に解除しますか？</p>
+                <p className="text-xs text-center" style={{ color:"#9A7B6A" }}>解除後はお互いのデータが見えなくなります</p>
+                <div className="flex gap-2">
+                  <button onClick={()=>setShowDisconnectConfirm(false)}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                    style={{ backgroundColor:"rgba(255,255,255,0.9)", border:"1px solid #FDEBD0", color:"#9A7B6A" }}>
+                    キャンセル
+                  </button>
+                  <button
+                    disabled={disconnecting}
+                    onClick={async()=>{
+                      setDisconnecting(true);
+                      await onDisconnect();
+                      setDisconnecting(false);
+                      setShowDisconnectConfirm(false);
+                    }}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform disabled:opacity-50"
+                    style={{ backgroundColor:"#F4A8A8", color:"#fff" }}>
+                    {disconnecting ? "解除中…" : "解除する"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="h-8"/>
       </div>
     </div>
@@ -1425,6 +1476,36 @@ export default function Home() {
     return () => clearInterval(id);
   }, [myEmail, isConnected]);
 
+  // ─── 1c. 接続中の間も30秒ごとに確認（パートナー側の解除を検知）─
+  useEffect(() => {
+    if (!myEmail || !isConnected) return;
+    const id = setInterval(async () => {
+      const conn = await checkConnection();
+      if (!conn.connected) {
+        setIsConnected(false);
+        setPartnerEmail(null);
+        const cid = myEmail;
+        setCoupleId(cid);
+        setCoupleIdInput(cid);
+        localStorage.setItem("sync_couple_id", cid);
+      }
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [myEmail, isConnected]);
+
+  // ─── handleDisconnect ──────────────────────────────────────
+  const handleDisconnect = useCallback(async () => {
+    const res = await disconnectCouple();
+    if (!res.ok) { alert(res.error); return; }
+    setIsConnected(false);
+    setPartnerEmail(null);
+    const cid = myEmail;
+    setCoupleId(cid);
+    setCoupleIdInput(cid);
+    localStorage.setItem("sync_couple_id", cid);
+    setScreen("home");
+  }, [myEmail]);
+
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
   useEffect(() => {
     if (coupleId && myEmail) {
@@ -1659,6 +1740,9 @@ export default function Home() {
         reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
         reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}
         onReminderChange={handleReminderChange}
+        isConnected={isConnected}
+        partnerEmail={partnerEmail}
+        onDisconnect={handleDisconnect}
       />
     );
   }

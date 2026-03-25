@@ -55,6 +55,10 @@ export type ConnectionResult =
   | { connected: true;  coupleId: string; partnerEmail: string }
   | { connected: false };
 
+export type DisconnectResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 // ─── 招待コード発行 ──────────────────────────────────────
 export async function issueInviteCode(): Promise<IssueResult> {
   const email = await getAuthEmail();
@@ -224,6 +228,38 @@ export async function joinWithInviteCode(rawInput: string): Promise<JoinResult> 
 
   console.log("[Invite] connected:", email, "←→", partnerEmail, "coupleId=", coupleId);
   return { ok: true, coupleId, partnerEmail };
+}
+
+// ─── 接続解除 ────────────────────────────────────────────
+export async function disconnectCouple(): Promise<DisconnectResult> {
+  const email = await getAuthEmail();
+  if (!email) return { ok: false, error: "ログインが必要です" };
+
+  let admin;
+  try { admin = getAdmin(); }
+  catch (e) { return { ok: false, error: String(e) }; }
+
+  const { data: couple } = await admin
+    .from("couples")
+    .select("id")
+    .or(`member_a.eq.${email},member_b.eq.${email}`)
+    .eq("status", "connected")
+    .maybeSingle();
+
+  if (!couple) return { ok: false, error: "接続中のパートナーが見つかりません" };
+
+  const { error: de } = await admin
+    .from("couples")
+    .delete()
+    .eq("id", couple.id);
+
+  if (de) {
+    console.error("[Invite] disconnect:", de);
+    return { ok: false, error: "接続解除に失敗しました" };
+  }
+
+  console.log("[Invite] disconnected:", email, "coupleId=", couple.id);
+  return { ok: true };
 }
 
 // ─── 接続状態確認 ────────────────────────────────────────

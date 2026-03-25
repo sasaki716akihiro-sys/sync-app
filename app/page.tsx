@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
+import { checkConnection, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
 import { createClient } from "@/lib/supabase/client";
 
 // ─── Supabaseクライアントはモジュールレベルで1度だけ生成 ──────
@@ -12,7 +13,7 @@ const supabase = createClient();
 
 // ─── 型 ──────────────────────────────────────────────────
 type Kimochi = "circle" | "triangle" | "cross" | null;
-type Screen  = "home" | "settings";
+type Screen  = "home" | "settings" | "connect";
 
 interface SyncRow {
   couple_id:       string;
@@ -438,7 +439,7 @@ function SyncSuccessCard({ isSyncToday, remainingDays, totalDays, lastSyncDate, 
 
 // ─── 設定画面 ────────────────────────────────────────────
 function SettingsScreen({
-  onBack, initialCoupleId, syncGoal, setSyncGoal,
+  onBack, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
   periodHistory,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
@@ -446,14 +447,13 @@ function SettingsScreen({
   onGoalChange, onReminderChange,
 }: {
   onBack:()=>void;
-  initialCoupleId:string;
   syncGoal:number; setSyncGoal:(n:number)=>void;
   initialConfirmedStart: number | null;
   initialConfirmedEnd:   number | null;
   periodHistory: PeriodRecord[] | null;
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
-  onSave:(coupleId:string, cStart:number|null, cEnd:number|null)=>void; saving:boolean;
+  onSave:(cStart:number|null, cEnd:number|null)=>void; saving:boolean;
   onConfirmStart:(start:number)=>Promise<void>;
   onConfirmEnd:(end:number)=>Promise<void>;
   onResetPeriod:()=>Promise<void>;
@@ -461,7 +461,6 @@ function SettingsScreen({
   onGoalChange:(newGoal:number)=>void;
   onReminderChange:(weekday:number, weekend:number)=>void;
 }) {
-  const [localCoupleId,    setLocalCoupleId]    = useState(initialCoupleId);
   const [confirming,       setConfirming]       = useState(false);
   const [resetting,        setResetting]        = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -605,7 +604,7 @@ function SettingsScreen({
         <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
           style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>←</button>
         <h1 className="font-bold text-base flex-1" style={{ color:"#8B4513" }}>設定・ふたりのルール</h1>
-        <button onClick={()=>onSave(localCoupleId, confirmedStart, confirmedEnd)} disabled={saving}
+        <button onClick={()=>onSave(confirmedStart, confirmedEnd)} disabled={saving}
           className="px-4 py-2 rounded-full text-sm font-bold active:scale-95 transition-transform"
           style={{ backgroundColor:saving?"#FDEBD0":"#D97B6C", color:"white" }}>
           {saving ? "保存中…" : "保存 💾"}
@@ -613,26 +612,6 @@ function SettingsScreen({
       </div>
 
       <div className="flex flex-col px-4 py-5 gap-5 max-w-sm w-full mx-auto">
-
-        {/* カップルID */}
-        <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
-          <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
-            <p className="font-bold text-sm" style={{ color:"#B86540" }}>💑 カップルID</p>
-            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>ふたりで同じIDを設定してつながろう</p>
-          </div>
-          <div className="px-5 py-4" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-            <input
-              value={localCoupleId}
-              onChange={e=>setLocalCoupleId(e.target.value.trim())}
-              placeholder="例：akihiro-and-partner"
-              className="w-full px-4 py-3 rounded-2xl text-sm outline-none"
-              style={{ backgroundColor:"#FFF5E4", border:"1.5px solid #FDEBD0", color:"#4A3728" }}
-              onFocus={e=>e.currentTarget.style.border="1.5px solid #D97B6C"}
-              onBlur={e=>e.currentTarget.style.border="1.5px solid #FDEBD0"}
-            />
-            <p style={{ fontSize:10, color:"#C4A898", marginTop:6 }}>※ パートナーと同じIDを入力すると、キモチが共有されます</p>
-          </div>
-        </div>
 
         {/* Sync目標 */}
         <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
@@ -1068,6 +1047,177 @@ function LoadingScreen() {
   );
 }
 
+// ─── 接続画面 ─────────────────────────────────────────────
+function ConnectScreen({
+  onBack,
+  onConnected,
+}: {
+  onBack: () => void;
+  onConnected: (coupleId: string, partnerEmail: string) => void;
+}) {
+  const [displayCode,   setDisplayCode]   = useState<string | null>(null);
+  const [expiresAt,     setExpiresAt]     = useState<string | null>(null);
+  const [inputCode,     setInputCode]     = useState("");
+  const [issuing,       setIssuing]       = useState(false);
+  const [joining,       setJoining]       = useState(false);
+  const [issueError,    setIssueError]    = useState<string | null>(null);
+  const [joinError,     setJoinError]     = useState<string | null>(null);
+  const [copied,        setCopied]        = useState(false);
+
+  const handleIssue = async () => {
+    setIssuing(true);
+    setIssueError(null);
+    const res = await issueInviteCode();
+    setIssuing(false);
+    if (res.ok) {
+      setDisplayCode(res.displayCode);
+      setExpiresAt(res.expiresAt);
+    } else {
+      setIssueError(res.error);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!displayCode) return;
+    try {
+      await navigator.clipboard.writeText(displayCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  // 入力値をフォーマット（4文字目以降に自動でハイフン）
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+    setInputCode(raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw);
+  };
+
+  const handleJoin = async () => {
+    const trimmed = inputCode.trim();
+    if (!trimmed) return;
+    setJoining(true);
+    setJoinError(null);
+    const res = await joinWithInviteCode(trimmed);
+    setJoining(false);
+    if (res.ok) {
+      onConnected(res.coupleId, res.partnerEmail);
+    } else {
+      setJoinError(res.error);
+    }
+  };
+
+  const expiryLabel = expiresAt
+    ? (() => {
+        const d = new Date(expiresAt);
+        return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, "0")}:00まで有効`;
+      })()
+    : null;
+
+  const joinReady = inputCode.replace("-", "").length >= 7 && !joining;
+
+  return (
+    <div className="min-h-dvh flex flex-col" style={{ backgroundColor: "#FFFBF5", color: "#4A3728" }}>
+      {/* ヘッダー */}
+      <div className="flex items-center gap-3 px-4 py-5 sticky top-0 z-10"
+        style={{ backgroundColor: "rgba(255,251,245,0.95)", borderBottom: "1px solid #FDEBD0", backdropFilter: "blur(8px)" }}>
+        <button onClick={onBack}
+          className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+          style={{ backgroundColor: "#FFE0CC", color: "#B86540" }}>←</button>
+        <h1 className="font-bold text-base flex-1" style={{ color: "#8B4513" }}>パートナーと接続する</h1>
+      </div>
+
+      <div className="flex flex-col px-4 py-5 gap-6 max-w-sm w-full mx-auto">
+
+        {/* 招待コード発行 */}
+        <div className="rounded-3xl overflow-hidden" style={{ border: "1.5px solid #FDEBD0" }}>
+          <div className="px-5 py-3.5" style={{ backgroundColor: "rgba(255,245,228,0.9)" }}>
+            <p className="font-bold text-sm" style={{ color: "#B86540" }}>🔑 招待コードを発行する</p>
+            <p style={{ fontSize: 11, color: "#C4A898", marginTop: 2 }}>コードをパートナーに共有してね</p>
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-3" style={{ backgroundColor: "rgba(255,255,255,0.75)" }}>
+            {!displayCode ? (
+              <>
+                <button onClick={handleIssue} disabled={issuing}
+                  className="w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                  style={{ background: issuing ? "#FDEBD0" : "linear-gradient(135deg,#F0A899,#D97B6C)", color: issuing ? "#C4A898" : "white" }}>
+                  {issuing ? "発行中…" : "招待コードを発行する"}
+                </button>
+                {issueError && <p style={{ fontSize: 12, color: "#D97B6C" }}>⚠️ {issueError}</p>}
+              </>
+            ) : (
+              <>
+                {/* コード表示 */}
+                <div className="flex items-center justify-between px-4 py-4 rounded-2xl"
+                  style={{ backgroundColor: "#FFF5E4", border: "2px solid #FFD090" }}>
+                  <span className="font-bold" style={{ fontSize: 28, color: "#B86540", letterSpacing: "0.12em" }}>
+                    {displayCode}
+                  </span>
+                  <button onClick={handleCopy}
+                    className="px-3 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                    style={{ backgroundColor: copied ? "#A8D8A0" : "#FFE0CC", color: copied ? "#2A8A4A" : "#B86540" }}>
+                    {copied ? "✓ コピー済み" : "📋 コピー"}
+                  </button>
+                </div>
+                {expiryLabel && (
+                  <p className="text-center" style={{ fontSize: 11, color: "#C4A898" }}>⏰ {expiryLabel}</p>
+                )}
+                <button onClick={handleIssue} disabled={issuing}
+                  className="w-full py-2.5 rounded-2xl text-xs font-semibold active:scale-95 transition-transform"
+                  style={{ backgroundColor: "rgba(255,255,255,0.85)", color: "#B86540", border: "1.5px solid #FDEBD0" }}>
+                  🔄 新しいコードを発行する
+                </button>
+                {issueError && <p style={{ fontSize: 12, color: "#D97B6C" }}>⚠️ {issueError}</p>}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 区切り */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px" style={{ backgroundColor: "#FDEBD0" }} />
+          <span style={{ fontSize: 12, color: "#C4A898" }}>または</span>
+          <div className="flex-1 h-px" style={{ backgroundColor: "#FDEBD0" }} />
+        </div>
+
+        {/* 招待コード入力 */}
+        <div className="rounded-3xl overflow-hidden" style={{ border: "1.5px solid #FDEBD0" }}>
+          <div className="px-5 py-3.5" style={{ backgroundColor: "rgba(255,245,228,0.9)" }}>
+            <p className="font-bold text-sm" style={{ color: "#B86540" }}>📩 招待コードを入力する</p>
+            <p style={{ fontSize: 11, color: "#C4A898", marginTop: 2 }}>パートナーから受け取ったコードを入力してね</p>
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-3" style={{ backgroundColor: "rgba(255,255,255,0.75)" }}>
+            <input
+              value={inputCode}
+              onChange={handleInputChange}
+              placeholder="XXXX-XXX"
+              maxLength={8}
+              className="w-full px-4 py-3 rounded-2xl text-center font-bold outline-none"
+              style={{ backgroundColor: "#FFF5E4", border: "1.5px solid #FDEBD0", color: "#4A3728",
+                fontSize: 22, letterSpacing: "0.15em" }}
+              onFocus={e => (e.currentTarget.style.border = "1.5px solid #D97B6C")}
+              onBlur={e  => (e.currentTarget.style.border = "1.5px solid #FDEBD0")}
+            />
+            <button onClick={handleJoin} disabled={!joinReady}
+              className="w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+              style={{
+                background: joinReady
+                  ? "linear-gradient(135deg,#9AC88A,#6EA86A)"
+                  : "#FDEBD0",
+                color: joinReady ? "white" : "#C4A898",
+              }}>
+              {joining ? "接続中…" : "接続する 🌿"}
+            </button>
+            {joinError && <p style={{ fontSize: 12, color: "#D97B6C" }}>⚠️ {joinError}</p>}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ─── カップルID未設定 ─────────────────────────────────────
 function NoCoupleIdScreen({ onGoSettings }: { onGoSettings:()=>void }) {
   return (
@@ -1093,11 +1243,13 @@ function NoCoupleIdScreen({ onGoSettings }: { onGoSettings:()=>void }) {
 
 // ─── メインページ ─────────────────────────────────────────
 export default function Home() {
-  const [myEmail,  setMyEmail]  = useState("");
-  const [loading,  setLoading]  = useState(true);
-  const [screen,   setScreen]   = useState<Screen>("home");
-  const [saving,   setSaving]   = useState(false);
-  const [coupleId, setCoupleId] = useState("");
+  const [myEmail,      setMyEmail]      = useState("");
+  const [loading,      setLoading]      = useState(true);
+  const [screen,       setScreen]       = useState<Screen>("home");
+  const [saving,       setSaving]       = useState(false);
+  const [coupleId,     setCoupleId]     = useState("");
+  const [isConnected,  setIsConnected]  = useState(false);
+  const [partnerEmail, setPartnerEmail] = useState<string | null>(null);
 
   // ── ★ source of truth: DBの行をそのまま保持 ─────────────
   // myRow / partnerRow は myEmail で毎回派生させる
@@ -1228,19 +1380,33 @@ export default function Home() {
   }, [applyMySettings]);
 
   // ─── 1. 初期化 ─────────────────────────────────────────────
-  // coupleId は自分のメールアドレスを自動設定（ソロモード）
-  // 設定画面で手動変更も可能（将来のペア招待機能のため入力欄を残す）
+  // checkConnection でDB接続状態を確認し、coupleId を決定する
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
       const email = data.user?.email;
-      if (!email) return;
+      if (!email) { setLoading(false); return; }
+
+      const conn = await checkConnection();
+
+      // React 18 は async コールバック内の setState を自動バッチ処理するため
+      // myEmail と coupleId は同一レンダーで反映される
       setMyEmail(email);
-      const saved = (localStorage.getItem("sync_couple_id") || "").trim();
-      const cid = saved || email;
-      if (!saved) localStorage.setItem("sync_couple_id", email);
-      setCoupleId(cid);
-      setCoupleIdInput(cid);
-    });
+      if (conn.connected) {
+        setIsConnected(true);
+        setPartnerEmail(conn.partnerEmail);
+        setCoupleId(conn.coupleId);
+        setCoupleIdInput(conn.coupleId);
+        localStorage.setItem("sync_couple_id", conn.coupleId);
+      } else {
+        setIsConnected(false);
+        setPartnerEmail(null);
+        const cid = email; // ソロモード: メールを coupleId に使用
+        localStorage.setItem("sync_couple_id", cid);
+        setCoupleId(cid);
+        setCoupleIdInput(cid);
+      }
+    })();
   }, []);
 
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
@@ -1398,18 +1564,27 @@ export default function Home() {
     pop("履歴を削除したよ 🗑️");
   }, [coupleId, myEmail, myRow, pop]);
 
+  // ─── 接続完了ハンドラ ─────────────────────────────────────
+  const handleConnected = useCallback((newCoupleId: string, newPartnerEmail: string) => {
+    setIsConnected(true);
+    setPartnerEmail(newPartnerEmail);
+    setCoupleId(newCoupleId);
+    setCoupleIdInput(newCoupleId);
+    localStorage.setItem("sync_couple_id", newCoupleId);
+    setScreen("home");
+    pop("パートナーと接続できたよ 🌸");
+    // coupleId が変わるので Effect 2 が自動的に loadAll を再実行する
+  }, [pop]);
+
   // ─── 8. 設定保存 ─────────────────────────────────────────
   const handleSaveSettings = useCallback(async (
-    newCoupleId: string,
     cStart: number | null,
     cEnd:   number | null,
   ) => {
     setSaving(true);
-    setCoupleId(newCoupleId);
-    localStorage.setItem("sync_couple_id", newCoupleId);
-    if (newCoupleId && myEmail) {
+    if (coupleId && myEmail) {
       await supabase.from("sync_status").upsert({
-        couple_id:  newCoupleId,
+        couple_id:  coupleId,
         user_email: myEmail,
         sync_goal:  syncGoal,
         moon_start: cStart,
@@ -1423,7 +1598,7 @@ export default function Home() {
     setSaving(false);
     pop("設定を保存したよ 💾");
     setScreen("home");
-  }, [syncGoal, myEmail, pop]);
+  }, [coupleId, syncGoal, myEmail, pop]);
 
   // ─── 9a. Sync目標の即時保存 ───────────────────────────────
   const handleGoalChange = useCallback(async (newGoal: number) => {
@@ -1455,7 +1630,6 @@ export default function Home() {
     return (
       <SettingsScreen
         onBack={()=>setScreen("home")}
-        initialCoupleId={coupleId}
         syncGoal={syncGoal}   setSyncGoal={setSyncGoal}
         initialConfirmedStart={savedMoonStart}
         initialConfirmedEnd={savedMoonEnd}
@@ -1474,6 +1648,15 @@ export default function Home() {
   }
 
   if (loading) return <LoadingScreen />;
+
+  if (screen === "connect") {
+    return (
+      <ConnectScreen
+        onBack={() => setScreen("home")}
+        onConnected={handleConnected}
+      />
+    );
+  }
 
   return (
     <main className="min-h-dvh flex flex-col items-center"
@@ -1509,8 +1692,22 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ── ② 状態バー（目標・生理期間） ────────────────── */}
+        {/* ── ② 状態バー ─────────────────────────────────── */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* 接続状態 */}
+          {isConnected ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:"rgba(122,173,114,0.15)", border:"1px solid #A8C9A0" }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block" }}/>
+              <span style={{ fontSize:10, color:"#5A9E7A", fontWeight:600 }}>接続中</span>
+            </div>
+          ) : (
+            <button onClick={()=>setScreen("connect")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+              style={{ backgroundColor:"rgba(255,224,180,0.3)", border:"1px solid #FFD090" }}>
+              <span style={{ fontSize:10, color:"#B86540", fontWeight:600 }}>🔗 パートナーと接続する</span>
+            </button>
+          )}
           {/* 目標サマリー */}
           <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
             style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #FDEBD0" }}>

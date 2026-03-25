@@ -1537,7 +1537,7 @@ export default function Home() {
         const prevK = existing?.kimochi_date?.substring(0,10) === todayStr
           ? normalizeKimochi(existing.kimochi) : null;
 
-        if (prevK === newPartnerK) return prev; // 変化なし
+        if (existing && prevK === newPartnerK) return prev; // 変化なし（既知の行のみ）
 
         console.log("[Sync] polling partner:", prevK, "→", newPartnerK);
 

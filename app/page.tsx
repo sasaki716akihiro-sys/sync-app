@@ -1533,15 +1533,55 @@ export default function Home() {
   const partnerKimochi: Kimochi = partnerRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(partnerRow.kimochi) : null;
 
-  // ─── Perfect Sync 検知：両者が○になった瞬間に花火 ──────────
-  // sessionStorage で「今日すでに見た」なら再表示しない
+  // ─── クールダウン（お休み期間）状態の派生 ─────────────────
+  const lastSyncDate   = myRow?.last_sync_date ?? null;
+  const cooldownDays   = getCooldownDays(syncGoal);
+  const cooldownEndMs  = lastSyncDate ? (() => {
+    const d = new Date(lastSyncDate);
+    d.setDate(d.getDate() + cooldownDays);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  })() : 0;
+  const isInCooldown   = !!lastSyncDate && Date.now() < cooldownEndMs;
+  const isSyncToday    = lastSyncDate === today;
+  const remainingDays  = isInCooldown
+    ? Math.max(0, Math.ceil((cooldownEndMs - new Date().setHours(0,0,0,0)) / 86400000))
+    : 0;
+
+  // ─── Perfect Sync 検知：両者が○になった瞬間に花火 + last_sync_date 保存 ─
+  const savingLastSyncRef = useRef(false);
   useEffect(() => {
     if (myKimochi !== "circle" || partnerKimochi !== "circle") return;
+
+    // 花火オーバーレイ（セッション中1回）
     const key = `ps_shown_${today}`;
-    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return;
-    sessionStorage?.setItem(key, "1");
-    setShowPerfectSync(true);
-  }, [myKimochi, partnerKimochi, today]);
+    if (typeof sessionStorage !== "undefined" && !sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, "1");
+      setShowPerfectSync(true);
+    }
+
+    // last_sync_date を今日の日付で保存（まだ保存されていない場合のみ）
+    if (
+      coupleId && myEmail &&
+      myRow?.last_sync_date !== today &&
+      !savingLastSyncRef.current
+    ) {
+      savingLastSyncRef.current = true;
+      supabase.from("sync_status").upsert({
+        couple_id:      coupleId,
+        user_email:     myEmail,
+        last_sync_date: today,
+        updated_at:     new Date().toISOString(),
+      }, { onConflict: "couple_id,user_email" }).then(({ error }) => {
+        savingLastSyncRef.current = false;
+        if (error) console.error("[Sync] last_sync_date save:", error);
+      });
+      // 楽観的更新
+      setSyncData(prev => prev.map(r =>
+        r.user_email === myEmail ? { ...r, last_sync_date: today } : r
+      ));
+    }
+  }, [myKimochi, partnerKimochi, today, coupleId, myEmail, myRow?.last_sync_date]);
 
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す
@@ -1707,6 +1747,22 @@ export default function Home() {
     setScreen("home");
   }, [myEmail]);
 
+  // ─── handleResetSync：お休み期間を終了して再選択可能にする ─
+  const handleResetSync = useCallback(async () => {
+    if (!coupleId || !myEmail) return;
+    const { error } = await supabase.from("sync_status").upsert({
+      couple_id:      coupleId,
+      user_email:     myEmail,
+      last_sync_date: null,
+      updated_at:     new Date().toISOString(),
+    }, { onConflict: "couple_id,user_email" });
+    if (!error) {
+      setSyncData(prev => prev.map(r =>
+        r.user_email === myEmail ? { ...r, last_sync_date: null } : r
+      ));
+    }
+  }, [coupleId, myEmail]);
+
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
   useEffect(() => {
     if (coupleId && myEmail) {
@@ -1774,7 +1830,7 @@ export default function Home() {
 
   // ─── 6. キモチ選択ハンドラ ─────────────────────────────────
   const handleKimochiSelect = useCallback(async (val: Kimochi) => {
-    if (isInPeriod) return; // お休みモード中は入力ブロック
+    if (isInPeriod || isInCooldown) return; // お休みモード中・クールダウン中は入力ブロック
     await saveMyKimochi(val);
     await saveKimochiLog(val);
     pop("キモチを更新したよ 🌸");
@@ -2058,6 +2114,23 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          </div>
+
+        ) : isInCooldown ? (
+          /* === クールダウン中：お休み期間カード === */
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-0.5">
+              <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                ふたりのお休み期間中 🌙
+              </p>
+            </div>
+            <SyncSuccessCard
+              isSyncToday={isSyncToday}
+              remainingDays={remainingDays}
+              totalDays={cooldownDays}
+              lastSyncDate={lastSyncDate!}
+              onReset={handleResetSync}
+            />
           </div>
 
         ) : (

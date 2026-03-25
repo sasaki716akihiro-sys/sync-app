@@ -1139,11 +1139,19 @@ function ConnectScreen({
     }
   };
 
-  // 入力値をフォーマット（4文字目以降に自動でハイフン）
+  // ハイフンなしの生コード（最大7文字）を state に保持
+  // ※ハイフンを onChange 内で挿入すると Android IME がカーソルジャンプを
+  //   「未確定文字の再送」と解釈して同じ文字が二重入力されるバグが発生するため、
+  //   state の変換は最小限にしてカーソル位置を変えない
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
-    setInputCode(raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw);
+    const raw = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 7);
+    setInputCode(raw);
   };
+
+  // 表示用のみハイフンを付ける（state には反映しない）
+  const displayInputValue = inputCode.length > 4
+    ? `${inputCode.slice(0, 4)}-${inputCode.slice(4)}`
+    : inputCode;
 
   const handleJoin = async () => {
     const trimmed = inputCode.trim();
@@ -1166,7 +1174,7 @@ function ConnectScreen({
       })()
     : null;
 
-  const joinReady = inputCode.replace("-", "").length >= 7 && !joining;
+  const joinReady = inputCode.length >= 7 && !joining;
 
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor: "#FFFBF5", color: "#4A3728" }}>
@@ -1240,10 +1248,15 @@ function ConnectScreen({
           </div>
           <div className="px-5 py-4 flex flex-col gap-3" style={{ backgroundColor: "rgba(255,255,255,0.75)" }}>
             <input
-              value={inputCode}
+              value={displayInputValue}
               onChange={handleInputChange}
               placeholder="XXXX-XXX"
               maxLength={8}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              inputMode="text"
               className="w-full px-4 py-3 rounded-2xl text-center font-bold outline-none"
               style={{ backgroundColor: "#FFF5E4", border: "1.5px solid #FDEBD0", color: "#4A3728",
                 fontSize: 22, letterSpacing: "0.15em" }}

@@ -1548,6 +1548,21 @@ export default function Home() {
     return () => { supabase.removeChannel(channel); };
   }, [coupleId, myEmail, mergeRow, applyMySettings]);
 
+  // ─── 1e. 接続中は15秒ごとにパートナー行をポーリング（Realtime補完）──
+  // Realtime が届かない場合でも最大15秒で同期される
+  // 自分の行には触れない（楽観的更新を保護）
+  useEffect(() => {
+    if (!myEmail || !isConnected || !coupleId) return;
+    const id = setInterval(async () => {
+      const rows = await fetchCoupleRows(coupleId);
+      if (!rows?.length) return;
+      for (const row of rows as unknown as SyncRow[]) {
+        if (row.user_email !== myEmail) mergeRow(row);
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [myEmail, isConnected, coupleId, mergeRow]);
+
   // ─── handleDisconnect ──────────────────────────────────────
   const handleDisconnect = useCallback(async () => {
     const res = await disconnectCouple();

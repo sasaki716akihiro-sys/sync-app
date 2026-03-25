@@ -1381,6 +1381,9 @@ export default function Home() {
     if (error) { console.error("[Sync] loadAll:", error); return; }
     if (!data?.length) return;
 
+    console.log("[Sync] loadAll 結果:", data.length, "件",
+      data.map(r => `${r.user_email}(couple_id=${r.couple_id})`));
+
     // syncData にすべての行をセット（仕分けはレンダー時に myEmail で行う）
     setSyncData(data as SyncRow[]);
 
@@ -1440,7 +1443,7 @@ export default function Home() {
       .channel(`room_${coupleId}_${myEmail}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "sync_status", filter: `couple_id=eq.${coupleId.trim()}` },
+        { event: "*", schema: "public", table: "sync_status" },
         (payload) => {
           const newRow = payload.new as SyncRow;
           if (!newRow?.user_email) return;
@@ -1579,6 +1582,20 @@ export default function Home() {
     const id = setInterval(poll, 3000);
     return () => clearInterval(id);
   }, [coupleId, myEmail, pop]);
+
+  // ─── 4c. パートナー未検出時の定期再ロード ──────────────────
+  // Realtimeが届かない・タイミングズレ・相手が後から登録した
+  // ケースをすべてカバーするため、パートナーが見つかるまで5秒ごとに全件再ロード
+  useEffect(() => {
+    if (!coupleId || !myEmail) return;
+    const id = setInterval(async () => {
+      if (!partnerEmailRef.current) {
+        console.log("[Sync] パートナー未検出：loadAll再試行");
+        await loadAll(coupleId, myEmail);
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [coupleId, myEmail, loadAll]);
 
   // ─── 4b. リマインド時刻を過ぎたら自動的にキモチ選択を解放 ──
   // ・reminderLoaded が true になるまで実行しない

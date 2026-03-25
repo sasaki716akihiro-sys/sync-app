@@ -1409,6 +1409,22 @@ export default function Home() {
     })();
   }, []);
 
+  // ─── 1b. 未接続の間だけ5秒ごとに接続確認をポーリング ────────
+  useEffect(() => {
+    if (!myEmail || isConnected) return;
+    const id = setInterval(async () => {
+      const conn = await checkConnection();
+      if (conn.connected) {
+        setIsConnected(true);
+        setPartnerEmail(conn.partnerEmail);
+        setCoupleId(conn.coupleId);
+        setCoupleIdInput(conn.coupleId);
+        localStorage.setItem("sync_couple_id", conn.coupleId);
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [myEmail, isConnected]);
+
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
   useEffect(() => {
     if (coupleId && myEmail) {

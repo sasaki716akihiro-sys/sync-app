@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
 import { checkConnection, disconnectCouple, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
+import { fetchCoupleRows } from "@/app/actions/sync";
 import { createClient } from "@/lib/supabase/client";
 
 // ─── Supabaseクライアントはモジュールレベルで1度だけ生成 ──────
@@ -1353,6 +1354,10 @@ export default function Home() {
     r => r.user_email === myEmail && r.couple_id === coupleId
   ) ?? null;
 
+  // パートナーの行（接続中のみ）
+  const partnerRow = (isConnected && myEmail)
+    ? (syncData.find(r => r.user_email !== myEmail && r.couple_id === coupleId) ?? null)
+    : null;
 
   // ── 生理期間（syncData の myRow から派生 → Realtime と常に同期） ─
   const savedMoonStart = myRow?.moon_start ?? null;
@@ -1404,6 +1409,9 @@ export default function Home() {
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
 
+  const partnerKimochi: Kimochi = partnerRow?.kimochi_date?.substring(0,10) === today
+    ? normalizeKimochi(partnerRow.kimochi) : null;
+
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す
   const mergeRow = useCallback((newRow: SyncRow) => {
@@ -1427,9 +1435,21 @@ export default function Home() {
     if (row.kimochi_log) setKimochiLog(row.kimochi_log);
   }, []);
 
-  // ─── 全行ロード（自分の行のみ） ──────────────────────────
-  const loadAll = useCallback(async (cid: string, email: string) => {
+  // ─── 全行ロード ───────────────────────────────────────────
+  // 接続中: サーバーアクション(RLSバイパス)で両者の行を取得
+  // ソロ:   自分の行のみ
+  const loadAll = useCallback(async (cid: string, email: string, connected: boolean) => {
     if (!cid || !email) return;
+
+    if (connected) {
+      const rows = await fetchCoupleRows(cid);
+      if (rows?.length) {
+        setSyncData(rows as unknown as SyncRow[]);
+        const mine = (rows as unknown as SyncRow[]).find(r => r.user_email === email);
+        if (mine) applyMySettings(mine);
+      }
+      return;
+    }
 
     const { data, error } = await supabase
       .from("sync_status")
@@ -1506,6 +1526,28 @@ export default function Home() {
     return () => clearInterval(id);
   }, [myEmail, isConnected]);
 
+  // ─── 1d. Realtime subscription（sync_status の変更をリアルタイム受信）─
+  useEffect(() => {
+    if (!coupleId || !myEmail) return;
+
+    const channel = supabase
+      .channel(`sync_status:${coupleId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sync_status", filter: `couple_id=eq.${coupleId}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") return;
+          const row = payload.new as SyncRow;
+          mergeRow(row);
+          // 自分の行が更新された場合は設定値も反映
+          if (row.user_email === myEmail) applyMySettings(row);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [coupleId, myEmail, mergeRow, applyMySettings]);
+
   // ─── handleDisconnect ──────────────────────────────────────
   const handleDisconnect = useCallback(async () => {
     const res = await disconnectCouple();
@@ -1525,12 +1567,12 @@ export default function Home() {
       // ★ coupleId が変わったら古い syncData を必ずクリア（別IDの残骸を防ぐ）
       setSyncData([]);
       setLoading(true);
-      loadAll(coupleId, myEmail).finally(() => setLoading(false));
+      loadAll(coupleId, myEmail, isConnected).finally(() => setLoading(false));
     } else if (myEmail) {
       setSyncData([]); // coupleId 未設定時もクリア
       setLoading(false);
     }
-  }, [coupleId, myEmail, loadAll]);
+  }, [coupleId, myEmail, isConnected, loadAll]);
 
   // ─── 3. リマインド時刻を過ぎたら自動的にキモチ選択を解放 ──
   // ・reminderLoaded が true になるまで実行しない
@@ -1945,6 +1987,33 @@ export default function Home() {
                       disabled={false}
                     />
                   </div>
+
+                  {/* パートナーのキモチ（接続中のみ）*/}
+                  {isConnected && (
+                    <div className="px-4 pt-3 pb-4"
+                      style={{ borderTop:"1px solid #F0F7EE", backgroundColor:"rgba(245,252,245,0.9)" }}>
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <span style={{ fontSize:14 }}>🌿</span>
+                        <span className="text-xs font-bold" style={{ color:"#5A9E7A" }}>パートナーのキモチ</span>
+                        {partnerKimochi ? (
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                            style={{ backgroundColor:"rgba(90,158,122,0.12)", color:"#5A9E7A" }}>
+                            ✓ 選択済み
+                          </span>
+                        ) : (
+                          <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
+                            まだ選んでいないよ
+                          </span>
+                        )}
+                      </div>
+                      <KimochiRow
+                        label="" avatar=""
+                        selected={partnerKimochi}
+                        onSelect={() => {}}
+                        disabled={true}
+                      />
+                    </div>
+                  )}
                 </div>
               </>
             )}

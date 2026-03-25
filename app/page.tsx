@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
-import { fetchCoupleRows } from "@/app/actions/sync";
 import { createClient } from "@/lib/supabase/client";
 
 // ─── Supabaseクライアントはモジュールレベルで1度だけ生成 ──────
@@ -78,13 +77,13 @@ const DOW_LABEL = ["日","月","火","水","木","金","土"];
 
 function analyzeWeeklyLog(log: KimochiLogEntry[]): {
   syncCount:  number;
-  closeDays:  string[];   // 気持ちが近かった日（曜日ラベル）
+  closeDays:  string[];   // キモチを選んだ日（曜日ラベル）
 } {
   const { start, end } = getThisWeekRange();
   const thisWeek = log.filter(e => e.date >= start && e.date <= end);
-  const syncCount = thisWeek.filter(e => e.my_kimochi === "circle" && e.partner_kimochi === "circle").length;
+  const syncCount = thisWeek.filter(e => e.my_kimochi === "circle").length;
   const closeDays = thisWeek
-    .filter(e => kimochiDistance(e.my_kimochi, e.partner_kimochi) <= 1)
+    .filter(e => e.my_kimochi !== null)
     .map(e => {
       const d = new Date(e.date);
       return DOW_LABEL[d.getDay()] + "曜";
@@ -103,10 +102,9 @@ function addKimochiLog(
   log: KimochiLogEntry[],
   date: string,
   myK: Kimochi,
-  partnerK: Kimochi
 ): KimochiLogEntry[] {
   const filtered = log.filter(e => e.date !== date); // 同日は上書き
-  const next = [...filtered, { date, my_kimochi: myK, partner_kimochi: partnerK }];
+  const next = [...filtered, { date, my_kimochi: myK, partner_kimochi: null }];
   next.sort((a,b) => a.date.localeCompare(b.date));
   return next.slice(-28); // 最大4週分
 }
@@ -120,7 +118,7 @@ function getCooldownDays(goal: number): number {
   return Math.max(1, Math.floor(20 / goal));
 }
 
-// ─── メッセージバリエーション ────────────────────────────
+// ─── メッセージバリエーション（将来のSync機能用に保持） ──
 const MESSAGES = {
   bothTriangle: [
     { title: "ふたりともハグしたい日だね 🤗", body: "くっついてぼーっとしよう。それだけで十分だよ。" },
@@ -157,66 +155,6 @@ function pickMessage(me: Kimochi, partner: Kimochi) {
     (me==="triangle"&&partner==="cross")||(me==="cross"&&partner==="triangle")   ? MESSAGES.mixTriangleCross :
                                                                                     MESSAGES.oneCircleOneCross;
   return arr[Math.floor(Math.random() * arr.length)];
-}
-
-// ─── 花火 ────────────────────────────────────────────────
-const FW_COLORS = ["#FFB085","#F0A899","#D97B6C","#FFE066","#A8D8A8","#B8D4F5","#F5C4E8","#FFD700"];
-const FW_EMOJIS = ["✨","🎉","💛","🌟","💕","🎊","🌸","⭐"];
-
-function Fireworks({ onDone }: { onDone: () => void }) {
-  // ハート形の座標を生成（媒介変数表示）
-  const heartParticles = Array.from({ length: 60 }, (_, i) => {
-    const t = (i / 60) * 2 * Math.PI;
-    // ハートの媒介変数式（サイズ調整）
-    const hx = 16 * Math.pow(Math.sin(t), 3);
-    const hy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
-    const scale = 8 + Math.random() * 4; // 拡散距離
-    return {
-      id:    i,
-      color: FW_COLORS[i % FW_COLORS.length],
-      tx:    hx * scale,
-      ty:    hy * scale,
-      delay: Math.random() * 0.5,
-      size:  6 + Math.random() * 10,
-      isHeart: i % 5 === 0,
-    };
-  });
-
-  useEffect(() => { const t = setTimeout(onDone, 3800); return () => clearTimeout(t); }, [onDone]);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-      style={{ backgroundColor:"rgba(255,251,245,0.88)" }}>
-      <style>{`
-        @keyframes fw{0%{transform:translate(0,0) scale(.2);opacity:1}70%{opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(1);opacity:0}}
-        @keyframes fw-msg{0%{opacity:0;transform:scale(.7) translateY(10px)}30%{opacity:1;transform:scale(1.08) translateY(0)}80%{opacity:1}100%{opacity:0}}
-      `}</style>
-      <div className="relative w-40 h-40">
-        {heartParticles.map(p=>(
-          <div key={p.id} className="absolute top-1/2 left-1/2 flex items-center justify-center"
-            style={{
-              width:  p.isHeart ? p.size * 1.8 : p.size,
-              height: p.isHeart ? p.size * 1.8 : p.size,
-              borderRadius: p.isHeart ? "0" : "50%",
-              backgroundColor: p.isHeart ? "transparent" : p.color,
-              fontSize: p.isHeart ? p.size * 1.2 : undefined,
-              ["--tx" as string]: `${p.tx}px`,
-              ["--ty" as string]: `${p.ty}px`,
-              animation: `fw 1.4s ${p.delay}s ease-out both`,
-              marginLeft: -(p.size / 2),
-              marginTop:  -(p.size / 2),
-            }}>
-            {p.isHeart ? "🩷" : null}
-          </div>
-        ))}
-      </div>
-      {/* ★ ハート絵文字・テキスト内のハートを削除 */}
-      <div className="absolute flex flex-col items-center gap-2 px-8 py-5 rounded-3xl shadow-2xl"
-        style={{ backgroundColor:"rgba(255,255,255,0.93)", border:"2px solid #FFB085", animation:"fw-msg 3.8s ease-out both" }}>
-        <p className="text-xl font-bold text-center" style={{ color:"#D97B6C" }}>Perfect Sync ✨</p>
-        <p className="text-sm text-center" style={{ color:"#9A7B6A" }}>ふたりの気持ちがそろったね</p>
-      </div>
-    </div>
-  );
 }
 
 // ─── Toast ───────────────────────────────────────────────
@@ -502,7 +440,6 @@ function SyncSuccessCard({ isSyncToday, remainingDays, totalDays, lastSyncDate, 
 function SettingsScreen({
   onBack, initialCoupleId, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
-  partnerConfirmedStart, partnerConfirmedEnd,
   periodHistory,
   reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
   onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod, onDeleteHistory,
@@ -513,8 +450,6 @@ function SettingsScreen({
   syncGoal:number; setSyncGoal:(n:number)=>void;
   initialConfirmedStart: number | null;
   initialConfirmedEnd:   number | null;
-  partnerConfirmedStart: number | null;
-  partnerConfirmedEnd:   number | null;
   periodHistory: PeriodRecord[] | null;
   reminderWeekday:number; setReminderWeekday:(n:number)=>void;
   reminderWeekend:number; setReminderWeekend:(n:number)=>void;
@@ -543,10 +478,8 @@ function SettingsScreen({
   const [confirmedStart, setConfirmedStart] = useState<number | null>(initialConfirmedStart);
   const [confirmedEnd,   setConfirmedEnd]   = useState<number | null>(initialConfirmedEnd);
   const [draftDate,      setDraftDate]      = useState<number | null>(null);
-  // パートナーが記録者かどうか（自分はnullでパートナーにデータがある場合）
-  const periodFromPartner = confirmedStart === null && partnerConfirmedStart !== null;
-  // カレンダーの表示月：自分またはパートナーの記録があればその月、なければ今月
-  const _effectiveStart = initialConfirmedStart ?? partnerConfirmedStart;
+  // カレンダーの表示月：記録があればその月、なければ今月
+  const _effectiveStart = initialConfirmedStart;
   const _initYear  = _effectiveStart
     ? Math.floor(_effectiveStart / 10000)
     : _now.getFullYear();
@@ -785,10 +718,8 @@ function SettingsScreen({
                   // フェーズ別のカレンダー表示
                   // phase 0: 開始日選択中 / phase 1: 生理中・終了日選択中 / phase 2: 確定済み / partner: パートナー記録中
                   const phase = !confirmedStart ? "start" : !confirmedEnd ? "end" : "done";
-                  const activeSt  = periodFromPartner ? partnerConfirmedStart
-                                 : phase === "start"  ? draftDate  : confirmedStart;
-                  const activeEnd = periodFromPartner ? partnerConfirmedEnd
-                                 : phase === "start"  ? null
+                  const activeSt  = phase === "start"  ? draftDate  : confirmedStart;
+                  const activeEnd = phase === "start"  ? null
                                  : phase === "end"    ? draftDate
                                  :                      confirmedEnd;
 
@@ -860,24 +791,7 @@ function SettingsScreen({
             )}
 
             {/* フェーズ別：状態表示 & 確定ボタン */}
-            {periodFromPartner ? (
-              /* パートナーが記録中：読み取り専用 */
-              <div className="mt-4 px-4 py-3 rounded-2xl"
-                style={{ backgroundColor:"rgba(255,182,193,0.15)", border:"1px solid #F4A8B8" }}>
-                <p style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
-                  🌸 パートナーが生理中です（{_ymdLabel(partnerConfirmedStart)}〜）
-                </p>
-                {partnerConfirmedEnd ? (
-                  <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                    終了日: {_ymdLabel(partnerConfirmedEnd)}
-                  </p>
-                ) : (
-                  <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                    終了日は未記録です
-                  </p>
-                )}
-              </div>
-            ) : !confirmedStart ? (
+            {!confirmedStart ? (
               /* Phase 0: 開始日選択 */
               <>
                 <div className="mt-4 px-4 py-3 rounded-2xl"
@@ -1203,10 +1117,7 @@ export default function Home() {
   const [kimochiLog, setKimochiLog] = useState<KimochiLogEntry[]>([]);
 
   // ── UI状態 ──
-  const [is17,          setIs17]          = useState(false);
-  const [showMatch,     setShowMatch]     = useState(false);
-  const [showFireworks, setShowFireworks] = useState(false);
-  const [lastSyncDate,  setLastSyncDate]  = useState<string|null>(null);
+  const [is17, setIs17] = useState(false);
 
   // ── Toast ──
   const [toast, setToast] = useState({on:false, msg:""});
@@ -1218,11 +1129,7 @@ export default function Home() {
   const today = getLocalDateStr();
 
   // ── Ref（コールバック内で最新値を参照） ──────────────────
-  const todayRef        = useRef(today);
-  const lastSyncDateRef = useRef<string|null>(null);
-  useEffect(() => { lastSyncDateRef.current = lastSyncDate; }, [lastSyncDate]);
-  // パートナーのメールを ref で保持（handleReminderChange の stale closure 対策）
-  const partnerEmailRef = useRef<string|null>(null);
+  const todayRef = useRef(today);
 
   // ── syncData から派生する値（★ 毎レンダーで再計算） ──────
   // myEmail で厳格に仕分け → ミラーリング不可能
@@ -1230,38 +1137,6 @@ export default function Home() {
     r => r.user_email === myEmail && r.couple_id === coupleId
   ) ?? null;
 
-  // ★ パートナー判定：以下をすべて満たす行のみ
-  //   1. coupleId が完全一致（別IDの残骸を拾わない）
-  //   2. user_email が自分ではない（自分自身を相手扱いしない）
-  //   3. user_email が空文字でない
-  const partnerRow = syncData.find(
-    r => r.couple_id === coupleId.trim()
-      && r.user_email !== myEmail
-      && r.user_email !== ""
-  ) ?? null;
-
-  // ── カップル共有の period_history（自分・パートナー両行をマージ） ──
-  // period_history は user 行ごとに保存されるため、
-  // 表示時に両行を合算・start 重複排除・新しい順に並べる
-  const mergedPeriodHistory: PeriodRecord[] = (() => {
-    const all = [
-      ...(myRow?.period_history ?? []),
-      ...(partnerRow?.period_history ?? []),
-    ];
-    const seen = new Set<string>();
-    // created_at がある（新データ）を優先し DESC、ない（旧データ）は start DESC
-    return all
-      .filter(r => { if (seen.has(r.start)) return false; seen.add(r.start); return true; })
-      .sort((a, b) => {
-        const aHas = !!a.created_at;
-        const bHas = !!b.created_at;
-        if (aHas && !bHas) return -1;           // a（新）を先に
-        if (!aHas && bHas) return 1;            // b（新）を先に
-        if (aHas && bHas)                       // 両方新：created_at DESC
-          return b.created_at! > a.created_at! ? 1 : b.created_at! < a.created_at! ? -1 : 0;
-        return b.start > a.start ? 1 : b.start < a.start ? -1 : 0; // 両方旧：start DESC
-      });
-  })();
 
   // ── 生理期間（syncData の myRow から派生 → Realtime と常に同期） ─
   const savedMoonStart = myRow?.moon_start ?? null;
@@ -1274,37 +1149,6 @@ export default function Home() {
       (todayInt >= savedMoonStart && todayInt <= savedMoonEnd)   // 範囲内
     );
 
-  // ── パートナーの生理期間中判定 ─────────────────────────────
-  const partnerMoonStart = partnerRow?.moon_start ?? null;
-  const partnerMoonEnd   = partnerRow?.moon_end   ?? null;
-  const partnerIsInPeriod =
-    partnerMoonStart !== null && (
-      partnerMoonEnd === null ||
-      (todayInt >= partnerMoonStart && todayInt <= partnerMoonEnd)
-    );
-
-  // ── パートナーの生理日数・レベル ─────────────────────────────
-  const partnerPeriodDayCount = (() => {
-    if (!partnerMoonStart) return 0;
-    const sy = Math.floor(partnerMoonStart / 10000);
-    const sm = Math.floor((partnerMoonStart % 10000) / 100) - 1;
-    const sd = partnerMoonStart % 100;
-    const start = new Date(sy, sm, sd); start.setHours(0,0,0,0);
-    const now   = new Date();           now.setHours(0,0,0,0);
-    return Math.max(1, Math.floor((now.getTime() - start.getTime()) / 86400000) + 1);
-  })();
-  const partnerPeriodLevel = partnerPeriodDayCount <= 2 ? "high" : partnerPeriodDayCount <= 4 ? "mid" : "low";
-  const partnerLevelLabel  = { high: "しんどさが強い頃かも", mid: "少ししんどさが残る頃", low: "少しずつ楽になってくる頃" }[partnerPeriodLevel];
-
-  // ── 気づかいカード文言（パートナーが生理中のとき表示） ────────
-  const partnerCarePatterns = [
-    { emoji: "🌿", title: "今日はゆっくり見守ろう",         message: "近くにいるだけで十分だよ" },
-    { emoji: "☕", title: "無理に合わせなくて大丈夫",       message: "やさしく過ごしてあげよう" },
-    { emoji: "🌙", title: "今日は静かに寄り添おう",         message: "そっと気にかけてあげてね" },
-    { emoji: "🍵", title: "近くにいるだけでも十分だよ",     message: "無理せず、やさしく過ごそう" },
-    { emoji: "🌸", title: "相手のペースを大切にしよう",     message: "今日はそっと見守る日にしよう" },
-  ];
-  const partnerCare = partnerCarePatterns[todayInt % partnerCarePatterns.length];
 
   // ── 生理何日目か（1-based）としんどさレベル ───────────────
   const periodDayCount = (() => {
@@ -1343,11 +1187,6 @@ export default function Home() {
 
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
-  const partnerKimochi: Kimochi = partnerRow?.kimochi_date?.substring(0,10) === today
-    ? normalizeKimochi(partnerRow.kimochi) : null;
-
-  // partnerEmailRef を最新の partnerRow に追従させる
-  useEffect(() => { partnerEmailRef.current = partnerRow?.user_email ?? null; }, [partnerRow]);
 
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す
@@ -1366,78 +1205,42 @@ export default function Home() {
   // ─── 自分の行から設定値をstateに反映 ─────────────────────
   const applyMySettings = useCallback((row: SyncRow) => {
     setSyncGoal(row.sync_goal ?? 4);
-    setLastSyncDate(row.last_sync_date ?? null);
     if (row.reminder_weekday != null) setReminderWeekday(row.reminder_weekday);
     if (row.reminder_weekend != null) setReminderWeekend(row.reminder_weekend);
     setReminderLoaded(true);
     if (row.kimochi_log) setKimochiLog(row.kimochi_log);
-    // 生理期間は syncData → myRow から派生するため、ここでの個別セットは不要
   }, []);
 
-  // ─── 全行ロード ───────────────────────────────────────────
+  // ─── 全行ロード（自分の行のみ） ──────────────────────────
   const loadAll = useCallback(async (cid: string, email: string) => {
     if (!cid || !email) return;
 
-    // ① サーバーアクション経由でRLSをバイパスして取得（推奨）
-    let data: SyncRow[] | null = null;
-    try {
-      const serverRows = await fetchCoupleRows(cid);
-      if (serverRows && serverRows.length > 0) {
-        data = serverRows as unknown as SyncRow[];
-      }
-    } catch {
-      /* サーバーアクション失敗 → フォールバックへ */
-    }
+    const { data, error } = await supabase
+      .from("sync_status")
+      .select("*")
+      .eq("couple_id", cid)
+      .eq("user_email", email);
+    if (error) { console.error("[Sync] loadAll:", error); return; }
+    if (!data?.length) return;
 
-    // ② フォールバック：クライアント側クエリ（RLSが許可している場合のみ全件取得）
-    if (!data) {
-      const { data: clientData, error } = await supabase
-        .from("sync_status").select("*").eq("couple_id", cid);
-      if (error) { console.error("[Sync] loadAll:", error); return; }
-      data = (clientData ?? []) as SyncRow[];
-    }
-
-    if (!data.length) return;
-
-    console.log("[Sync] loadAll 結果:", data.length, "件",
-      data.map(r => `${r.user_email}(couple_id=${r.couple_id})`));
-
-    // syncData にすべての行をセット（仕分けはレンダー時に myEmail で行う）
-    setSyncData(data);
-
-    // 自分の行から設定値を復元（全行渡してパートナーの月データも参照）
-    const myR = (data as SyncRow[]).find(r => r.user_email === email);
-    if (myR) applyMySettings(myR);
-
-    // 自分のリマインド設定が未設定の場合、パートナーの値をフォールバックとして使う
-    // （片方が先に設定済みの場合に初回表示から一致させる）
-    const pR2 = (data as SyncRow[]).find(r => r.user_email !== email && r.user_email !== "");
-    if (myR?.reminder_weekday == null && pR2?.reminder_weekday != null) {
-      setReminderWeekday(pR2.reminder_weekday);
-    }
-    if (myR?.reminder_weekend == null && pR2?.reminder_weekend != null) {
-      setReminderWeekend(pR2.reminder_weekend);
-    }
-
-    // 両方選択済みならマッチ・is17 復元
-    const todayStr = todayRef.current;
-    const myK = myR?.kimochi_date?.substring(0,10) === todayStr
-      ? normalizeKimochi(myR.kimochi) : null;
-    const pR = (data as SyncRow[]).find(r => r.user_email !== email && r.user_email !== "");
-    const pK = pR?.kimochi_date?.substring(0,10) === todayStr
-      ? normalizeKimochi(pR.kimochi) : null;
-    if (myK && pK) { setShowMatch(true); setIs17(true); }
-    if (pK) setIs17(true);
+    setSyncData(data as SyncRow[]);
+    applyMySettings(data[0] as SyncRow);
   }, [applyMySettings]);
 
-  // ─── 1. 初期化 ────────────────────────────────────────────
+  // ─── 1. 初期化 ─────────────────────────────────────────────
+  // coupleId は自分のメールアドレスを自動設定（ソロモード）
+  // 設定画面で手動変更も可能（将来のペア招待機能のため入力欄を残す）
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email) setMyEmail(data.user.email);
+      const email = data.user?.email;
+      if (!email) return;
+      setMyEmail(email);
+      const saved = (localStorage.getItem("sync_couple_id") || "").trim();
+      const cid = saved || email;
+      if (!saved) localStorage.setItem("sync_couple_id", email);
+      setCoupleId(cid);
+      setCoupleIdInput(cid);
     });
-    const saved = (localStorage.getItem("sync_couple_id") || "").trim();
-    setCoupleId(saved);
-    setCoupleIdInput(saved);
   }, []);
 
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
@@ -1453,167 +1256,7 @@ export default function Home() {
     }
   }, [coupleId, myEmail, loadAll]);
 
-  // ─── 3. Realtime購読 ──────────────────────────────────────
-  useEffect(() => {
-    if (!coupleId || !myEmail) return;
-
-    const channel = supabase
-      .channel(`room_${coupleId}_${myEmail}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "sync_status" },
-        (payload) => {
-          const newRow = payload.new as SyncRow;
-          if (!newRow?.user_email) return;
-          // ★ coupleId の完全一致（trim済み）を厳格にチェック
-          if (newRow.couple_id?.trim() !== coupleId.trim()) return;
-
-          console.log("[Sync] realtime:",
-            newRow.user_email === myEmail ? "【自分】" : "【パートナー】",
-            newRow.user_email, "kimochi=", newRow.kimochi);
-
-          // ★ syncData を差し替えるだけ
-          // → myRow/partnerRow はレンダー時に myEmail で再計算される
-          mergeRow(newRow);
-
-          if (newRow.user_email === myEmail) {
-            // 自分の行：設定値を反映
-            applyMySettings(newRow);
-          } else {
-            // パートナーの行：月経データは syncData → moonRow 派生で自動反映されるため手動同期不要
-            // ★ パートナーの sync_goal が変わったら自分の画面にも反映
-            if (newRow.sync_goal != null) {
-              setSyncGoal(newRow.sync_goal);
-            }
-            // ★ パートナーのリマインド設定が変わったら自分の画面にも即反映（カップル共有設定）
-            if (newRow.reminder_weekday != null) setReminderWeekday(newRow.reminder_weekday);
-            if (newRow.reminder_weekend != null) {
-              setReminderWeekend(newRow.reminder_weekend);
-              setReminderLoaded(true); // 時刻自動解放チェックを有効化
-            }
-
-            // パートナーの行：通知 & マッチ判定
-            const partnerK = normalizeKimochi(
-              newRow.kimochi_date?.substring(0,10) === todayRef.current
-                ? newRow.kimochi : null
-            );
-            if (partnerK) {
-              setIs17(true);
-              pop("パートナーがキモチを更新したよ 🌿");
-
-              // マッチ判定：syncData の最新 myRow を参照
-              setSyncData(current => {
-                const latestMyRow = current.find(r => r.user_email === myEmail);
-                const myK = latestMyRow?.kimochi_date?.substring(0,10) === todayRef.current
-                  ? normalizeKimochi(latestMyRow.kimochi) : null;
-                if (myK && partnerK) {
-                  setShowMatch(true);
-                  if (myK === "circle" && partnerK === "circle") {
-                    setShowFireworks(true);
-                    const syncDate = todayRef.current;
-                    setLastSyncDate(syncDate);
-                    supabase.from("sync_status").upsert({
-                      couple_id:      coupleId,
-                      user_email:     myEmail,
-                      last_sync_date: syncDate,
-                      updated_at:     new Date().toISOString(),
-                    }, { onConflict: "couple_id,user_email" });
-                  }
-                }
-                return current; // state は変えない
-              });
-            }
-          }
-        }
-      )
-      .subscribe(status => console.log(`[Sync] channel: ${status}`));
-
-    return () => { supabase.removeChannel(channel); };
-  }, [coupleId, myEmail, mergeRow, applyMySettings, pop]);
-
-  // ─── 4. ポーリング（kimochi のみ・設定値は触らない） ────────
-  useEffect(() => {
-    if (!coupleId || !myEmail) return;
-
-    // select で取得する部分型を定義
-    type PollRow = Pick<SyncRow, "user_email" | "couple_id" | "kimochi" | "kimochi_date" | "last_sync_date">;
-
-    const poll = async () => {
-      const { data } = await supabase
-        .from("sync_status")
-        .select("user_email, couple_id, kimochi, kimochi_date, last_sync_date")
-        .eq("couple_id", coupleId);
-      if (!data?.length) return;
-
-      const pR = (data as PollRow[]).find(r => r.user_email !== myEmail && r.user_email !== "");
-      if (!pR) return;
-
-      const todayStr   = todayRef.current;
-      const isToday    = pR.kimochi_date?.substring(0,10) === todayStr;
-      const newPartnerK: Kimochi = normalizeKimochi(isToday ? pR.kimochi : null);
-
-      // 前回と変化があった時だけ更新
-      setSyncData(prev => {
-        const existing = prev.find(r => r.user_email === pR.user_email);
-        const prevK = existing?.kimochi_date?.substring(0,10) === todayStr
-          ? normalizeKimochi(existing.kimochi) : null;
-
-        if (existing && prevK === newPartnerK) return prev; // 変化なし（既知の行のみ）
-
-        console.log("[Sync] polling partner:", prevK, "→", newPartnerK);
-
-        if (newPartnerK) {
-          setIs17(true);
-          if (!prevK) pop("パートナーがキモチを選んだよ 🌿");
-        }
-
-        // マッチ判定
-        const myR = prev.find(r => r.user_email === myEmail);
-        const myK = myR?.kimochi_date?.substring(0,10) === todayStr
-          ? normalizeKimochi(myR.kimochi) : null;
-        if (myK && newPartnerK) {
-          setShowMatch(true);
-          if (myK === "circle" && newPartnerK === "circle") {
-            setShowFireworks(true);
-            const syncDate = todayStr;
-            setLastSyncDate(syncDate);
-            supabase.from("sync_status").upsert({
-              couple_id:  coupleId,
-              user_email: myEmail,
-              last_sync_date: syncDate,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "couple_id,user_email" });
-          }
-        }
-
-        // syncData の partner 行を更新
-        const exists = prev.some(r => r.user_email === pR.user_email);
-        if (exists) {
-          return prev.map(r => r.user_email === pR.user_email
-            ? { ...r, kimochi: pR.kimochi, kimochi_date: pR.kimochi_date } : r);
-        }
-        return [...prev, pR as unknown as SyncRow];
-      });
-    };
-
-    poll();
-    const id = setInterval(poll, 3000);
-    return () => clearInterval(id);
-  }, [coupleId, myEmail, pop]);
-
-  // ─── 4c. サーバーアクション経由の定期全件ロード ─────────────
-  // RLSバイパスで確実にパートナー行を取得する。
-  // ・パートナー未接続中 → 接続検出のため常時実行
-  // ・接続後 → Realtimeが届かない場合のキモチ同期フォールバック
-  useEffect(() => {
-    if (!coupleId || !myEmail) return;
-    const id = setInterval(async () => {
-      await loadAll(coupleId, myEmail);
-    }, 5000);
-    return () => clearInterval(id);
-  }, [coupleId, myEmail, loadAll]);
-
-  // ─── 4b. リマインド時刻を過ぎたら自動的にキモチ選択を解放 ──
+  // ─── 3. リマインド時刻を過ぎたら自動的にキモチ選択を解放 ──
   // ・reminderLoaded が true になるまで実行しない
   //   （Supabase読み込み前のデフォルト値 17/19 での誤判定を防ぐ）
   // ・設定変更直後に即チェック → 設定→ホーム遷移で即時反映
@@ -1631,16 +1274,15 @@ export default function Home() {
   }, [reminderWeekday, reminderWeekend, reminderLoaded]);
 
   // ─── 5. キモチ保存 ────────────────────────────────────────
-  const saveMyKimochi = useCallback(async (val: Kimochi, newLastSync?: string) => {
+  const saveMyKimochi = useCallback(async (val: Kimochi) => {
     if (!coupleId || !myEmail) return;
 
     const payload = {
-      couple_id:      coupleId,
-      user_email:     myEmail,
-      kimochi:        val,
-      kimochi_date:   getLocalDateStr(),
-      last_sync_date: newLastSync ?? lastSyncDateRef.current,
-      updated_at:     new Date().toISOString(),
+      couple_id:    coupleId,
+      user_email:   myEmail,
+      kimochi:      val,
+      kimochi_date: getLocalDateStr(),
+      updated_at:   new Date().toISOString(),
     };
 
     // 楽観的更新：syncData を即座に更新
@@ -1653,10 +1295,10 @@ export default function Home() {
   }, [coupleId, myEmail, mergeRow]);
 
   // ─── 5b. キモチログ保存（6より前に定義が必要） ────────────
-  const saveKimochiLog = useCallback(async (myK: Kimochi, partnerK: Kimochi) => {
-    if (!coupleId || !myEmail || !myK || !partnerK) return;
+  const saveKimochiLog = useCallback(async (myK: Kimochi) => {
+    if (!coupleId || !myEmail || !myK) return;
     const date = getLocalDateStr();
-    const newLog = addKimochiLog(kimochiLog, date, myK, partnerK);
+    const newLog = addKimochiLog(kimochiLog, date, myK);
     setKimochiLog(newLog);
     await supabase.from("sync_status").upsert({
       couple_id:   coupleId,
@@ -1668,44 +1310,11 @@ export default function Home() {
 
   // ─── 6. キモチ選択ハンドラ ─────────────────────────────────
   const handleKimochiSelect = useCallback(async (val: Kimochi) => {
-    if (isInPeriod || partnerIsInPeriod) return; // どちらかがお休みモード中は入力ブロック
-    setShowMatch(false);
-    setShowFireworks(false);
+    if (isInPeriod) return; // お休みモード中は入力ブロック
     await saveMyKimochi(val);
+    await saveKimochiLog(val);
     pop("キモチを更新したよ 🌸");
-
-    // パートナーも選択済みならマッチ判定
-    setSyncData(current => {
-      const todayStr = todayRef.current;
-      const pRow = current.find(r => r.user_email !== myEmail && r.user_email !== "");
-      const prevP = pRow?.kimochi_date?.substring(0,10) === todayStr
-        ? normalizeKimochi(pRow.kimochi) : null;
-      if (val && prevP) {
-        setShowMatch(true);
-        // ★ ログに記録（両方選択済み）
-        saveKimochiLog(val, prevP);
-        if (val === "circle" && prevP === "circle") {
-          setShowFireworks(true);
-          const syncDate = todayStr;
-          setLastSyncDate(syncDate);
-          saveMyKimochi(val, syncDate);
-        }
-      }
-      return current;
-    });
-  }, [saveMyKimochi, saveKimochiLog, myEmail, pop, isInPeriod]);
-
-  // ─── 7. クールダウンリセット ───────────────────────────────
-  const handleCooldownReset = useCallback(async () => {
-    setLastSyncDate(null);
-    if (coupleId && myEmail) {
-      await supabase.from("sync_status").upsert({
-        couple_id: coupleId, user_email: myEmail,
-        last_sync_date: null, updated_at: new Date().toISOString(),
-      }, { onConflict: "couple_id,user_email" });
-    }
-    pop("クールダウンをリセットしました");
-  }, [coupleId, myEmail, pop]);
+  }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod]);
 
   // ─── 8b. 生理開始日の記録 ────────────────────────────────
   const handleConfirmStart = useCallback(async (start: number) => {
@@ -1827,74 +1436,19 @@ export default function Home() {
     }, { onConflict: "couple_id,user_email" });
   }, [coupleId, myEmail]);
 
-  // ─── 9c. リマインド設定の即時保存（カップル共有設定：両行に書き込む） ──
+  // ─── 9c. リマインド設定の即時保存 ──────────────────────────
   const handleReminderChange = useCallback(async (weekday: number, weekend: number) => {
     if (!coupleId || !myEmail) return;
-    const payload = {
-      reminder_weekday: weekday,
-      reminder_weekend: weekend,
-      updated_at:       new Date().toISOString(),
-    };
-    // 自分の行に保存
     await supabase.from("sync_status").upsert(
-      { couple_id: coupleId, user_email: myEmail, ...payload },
+      { couple_id: coupleId, user_email: myEmail,
+        reminder_weekday: weekday, reminder_weekend: weekend,
+        updated_at: new Date().toISOString() },
       { onConflict: "couple_id,user_email" }
     );
-    // パートナーが接続済みなら相手の行にも同じ値を保存（DB レベルで一致させる）
-    const partnerEmail = partnerEmailRef.current;
-    if (partnerEmail) {
-      await supabase.from("sync_status").upsert(
-        { couple_id: coupleId, user_email: partnerEmail, ...payload },
-        { onConflict: "couple_id,user_email" }
-      );
-    }
   }, [coupleId, myEmail]);
 
   // ─── 9a. Sync目標の即時保存（9c の前に番号を詰める）─────
 
-  // ─── 計算 ─────────────────────────────────────────────────
-  const cooldownDays = getCooldownDays(syncGoal);
-  const getRemainingDays = () => {
-    if (!lastSyncDate) return 0;
-    const sync = new Date(lastSyncDate); sync.setHours(0,0,0,0);
-    const todayD = new Date(); todayD.setHours(0,0,0,0);
-    return Math.max(0, cooldownDays - Math.floor((todayD.getTime()-sync.getTime())/86400000));
-  };
-  const remainingDays = getRemainingDays();
-  const todayStr2  = getLocalDateStr();
-  const isSyncToday = !!lastSyncDate && lastSyncDate.substring(0,10) === todayStr2;
-  const isInCooldown = isSyncToday || remainingDays > 0;
-
-  const resetKimochi = () => {
-    setShowMatch(false);
-    if (!isInCooldown) setIs17(false);
-    // syncData の myRow の kimochi をリセット
-    setSyncData(prev => prev.map(r =>
-      r.user_email === myEmail ? { ...r, kimochi: null, kimochi_date: null } : r
-    ));
-  };
-
-  // ── 週次ふりかえり用：自分＋パートナーのキモチログをマージ ───
-  // パートナーのログはパートナー視点（my↔partner が逆）なので反転して統合する
-  // これにより、どちらの端末から見ても同じふりかえり内容になる
-  const mergedKimochiLog: KimochiLogEntry[] = (() => {
-    const myLog = kimochiLog;
-    const partnerLog = partnerRow?.kimochi_log ?? [];
-    const map = new Map<string, KimochiLogEntry>();
-    // 自分のログを優先
-    for (const e of myLog) map.set(e.date, e);
-    // パートナーのログで自分に無い日を補完（my↔partner を反転）
-    for (const e of partnerLog) {
-      if (!map.has(e.date)) {
-        map.set(e.date, {
-          date:            e.date,
-          my_kimochi:      e.partner_kimochi,
-          partner_kimochi: e.my_kimochi,
-        });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
-  })();
 
   // ─── 画面分岐 ─────────────────────────────────────────────
   if (screen === "settings") {
@@ -1905,9 +1459,7 @@ export default function Home() {
         syncGoal={syncGoal}   setSyncGoal={setSyncGoal}
         initialConfirmedStart={savedMoonStart}
         initialConfirmedEnd={savedMoonEnd}
-        partnerConfirmedStart={partnerMoonStart}
-        partnerConfirmedEnd={partnerMoonEnd}
-        periodHistory={mergedPeriodHistory.length > 0 ? mergedPeriodHistory : null}
+        periodHistory={(myRow?.period_history ?? []).length > 0 ? (myRow?.period_history ?? null) : null}
         onSave={handleSaveSettings} saving={saving}
         onConfirmStart={handleConfirmStart}
         onConfirmEnd={handleConfirmEnd}
@@ -1922,11 +1474,6 @@ export default function Home() {
   }
 
   if (loading) return <LoadingScreen />;
-  if (!coupleId) return <NoCoupleIdScreen onGoSettings={()=>setScreen("settings")} />;
-
-  // ── 状態ラベル ─────────────────────────────────────────
-  const myStatus     = myKimochi      ? "回答済み" : is17 ? "未回答" : "待機中";
-  const partnerStatus = partnerKimochi ? "回答済み" : "まだ選んでいないよ";
 
   return (
     <main className="min-h-dvh flex flex-col items-center"
@@ -1934,7 +1481,6 @@ export default function Home() {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
 
       <Toast msg={toast.msg} on={toast.on}/>
-      {showFireworks && <Fireworks onDone={()=>setShowFireworks(false)}/>}
 
       <div className="w-full max-w-sm flex flex-col px-4 pt-6 pb-10 gap-4">
 
@@ -1963,37 +1509,13 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ── ② 状態バー（接続・目標・生理期間） ────────── */}
+        {/* ── ② 状態バー（目標・生理期間） ────────────────── */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* ★ 接続状態：partnerRow の有無で3段階に判定 */}
-          {!coupleId ? (
-            // 未設定
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-              style={{ backgroundColor:"rgba(200,200,200,0.15)", border:"1px solid #D4D0CC" }}>
-              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#B0A898", display:"inline-block" }}/>
-              <span style={{ fontSize:10, color:"#9A8E84", fontWeight:600 }}>IDを設定してください</span>
-            </div>
-          ) : !partnerRow ? (
-            // 接続待ち（自分だけ設定済み）
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-              style={{ backgroundColor:"rgba(255,196,80,0.15)", border:"1px solid #F0C840" }}>
-              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#C8A020",
-                animation:"pulse 1.5s infinite", display:"inline-block" }}/>
-              <span style={{ fontSize:10, color:"#9A7820", fontWeight:600 }}>パートナーの接続待ち…</span>
-            </div>
-          ) : (
-            // 接続完了
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-              style={{ backgroundColor:"rgba(122,173,114,0.15)", border:"1px solid #A8C9A0" }}>
-              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block" }}/>
-              <span style={{ fontSize:10, color:"#5A9E7A", fontWeight:600 }}>パートナーと接続中</span>
-            </div>
-          )}
           {/* 目標サマリー */}
           <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
             style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #FDEBD0" }}>
             <span style={{ fontSize:11, color:"#C4A898" }}>🎯</span>
-            <span style={{ fontSize:10, color:"#9A7B6A" }}>目標 {syncGoal}回 / お休み{cooldownDays}日</span>
+            <span style={{ fontSize:10, color:"#9A7B6A" }}>目標 {syncGoal}回 / 月</span>
           </div>
           {/* 生理期間中バッジ */}
           {isInPeriod && (
@@ -2007,21 +1529,7 @@ export default function Home() {
 
         {/* ── ③ メインカード：状態別に完全分岐 ─────────── */}
 
-        {isInCooldown ? (
-          /* === Perfect Sync / 待機期間 === */
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-bold px-1" style={{ color:"#B86540" }}>
-              {isSyncToday ? "✨ Perfect Sync 達成！" : "🌿 ふたりの準備期間"}
-            </p>
-            <SyncSuccessCard
-              isSyncToday={isSyncToday}
-              remainingDays={remainingDays}
-              totalDays={cooldownDays}
-              lastSyncDate={lastSyncDate!}
-              onReset={handleCooldownReset}/>
-          </div>
-
-        ) : isInPeriod ? (
+        {isInPeriod ? (
           /* === 自分が生理期間中：お休みモードカード === */
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between px-0.5">
@@ -2047,49 +1555,6 @@ export default function Home() {
                   </p>
                   <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.6 }}>
                     {periodCopy!.message}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        ) : partnerIsInPeriod ? (
-          /* === パートナーが生理期間中：気づかいカード（キモチ入力なし） === */
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between px-0.5">
-              <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
-                パートナーはお休みモード 🌸
-              </p>
-            </div>
-            {/* パートナー日数 + レベルカード */}
-            <div className="rounded-3xl px-5 py-5"
-              style={{ backgroundColor:"rgba(255,242,246,0.95)", border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
-              {/* 日数バッジ */}
-              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
-                style={{ backgroundColor:"rgba(244,168,184,0.25)", border:"1px solid #F4A8B8" }}>
-                <span style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
-                  パートナーの生理 {partnerPeriodDayCount} 日目
-                </span>
-              </div>
-              {/* レベル一言 */}
-              <p className="font-bold leading-snug mb-1" style={{ fontSize:14, color:"#4A3728" }}>
-                {partnerLevelLabel}
-              </p>
-              <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.6 }}>
-                今日はそっと見守ってあげよう
-              </p>
-            </div>
-            {/* 気づかいカード */}
-            <div className="rounded-3xl px-5 py-5"
-              style={{ backgroundColor:"rgba(245,248,255,0.95)", border:"1.5px solid #C8D8F0", boxShadow:"0 4px 24px rgba(180,200,240,0.18)" }}>
-              <div className="flex items-start gap-3">
-                <span style={{ fontSize:44, lineHeight:1, flexShrink:0 }}>{partnerCare.emoji}</span>
-                <div className="flex flex-col gap-1.5">
-                  <p className="font-bold leading-snug" style={{ fontSize:15, color:"#3A4A6A" }}>
-                    {partnerCare.title}
-                  </p>
-                  <p style={{ fontSize:12, color:"#7A8A9A", lineHeight:1.6 }}>
-                    {partnerCare.message}
                   </p>
                 </div>
               </div>
@@ -2170,38 +1635,7 @@ export default function Home() {
                       disabled={false}
                     />
                   </div>
-                  <div className="h-px" style={{ backgroundColor:"#FDEBD0" }}/>
-                  {/* パートナーのキモチ */}
-                  <div className="px-4 pt-3 pb-4"
-                    style={{ backgroundColor:"rgba(255,248,240,0.7)" }}>
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <span style={{ fontSize:14 }}>🌿</span>
-                      <span className="text-xs font-bold" style={{ color:"#7AAD72" }}>パートナーのキモチ</span>
-                      {partnerKimochi ? (
-                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                          style={{ backgroundColor:"rgba(122,173,114,0.15)", color:"#5A9E7A" }}>
-                          ✓ 回答済み
-                        </span>
-                      ) : (
-                        <span className="ml-auto text-xs flex items-center gap-1" style={{ color:"#C4A898" }}>
-                          <span style={{ animation:"pulse 1.5s infinite", display:"inline-block" }}>●</span>
-                          待ち中…
-                        </span>
-                      )}
-                    </div>
-                    <KimochiRow
-                      key={`partner-${partnerKimochi ?? "none"}`}
-                      label="" avatar=""
-                      selected={partnerKimochi}
-                      onSelect={()=>{}}
-                      disabled={true}
-                    />
-                  </div>
                 </div>
-                {/* マッチバナー */}
-                {showMatch && myKimochi && partnerKimochi && (
-                  <MatchBanner me={myKimochi} partner={partnerKimochi} onClose={resetKimochi}/>
-                )}
               </>
             )}
           </div>
@@ -2209,10 +1643,10 @@ export default function Home() {
 
         {/* ── ④ 週次ふりかえりカード ─────────────────────── */}
         {(() => {
-          const { syncCount, closeDays } = analyzeWeeklyLog(mergedKimochiLog);
+          const { syncCount, closeDays } = analyzeWeeklyLog(kimochiLog);
           const reminderHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
           const isWeekend = new Date().getDay()===0 || new Date().getDay()===6;
-          if (mergedKimochiLog.length === 0) return null;
+          if (kimochiLog.length === 0) return null;
           return (
             <div className="rounded-3xl overflow-hidden"
               style={{ border:"1.5px solid #FDEBD0", boxShadow:"0 2px 12px rgba(255,176,133,0.08)" }}>
@@ -2231,16 +1665,16 @@ export default function Home() {
               <div className="px-4 py-4 flex flex-col gap-2.5"
                 style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
                 <div className="flex items-center gap-2">
-                  <span style={{ fontSize:20 }}>✨</span>
+                  <span style={{ fontSize:20 }}>☀️</span>
                   <p style={{ fontSize:13, color:"#4A3728", fontWeight:600 }}>
-                    今週は{syncCount > 0 ? `${syncCount}回 Syncできたよ` : "まだSyncなし。今日が最初の一歩 🌱"}
+                    今週は{syncCount > 0 ? `${syncCount}回 ○を選んだよ` : "まだ○なし。今日が最初の一歩 🌱"}
                   </p>
                 </div>
                 {closeDays.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <span style={{ fontSize:18 }}>🩷</span>
+                    <span style={{ fontSize:18 }}>📝</span>
                     <p style={{ fontSize:12, color:"#9A7B6A" }}>
-                      気持ちが近かった日：{closeDays.slice(0,3).join("・")}
+                      キモチを記録した日：{closeDays.slice(0,3).join("・")}
                     </p>
                   </div>
                 )}

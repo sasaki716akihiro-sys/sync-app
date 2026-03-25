@@ -1414,7 +1414,7 @@ export default function Home() {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user?.email) setMyEmail(data.user.email);
     });
-    const saved = localStorage.getItem("sync_couple_id") || "";
+    const saved = (localStorage.getItem("sync_couple_id") || "").trim();
     setCoupleId(saved);
     setCoupleIdInput(saved);
   }, []);
@@ -1440,7 +1440,7 @@ export default function Home() {
       .channel(`room_${coupleId}_${myEmail}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "sync_status" },
+        { event: "*", schema: "public", table: "sync_status", filter: `couple_id=eq.${coupleId.trim()}` },
         (payload) => {
           const newRow = payload.new as SyncRow;
           if (!newRow?.user_email) return;
@@ -1515,12 +1515,12 @@ export default function Home() {
     if (!coupleId || !myEmail) return;
 
     // select で取得する部分型を定義
-    type PollRow = Pick<SyncRow, "user_email" | "kimochi" | "kimochi_date" | "last_sync_date">;
+    type PollRow = Pick<SyncRow, "user_email" | "couple_id" | "kimochi" | "kimochi_date" | "last_sync_date">;
 
     const poll = async () => {
       const { data } = await supabase
         .from("sync_status")
-        .select("user_email, kimochi, kimochi_date, last_sync_date")
+        .select("user_email, couple_id, kimochi, kimochi_date, last_sync_date")
         .eq("couple_id", coupleId);
       if (!data?.length) return;
 

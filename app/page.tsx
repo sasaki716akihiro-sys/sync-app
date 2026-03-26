@@ -2208,17 +2208,17 @@ export default function Home() {
                     />
                   </div>
 
-                  {/* パートナーのキモチ（接続中のみ）*/}
+                  {/* パートナーのキモチ（接続中のみ・入力有無のみ表示）*/}
                   {isConnected && (
                     <div className="px-4 pt-3 pb-4"
                       style={{ borderTop:"1px solid #F0F7EE", backgroundColor:"rgba(245,252,245,0.9)" }}>
-                      <div className="flex items-center gap-1.5 mb-3">
+                      <div className="flex items-center gap-1.5">
                         <span style={{ fontSize:14 }}>🌿</span>
                         <span className="text-xs font-bold" style={{ color:"#5A9E7A" }}>パートナーのキモチ</span>
                         {partnerKimochi ? (
                           <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
                             style={{ backgroundColor:"rgba(90,158,122,0.12)", color:"#5A9E7A" }}>
-                            ✓ 選択済み
+                            ✓ 入力済み
                           </span>
                         ) : (
                           <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
@@ -2226,12 +2226,6 @@ export default function Home() {
                           </span>
                         )}
                       </div>
-                      <KimochiRow
-                        label="" avatar=""
-                        selected={partnerKimochi}
-                        onSelect={() => {}}
-                        disabled={true}
-                      />
                     </div>
                   )}
                 </div>

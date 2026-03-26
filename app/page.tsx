@@ -1261,18 +1261,13 @@ function ConnectScreen({
   };
 
   // ハイフンなしの生コード（最大7文字）を state に保持
-  // ※ハイフンを onChange 内で挿入すると Android IME がカーソルジャンプを
-  //   「未確定文字の再送」と解釈して同じ文字が二重入力されるバグが発生するため、
-  //   state の変換は最小限にしてカーソル位置を変えない
+  // ※value にハイフンを挿入すると Android IME がカーソルジャンプを
+  //   「未確定文字の再送」と解釈して同じ文字が二重入力されるため、
+  //   input の value にはハイフンを含めない
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 7);
     setInputCode(raw);
   };
-
-  // 表示用のみハイフンを付ける（state には反映しない）
-  const displayInputValue = inputCode.length > 4
-    ? `${inputCode.slice(0, 4)}-${inputCode.slice(4)}`
-    : inputCode;
 
   const handleJoin = async () => {
     const trimmed = inputCode.trim();
@@ -1369,10 +1364,10 @@ function ConnectScreen({
           </div>
           <div className="px-5 py-4 flex flex-col gap-3" style={{ backgroundColor: "rgba(255,255,255,0.75)" }}>
             <input
-              value={displayInputValue}
+              value={inputCode}
               onChange={handleInputChange}
-              placeholder="XXXX-XXX"
-              maxLength={8}
+              placeholder="XXXXXXX"
+              maxLength={7}
               autoCapitalize="characters"
               autoCorrect="off"
               autoComplete="off"
@@ -1760,6 +1755,8 @@ export default function Home() {
       setSyncData(prev => prev.map(r =>
         r.user_email === myEmail ? { ...r, last_sync_date: null } : r
       ));
+      // クールダウン終了後はリマインド時刻チェックを無視してすぐ選択可能にする
+      setIs17(true);
     }
   }, [coupleId, myEmail]);
 

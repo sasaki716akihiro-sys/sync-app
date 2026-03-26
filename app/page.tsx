@@ -1749,11 +1749,17 @@ export default function Home() {
       couple_id:      coupleId,
       user_email:     myEmail,
       last_sync_date: null,
+      kimochi:        null,
+      kimochi_date:   null,
       updated_at:     new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
     if (!error) {
+      // kimochi も一緒にリセットしないと Perfect Sync 検知 Effect が
+      // 即座に再発火して last_sync_date: today を書き戻してしまう
       setSyncData(prev => prev.map(r =>
-        r.user_email === myEmail ? { ...r, last_sync_date: null } : r
+        r.user_email === myEmail
+          ? { ...r, last_sync_date: null, kimochi: null, kimochi_date: null }
+          : r
       ));
       // クールダウン終了後はリマインド時刻チェックを無視してすぐ選択可能にする
       setIs17(true);

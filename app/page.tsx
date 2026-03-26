@@ -1261,12 +1261,18 @@ function ConnectScreen({
   };
 
   // ハイフンなしの生コード（最大7文字）を state に保持
-  // ※value にハイフンを挿入すると Android IME がカーソルジャンプを
-  //   「未確定文字の再送」と解釈して同じ文字が二重入力されるため、
-  //   input の value にはハイフンを含めない
+  // iOS/Android IME の二重入力対策：
+  //   compositionstart〜compositionend の間は onChange を無視し、
+  //   compositionEnd で確定値を処理する
+  const isComposing = useRef(false);
+  const toRaw = (v: string) => v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 7);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 7);
-    setInputCode(raw);
+    if (isComposing.current) return;
+    setInputCode(toRaw(e.target.value));
+  };
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposing.current = false;
+    setInputCode(toRaw(e.currentTarget.value));
   };
 
   const handleJoin = async () => {
@@ -1366,6 +1372,8 @@ function ConnectScreen({
             <input
               value={inputCode}
               onChange={handleInputChange}
+              onCompositionStart={() => { isComposing.current = true; }}
+              onCompositionEnd={handleCompositionEnd}
               placeholder="XXXXXXX"
               maxLength={7}
               autoCapitalize="characters"

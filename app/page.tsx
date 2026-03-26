@@ -1235,6 +1235,7 @@ function ConnectScreen({
   const [issueError,    setIssueError]    = useState<string | null>(null);
   const [joinError,     setJoinError]     = useState<string | null>(null);
   const [copied,        setCopied]        = useState(false);
+  const codeInputRef    = useRef<HTMLInputElement>(null);
 
   const handleIssue = async () => {
     setIssuing(true);
@@ -1260,19 +1261,26 @@ function ConnectScreen({
     }
   };
 
-  // ハイフンなしの生コード（最大7文字）を state に保持
-  // iOS/Android IME の二重入力対策：
-  //   compositionstart〜compositionend の間は onChange を無視し、
-  //   compositionEnd で確定値を処理する
-  const isComposing = useRef(false);
+  // 招待コード入力：iOS/Android IME 二重入力対策
+  // controlled input（value=state）のままだと、IME変換中に onChange をスキップすると
+  // React が古い value で DOM をリセットし、compositionEnd 時には DOM が空になってしまう。
+  // → uncontrolled（ref でDOMを直接操作）にして IME 変換中は React に触らせない。
+  const isComposingCode = useRef(false);
   const toRaw = (v: string) => v.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 7);
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isComposing.current) return;
-    setInputCode(toRaw(e.target.value));
+  const commitCode = () => {
+    const el = codeInputRef.current;
+    if (!el) return;
+    const raw = toRaw(el.value);
+    el.value = raw; // DOM を直接整形（maxLength ガード）
+    setInputCode(raw);
   };
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
-    isComposing.current = false;
-    setInputCode(toRaw(e.currentTarget.value));
+  const handleInputChange = () => {
+    if (isComposingCode.current) return;
+    commitCode();
+  };
+  const handleCompositionEnd = () => {
+    isComposingCode.current = false;
+    commitCode();
   };
 
   const handleJoin = async () => {
@@ -1370,12 +1378,12 @@ function ConnectScreen({
           </div>
           <div className="px-5 py-4 flex flex-col gap-3" style={{ backgroundColor: "rgba(255,255,255,0.75)" }}>
             <input
-              value={inputCode}
+              ref={codeInputRef}
+              defaultValue=""
               onChange={handleInputChange}
-              onCompositionStart={() => { isComposing.current = true; }}
+              onCompositionStart={() => { isComposingCode.current = true; }}
               onCompositionEnd={handleCompositionEnd}
               placeholder="XXXXXXX"
-              maxLength={7}
               autoCapitalize="characters"
               autoCorrect="off"
               autoComplete="off"

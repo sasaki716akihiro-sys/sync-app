@@ -6,6 +6,7 @@ import { logout } from "@/app/auth/actions";
 import { checkConnection, disconnectCouple, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
 import { fetchCoupleRows } from "@/app/actions/sync";
 import { createClient } from "@/lib/supabase/client";
+import { getSyncMessage, getWaitingMessage, type SyncMessage } from "@/lib/syncMessages";
 
 // ─── Supabaseクライアントはモジュールレベルで1度だけ生成 ──────
 // コンポーネント内で生成すると再レンダリングのたびに新インスタンスが
@@ -1447,6 +1448,7 @@ export default function Home() {
   const [isConnected,     setIsConnected]     = useState(false);
   const [partnerEmail,    setPartnerEmail]    = useState<string | null>(null);
   const [showPerfectSync, setShowPerfectSync] = useState(false);
+  const [syncMessage,     setSyncMessage]     = useState<SyncMessage | null>(null);
 
   // ── ★ source of truth: DBの行をそのまま保持 ─────────────
   // myRow / partnerRow は myEmail で毎回派生させる
@@ -1593,6 +1595,22 @@ export default function Home() {
       ));
     }
   }, [myKimochi, partnerKimochi, today, coupleId, myEmail, myRow?.last_sync_date]);
+
+  // ─── SyncMessage 更新 ─────────────────────────────────────
+  useEffect(() => {
+    if (!isConnected) { setSyncMessage(null); return; }
+
+    if (myKimochi && partnerKimochi) {
+      // 両者入力済み：組み合わせメッセージ（perfect は花火に任せてnull）
+      const result = getSyncMessage(myKimochi, partnerKimochi);
+      setSyncMessage(result.type === "perfect" ? null : result);
+    } else if (!myKimochi && partnerKimochi) {
+      // 相手だけ入力済み
+      setSyncMessage(getWaitingMessage());
+    } else {
+      setSyncMessage(null);
+    }
+  }, [myKimochi, partnerKimochi, isConnected]);
 
   // ─── syncData を更新する共通関数 ─────────────────────────
   // 同じ user_email の行だけ差し替え、他の行はそのまま残す
@@ -2248,6 +2266,24 @@ export default function Home() {
                     </div>
                   )}
                 </div>
+
+                {/* ─ SyncMessage カード ─ */}
+                {syncMessage && (
+                  <div className="rounded-2xl px-4 py-3 flex flex-col gap-1"
+                    style={{
+                      backgroundColor: "rgba(230,220,245,0.5)",
+                      border: "1.5px solid #D8C8F0",
+                    }}>
+                    <p className="text-sm font-semibold" style={{ color: "#7A5FA0" }}>
+                      {syncMessage.message}
+                    </p>
+                    {syncMessage.actionSuggestion && (
+                      <p className="text-xs" style={{ color: "#9E85C0" }}>
+                        {syncMessage.actionSuggestion}
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>

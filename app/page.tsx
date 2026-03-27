@@ -75,20 +75,21 @@ function getThisWeekRange(): { start: string; end: string } {
 
 const DOW_LABEL = ["日","月","火","水","木","金","土"];
 
-function analyzeWeeklyLog(log: KimochiLogEntry[]): {
-  syncCount:  number;
-  closeDays:  string[];   // キモチを選んだ日（曜日ラベル）
-} {
-  const { start, end } = getThisWeekRange();
-  const thisWeek = log.filter(e => e.date >= start && e.date <= end);
-  const syncCount = thisWeek.filter(e => e.my_kimochi === "circle").length;
-  const closeDays = thisWeek
-    .filter(e => e.my_kimochi !== null)
-    .map(e => {
-      const d = new Date(e.date);
-      return DOW_LABEL[d.getDay()] + "曜";
-    });
-  return { syncCount, closeDays };
+// 今週月曜〜今日の日別エントリを返す
+function getWeeklyEntries(
+  log: KimochiLogEntry[]
+): { date: string; dow: string; kimochi: Kimochi }[] {
+  const { start } = getThisWeekRange();
+  const todayStr = getLocalDateStr();
+  const entries: { date: string; dow: string; kimochi: Kimochi }[] = [];
+  const d = new Date(start + "T00:00:00");
+  while (getLocalDateStr(d) <= todayStr) {
+    const dateStr = getLocalDateStr(d);
+    const found = log.find(e => e.date === dateStr);
+    entries.push({ date: dateStr, dow: DOW_LABEL[d.getDay()], kimochi: found?.my_kimochi ?? null });
+    d.setDate(d.getDate() + 1);
+  }
+  return entries;
 }
 
 // キモチログに今日の記録を追加（最大28件保持）
@@ -2152,8 +2153,20 @@ export default function Home() {
 
         {/* ── ④ 週次ふりかえりカード ─────────────────────── */}
         {(() => {
-          const { syncCount, closeDays } = analyzeWeeklyLog(kimochiLog);
-          if (kimochiLog.length === 0) return null;
+          const weekDays = getWeeklyEntries(kimochiLog);
+          const hasAnyEntry = weekDays.some(d => d.kimochi !== null);
+          const { start, end } = getThisWeekRange();
+          const syncDates = lastSyncDate && lastSyncDate >= start && lastSyncDate <= end
+            ? [lastSyncDate] : [];
+          if (!hasAnyEntry && syncDates.length === 0) return null;
+
+          const kimochiStyle = (k: Kimochi): { sym: string; color: string } => {
+            if (k === "circle")   return { sym: "○", color: "#5A9E7A" };
+            if (k === "triangle") return { sym: "△", color: "#D97B6C" };
+            if (k === "cross")    return { sym: "✕", color: "#B0A0B8" };
+            return { sym: "—", color: "#E0D0C8" };
+          };
+
           return (
             <div className="rounded-3xl overflow-hidden"
               style={{ border:"1.5px solid #FDEBD0", boxShadow:"0 2px 12px rgba(255,176,133,0.08)" }}>
@@ -2162,25 +2175,40 @@ export default function Home() {
                 <span style={{ fontSize:16 }}>📅</span>
                 <p className="font-bold text-sm" style={{ color:"#B86540" }}>今週のふりかえり</p>
               </div>
-              <div className="px-4 py-4 flex flex-col gap-2.5"
+              <div className="px-5 py-4 flex flex-col gap-3"
                 style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize:20 }}>☀️</span>
-                  <p style={{ fontSize:13, color:"#4A3728", fontWeight:600 }}>
-                    今週は{syncCount > 0 ? `${syncCount}回 ○を選んだよ` : "まだ○なし。今日が最初の一歩 🌱"}
-                  </p>
+
+                {/* 日別キモチ */}
+                <div className="flex justify-between">
+                  {weekDays.map(({ dow, kimochi }) => {
+                    const { sym, color } = kimochiStyle(kimochi);
+                    return (
+                      <div key={dow} className="flex flex-col items-center gap-1">
+                        <span style={{ fontSize:10, color:"#C4A898", fontWeight:600 }}>{dow}</span>
+                        <span style={{ fontSize:18, fontWeight:700, color }}>{sym}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                {closeDays.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span style={{ fontSize:18 }}>📝</span>
-                    <p style={{ fontSize:12, color:"#9A7B6A" }}>
-                      キモチを記録した日：{closeDays.slice(0,3).join("・")}
-                    </p>
+
+                {/* Sync日 */}
+                {syncDates.length > 0 && (
+                  <div className="flex items-center gap-2 pt-2"
+                    style={{ borderTop:"1px solid #F5EDE0" }}>
+                    <span style={{ fontSize:11, color:"#A89890", fontWeight:600 }}>Sync</span>
+                    <div className="flex gap-1.5">
+                      {syncDates.map(sd => {
+                        const [, m, day] = sd.split("-");
+                        return (
+                          <span key={sd} className="px-2 py-0.5 rounded-full text-xs font-bold"
+                            style={{ backgroundColor:"rgba(90,158,122,0.13)", color:"#5A9E7A" }}>
+                            {parseInt(m)}/{parseInt(day)}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-                <p className="text-center" style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                  今週もおつかれさま 🌿
-                </p>
               </div>
             </div>
           );

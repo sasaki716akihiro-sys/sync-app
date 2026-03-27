@@ -1477,6 +1477,46 @@ export default function Home() {
   const periodCopyList = periodPatterns[periodLevel];
   const periodCopy = periodCopyList[periodDayCount % periodCopyList.length];
 
+  // ─── パートナーの生理期間判定 ──────────────────────────────
+  const partnerMoonStart = partnerRow?.moon_start ?? null;
+  const partnerMoonEnd   = partnerRow?.moon_end   ?? null;
+  const isPartnerInPeriod = isConnected && partnerMoonStart !== null && (
+    partnerMoonEnd === null ||
+    (todayInt >= partnerMoonStart && todayInt <= partnerMoonEnd)
+  );
+  const partnerPeriodDayCount = (() => {
+    if (!partnerMoonStart) return 0;
+    const sy = Math.floor(partnerMoonStart / 10000);
+    const sm = Math.floor((partnerMoonStart % 10000) / 100) - 1;
+    const sd = partnerMoonStart % 100;
+    const start = new Date(sy, sm, sd); start.setHours(0,0,0,0);
+    const now2  = new Date();           now2.setHours(0,0,0,0);
+    return Math.max(1, Math.floor((now2.getTime() - start.getTime()) / 86400000) + 1);
+  })();
+  const partnerPeriodLevel = partnerPeriodDayCount <= 2 ? "max" : partnerPeriodDayCount <= 4 ? "mid" : "low";
+  const partnerPeriodPatterns = {
+    max: [
+      { emoji: "🤍", title: "今日はかなりしんどいはずだよ",   message: "そっと寄り添って、ゆっくりさせてあげてね" },
+      { emoji: "🤍", title: "一番しんどい時期かもしれないよ", message: "温かくして、無理させないようにしてあげてね" },
+      { emoji: "🫶", title: "今日は特に気にかけてあげてね",   message: "ゆっくり休める環境を作ってあげよう" },
+      { emoji: "🤍", title: "今は体がつらい時期だよ",         message: "そばにいるだけで、きっと伝わるよ" },
+    ],
+    mid: [
+      { emoji: "🌸", title: "少しずつ楽になってくる頃だよ",   message: "引き続きそっと見守ってあげてね" },
+      { emoji: "🌸", title: "まだしんどさが残る時期かも",     message: "できることがあれば、そっと手を差し伸べてあげてね" },
+      { emoji: "🌸", title: "もうひと息の頃だよ",             message: "穏やかに過ごせるようにそばにいてあげてね" },
+      { emoji: "🌸", title: "回復してきている頃かも",         message: "無理させないように気にかけてあげてね" },
+    ],
+    low: [
+      { emoji: "🌿", title: "もうすぐ楽になるころだよ",       message: "引き続き気にかけてあげてね" },
+      { emoji: "🌿", title: "だいぶ落ち着いてきた頃かな",     message: "いつも通り一緒に過ごせるといいね" },
+      { emoji: "🌿", title: "ほぼ終わりに近づいてるよ",       message: "お疲れさまって伝えてあげてね" },
+      { emoji: "🌿", title: "回復してきている頃だよ",         message: "自然に笑顔で接してあげてね" },
+    ],
+  };
+  const partnerPeriodCopyList = partnerPeriodPatterns[partnerPeriodLevel];
+  const partnerPeriodCopy = partnerPeriodCopyList[partnerPeriodDayCount % partnerPeriodCopyList.length];
+
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
 
@@ -1796,11 +1836,11 @@ export default function Home() {
 
   // ─── 6. キモチ選択ハンドラ ─────────────────────────────────
   const handleKimochiSelect = useCallback(async (val: Kimochi) => {
-    if (isInPeriod || isInCooldown) return; // お休みモード中・クールダウン中は入力ブロック
+    if (isInPeriod || isInCooldown || isPartnerInPeriod) return; // お休みモード中・クールダウン中・パートナー生理中は入力ブロック
     await saveMyKimochi(val);
     await saveKimochiLog(val);
     pop("キモチを更新したよ 🌸");
-  }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod]);
+  }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod, isPartnerInPeriod]);
 
   // ─── 8b. 生理開始日の記録 ────────────────────────────────
   const handleConfirmStart = useCallback(async (start: number) => {
@@ -2027,6 +2067,14 @@ export default function Home() {
               <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>お休みモード中</span>
             </div>
           )}
+          {/* パートナー生理期間中バッジ */}
+          {isConnected && isPartnerInPeriod && !isInPeriod && (
+            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor:"rgba(255,182,193,0.2)", border:"1px solid #F4A8B8" }}>
+              <span style={{ fontSize:11 }}>🌸</span>
+              <span style={{ fontSize:10, color:"#C46880", fontWeight:600 }}>相手はお休みモード中</span>
+            </div>
+          )}
         </div>
 
         {/* ── ③ メインカード：状態別に完全分岐 ─────────── */}
@@ -2059,6 +2107,45 @@ export default function Home() {
                     {periodCopy!.message}
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+        ) : isPartnerInPeriod ? (
+          /* === パートナーが生理期間中：ケアカード === */
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between px-0.5">
+              <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                今日はそっと寄り添う日 🌸
+              </p>
+            </div>
+            <div className="rounded-3xl px-5 py-5"
+              style={{ backgroundColor:"rgba(255,242,246,0.95)", border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
+              {/* 日数バッジ */}
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
+                style={{ backgroundColor:"rgba(244,168,184,0.25)", border:"1px solid #F4A8B8" }}>
+                <span style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
+                  パートナーの生理 {partnerPeriodDayCount} 日目
+                </span>
+              </div>
+              {/* 絵文字 + テキスト */}
+              <div className="flex items-start gap-3">
+                <span style={{ fontSize:44, lineHeight:1, flexShrink:0 }}>{partnerPeriodCopy.emoji}</span>
+                <div className="flex flex-col gap-1.5">
+                  <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
+                    {partnerPeriodCopy.title}
+                  </p>
+                  <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.6 }}>
+                    {partnerPeriodCopy.message}
+                  </p>
+                </div>
+              </div>
+              {/* キモチ選択できない旨 */}
+              <div className="mt-4 px-3 py-2.5 rounded-2xl text-center"
+                style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #F0D0DA" }}>
+                <p style={{ fontSize:11, color:"#C46880" }}>
+                  今日はふたりともキモチの選択をお休みしているよ 🌸
+                </p>
               </div>
             </div>
           </div>

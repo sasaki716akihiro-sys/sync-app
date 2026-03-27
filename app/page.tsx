@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
 import { checkConnection, disconnectCouple, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
-import { fetchCoupleRows, updateSyncGoal } from "@/app/actions/sync";
+import { fetchCoupleRows, updateSyncGoal, updatePartnerPeriod } from "@/app/actions/sync";
 import { createClient } from "@/lib/supabase/client";
 import { getSyncMessage, getWaitingMessage, type SyncMessage } from "@/lib/syncMessages";
 
@@ -440,6 +440,8 @@ function SettingsScreen({
   onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod, onDeleteHistory,
   onGoalChange,
   isConnected, partnerEmail, onDisconnect,
+  partnerMoonStart, partnerMoonEnd, partnerPeriodHistory,
+  onConfirmPartnerStart, onConfirmPartnerEnd, onResetPartnerPeriod, onDeletePartnerHistory,
 }: {
   onBack:()=>void;
   syncGoal:number; setSyncGoal:(n:number)=>void;
@@ -455,6 +457,13 @@ function SettingsScreen({
   isConnected: boolean;
   partnerEmail: string | null;
   onDisconnect: () => Promise<void>;
+  partnerMoonStart: number | null;
+  partnerMoonEnd:   number | null;
+  partnerPeriodHistory: PeriodRecord[] | null;
+  onConfirmPartnerStart:(start:number)=>Promise<void>;
+  onConfirmPartnerEnd:(end:number)=>Promise<void>;
+  onResetPartnerPeriod:()=>Promise<void>;
+  onDeletePartnerHistory:(start:string)=>Promise<void>;
 }) {
   const [confirming,            setConfirming]            = useState(false);
   const [resetting,             setResetting]             = useState(false);
@@ -464,6 +473,19 @@ function SettingsScreen({
   const [deleting,              setDeleting]              = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [disconnecting,         setDisconnecting]         = useState(false);
+  // ── パートナー生理期間 ──────────────────────────────────────
+  const [pConfirming,       setPConfirming]       = useState(false);
+  const [pResetting,        setPResetting]        = useState(false);
+  const [showPResetConfirm, setShowPResetConfirm] = useState(false);
+  const [showAllPHistory,   setShowAllPHistory]   = useState(false);
+  const [pDeletingStart,    setPDeletingStart]    = useState<string | null>(null);
+  const [pDeleting,         setPDeleting]         = useState(false);
+  const [pDraftDate,        setPDraftDate]        = useState<number | null>(null);
+  const _pNow = new Date();
+  const _pInitYear  = partnerMoonStart ? Math.floor(partnerMoonStart / 10000)                         : _pNow.getFullYear();
+  const _pInitMonth = partnerMoonStart ? Math.floor((partnerMoonStart % 10000) / 100) - 1             : _pNow.getMonth();
+  const [pCalYear,  setPCalYear]  = useState(_pInitYear);
+  const [pCalMonth, setPCalMonth] = useState(_pInitMonth);
   const HISTORY_LIMIT = 3;
   const cooldownDays = getCooldownDays(syncGoal);
 
@@ -594,6 +616,41 @@ function SettingsScreen({
     predEndInt   = _parseYMD(ne);
   }
 
+  // ── パートナーの次回予測計算 ─────────────────────────────────
+  const _pCompleted = (partnerPeriodHistory ?? [])
+    .filter(r => r.start && r.end)
+    .sort((a, b) => (b.start > a.start ? 1 : b.start < a.start ? -1 : 0));
+  const pPredN = _pCompleted.length;
+  let pPredStartInt: number | null = null;
+  let pPredEndInt:   number | null = null;
+  let pPredIsRef    = true;
+  let pPredLabel    = "";
+  let pPredNote     = "";
+  if (pPredN >= 1) {
+    const top3 = _pCompleted.slice(0, 3);
+    let cycleUsed: number;
+    let durUsed:   number;
+    if (pPredN === 1) {
+      cycleUsed = 28; durUsed = _durDays(top3[0]);
+      pPredIsRef = true; pPredLabel = "参考表示（履歴1件）"; pPredNote = "履歴が3件たまると正式予測になります";
+    } else if (pPredN === 2) {
+      cycleUsed = _daysDiff(top3[1].start, top3[0].start);
+      durUsed   = Math.round((_durDays(top3[0]) + _durDays(top3[1])) / 2);
+      pPredIsRef = true; pPredLabel = "参考表示（履歴2件）"; pPredNote = "あと1件で安定した予測になります";
+    } else {
+      const c1  = _daysDiff(top3[1].start, top3[0].start);
+      const c2  = _daysDiff(top3[2].start, top3[1].start);
+      cycleUsed = Math.round((c1 + c2) / 2);
+      const durs = [_durDays(top3[0]), _durDays(top3[1]), _durDays(top3[2])].sort((a, b) => a - b);
+      durUsed   = durs[1];
+      pPredIsRef = false; pPredLabel = "正式予測（直近3件）"; pPredNote = "直近3件の履歴から計算しています";
+    }
+    const ns2 = _addDays(top3[0].start, cycleUsed);
+    const ne2 = _addDays(ns2, durUsed - 1);
+    pPredStartInt = _parseYMD(ns2);
+    pPredEndInt   = _parseYMD(ne2);
+  }
+
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor:"#FFFBF5", color:"#4A3728" }}>
       <div className="flex items-center gap-3 px-4 py-5 sticky top-0 z-10"
@@ -716,6 +773,14 @@ function SettingsScreen({
                     && predStartInt !== null && predEndInt !== null
                     && ymd > predStartInt && ymd < predEndInt;
 
+                  // パートナー生理期間ハイライト（接続中のみ）
+                  const pSt  = partnerMoonStart;
+                  const pEnd = partnerMoonEnd;
+                  const isPartnerEdge  = isConnected && !isEdge && !isRange
+                    && pSt !== null && (ymd === pSt || (pEnd !== null && ymd === pEnd));
+                  const isPartnerRange = isConnected && !isEdge && !isRange && !isPartnerEdge
+                    && pSt !== null && pEnd !== null && ymd > pSt && ymd < pEnd;
+
                   return (
                     <button key={i}
                       onClick={() => handleDayTap(d)}
@@ -724,19 +789,24 @@ function SettingsScreen({
                         width:           32,
                         height:          32,
                         fontSize:        13,
-                        fontWeight:      isEdge ? 700 : isPredEdge ? 600 : 400,
-                        backgroundColor: isEdge      ? edgeBg
-                                       : isRange     ? rangeBg
-                                       : isPredEdge  ? (predIsRef ? "rgba(220,140,80,0.65)" : "#C87840")
-                                       : isPredRange ? "rgba(255,190,120,0.22)"
+                        fontWeight:      isEdge || isPartnerEdge ? 700 : isPredEdge ? 600 : 400,
+                        backgroundColor: isEdge        ? edgeBg
+                                       : isRange       ? rangeBg
+                                       : isPartnerEdge  ? "#5B8EC4"
+                                       : isPartnerRange ? "rgba(91,142,196,0.22)"
+                                       : isPredEdge    ? (predIsRef ? "rgba(220,140,80,0.65)" : "#C87840")
+                                       : isPredRange   ? "rgba(255,190,120,0.22)"
                                        : "transparent",
-                        color:           isEdge      ? "#fff"
-                                       : isRange     ? rangeText
-                                       : isPredEdge  ? "#fff"
-                                       : isPredRange ? "#B86540"
+                        color:           isEdge        ? "#fff"
+                                       : isRange       ? rangeText
+                                       : isPartnerEdge  ? "#fff"
+                                       : isPartnerRange ? "#3A6EA8"
+                                       : isPredEdge    ? "#fff"
+                                       : isPredRange   ? "#B86540"
                                        : "#4A3728",
-                        outline:         isEdge     ? `2px solid ${edgeLine}`
-                                       : isPredEdge ? `2px dashed ${predIsRef ? "rgba(200,120,60,0.55)" : "#C87840"}`
+                        outline:         isEdge        ? `2px solid ${edgeLine}`
+                                       : isPartnerEdge  ? "2px solid #5B8EC4"
+                                       : isPredEdge    ? `2px dashed ${predIsRef ? "rgba(200,120,60,0.55)" : "#C87840"}`
                                        : "none",
                         outlineOffset:   1,
                       }}>
@@ -748,12 +818,18 @@ function SettingsScreen({
             </div>
 
             {/* カレンダー凡例 */}
-            {predStartInt !== null && (
-              <div className="flex items-center gap-3 mt-2 mb-1 px-1 flex-wrap">
+            <div className="flex items-center gap-3 mt-2 mb-1 px-1 flex-wrap">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"#8B7BA8" }}/>
+                <span style={{ fontSize:9, color:"#A898C4" }}>自分</span>
+              </div>
+              {isConnected && partnerMoonStart !== null && (
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"#8B7BA8" }}/>
-                  <span style={{ fontSize:9, color:"#A898C4" }}>今回</span>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"#5B8EC4" }}/>
+                  <span style={{ fontSize:9, color:"#5B8EC4" }}>パートナー</span>
                 </div>
+              )}
+              {predStartInt !== null && (
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: predIsRef ? "rgba(220,140,80,0.65)" : "#C87840",
@@ -763,8 +839,8 @@ function SettingsScreen({
                     次回予測{predIsRef ? "（参考）" : ""}
                   </span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* フェーズ別：状態表示 & 確定ボタン */}
             {!confirmedStart ? (
@@ -979,6 +1055,209 @@ function SettingsScreen({
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── パートナーの生理期間 ──────────────────────────── */}
+        {isConnected && (
+          <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #B8D4E8" }}>
+            <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(220,236,250,0.7)" }}>
+              <div className="flex items-center gap-1.5">
+                <span style={{ fontSize:16 }}>🫶</span>
+                <p className="font-bold text-sm" style={{ color:"#3A6EA8" }}>パートナーの生理期間</p>
+              </div>
+              <p style={{ fontSize:11, color:"#7AAAD0", marginTop:2 }}>
+                ふたりで記録して、お互いを気にかけよう
+              </p>
+            </div>
+            <div className="px-4 py-4" style={{ backgroundColor:"rgba(255,255,255,0.80)" }}>
+              {/* 月ナビゲーション */}
+              <div className="flex items-center justify-between mb-4">
+                <button onClick={() => { if (pCalMonth===0){setPCalMonth(11);setPCalYear(pCalYear-1);}else setPCalMonth(pCalMonth-1); }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                  style={{ backgroundColor:"#D0E8F8", color:"#3A6EA8" }}>‹</button>
+                <p className="font-bold text-sm" style={{ color:"#4A3728" }}>{pCalYear}年 {pCalMonth+1}月</p>
+                <button onClick={() => { if (pCalMonth===11){setPCalMonth(0);setPCalYear(pCalYear+1);}else setPCalMonth(pCalMonth+1); }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                  style={{ backgroundColor:"#D0E8F8", color:"#3A6EA8" }}>›</button>
+              </div>
+              {/* 曜日ヘッダー */}
+              <div className="grid grid-cols-7 mb-1">
+                {["日","月","火","水","木","金","土"].map(d=>(
+                  <div key={d} className="text-center" style={{ fontSize:10, color:"#C4A898", fontWeight:600, paddingBottom:4 }}>{d}</div>
+                ))}
+              </div>
+              {/* 日付グリッド */}
+              <div className="grid grid-cols-7 gap-y-1">
+                {(()=>{
+                  const firstDow    = new Date(pCalYear, pCalMonth, 1).getDay();
+                  const daysInMonth = new Date(pCalYear, pCalMonth+1, 0).getDate();
+                  const cells: (number|null)[] = [
+                    ...Array(firstDow).fill(null),
+                    ...Array.from({length:daysInMonth},(_,i)=>i+1),
+                  ];
+                  while(cells.length%7!==0) cells.push(null);
+                  return cells.map((d,i)=>{
+                    if(d==null) return <div key={i}/>;
+                    const ymd = _toYMD(pCalYear, pCalMonth, d);
+                    const pPhase = !partnerMoonStart ? "start" : !partnerMoonEnd ? "end" : "done";
+                    const pActSt  = pPhase==="start" ? pDraftDate : partnerMoonStart;
+                    const pActEnd = pPhase==="start" ? null
+                                  : pPhase==="end"   ? pDraftDate
+                                  :                    partnerMoonEnd;
+                    const isPEdge  = (pActSt!==null&&ymd===pActSt)||(pActEnd!==null&&ymd===pActEnd);
+                    const isPRange = pActSt!==null&&pActEnd!==null&&ymd>pActSt&&ymd<pActEnd;
+                    const pEdgeBg   = ymd===partnerMoonStart ? "#3A6EA8" : "#5B8EC4";
+                    const pRangeBg  = pPhase==="done" ? "rgba(91,142,196,0.30)" : "rgba(140,180,224,0.35)";
+                    // パートナーの次回予測
+                    const isPPredEdge  = !isPEdge&&!isPRange&&pPredStartInt!==null
+                      &&(ymd===pPredStartInt||(pPredEndInt!==null&&ymd===pPredEndInt));
+                    const isPPredRange = !isPEdge&&!isPRange&&!isPPredEdge
+                      &&pPredStartInt!==null&&pPredEndInt!==null
+                      &&ymd>pPredStartInt&&ymd<pPredEndInt;
+                    return (
+                      <button key={i}
+                        onClick={()=>setPDraftDate(ymd)}
+                        className="flex items-center justify-center rounded-full mx-auto active:scale-90 transition-all duration-150"
+                        style={{
+                          width:32, height:32, fontSize:13,
+                          fontWeight: isPEdge?700:isPPredEdge?600:400,
+                          backgroundColor: isPEdge      ? pEdgeBg
+                                         : isPRange     ? pRangeBg
+                                         : isPPredEdge  ? (pPredIsRef?"rgba(91,142,196,0.65)":"#5B8EC4")
+                                         : isPPredRange ? "rgba(91,142,196,0.15)"
+                                         : "transparent",
+                          color: isPEdge      ? "#fff"
+                               : isPRange     ? "#3A6EA8"
+                               : isPPredEdge  ? "#fff"
+                               : isPPredRange ? "#3A6EA8"
+                               : "#4A3728",
+                          outline: isPEdge    ? `2px solid ${pEdgeBg}`
+                                 : isPPredEdge ? `2px dashed ${pPredIsRef?"rgba(91,142,196,0.55)":"#5B8EC4"}`
+                                 : "none",
+                          outlineOffset:1,
+                        }}>
+                        {d}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+              {/* パートナー凡例 */}
+              <div className="flex items-center gap-3 mt-2 mb-1 px-1 flex-wrap">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor:"#5B8EC4" }}/>
+                  <span style={{ fontSize:9, color:"#5B8EC4" }}>パートナー</span>
+                </div>
+                {pPredStartInt!==null&&(
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor:pPredIsRef?"rgba(91,142,196,0.65)":"#5B8EC4",
+                               outline:`1.5px dashed ${pPredIsRef?"rgba(91,142,196,0.55)":"#5B8EC4"}`,outlineOffset:1 }}/>
+                    <span style={{ fontSize:9, color:"#7AAAD0" }}>次回予測{pPredIsRef?"（参考）":""}</span>
+                  </div>
+                )}
+              </div>
+              {/* フェーズ別：確定ボタン */}
+              {!partnerMoonStart ? (
+                <>
+                  <div className="mt-4 px-4 py-3 rounded-2xl" style={{ backgroundColor:"rgba(210,232,250,0.4)", border:"1px solid #B8D4E8" }}>
+                    <p style={{ fontSize:11, color:"#7AAAD0" }}>🫶 パートナーの開始日をタップして選んでね</p>
+                  </div>
+                  {pDraftDate&&(
+                    <button onClick={async()=>{setPConfirming(true);await onConfirmPartnerStart(pDraftDate);setPDraftDate(null);setPConfirming(false);}}
+                      disabled={pConfirming}
+                      className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                      style={{ backgroundColor:pConfirming?"#B8D4E8":"#5B8EC4", color:"#fff" }}>
+                      {pConfirming?"保存中…":`${_ymdLabel(pDraftDate)} から開始する 🫶`}
+                    </button>
+                  )}
+                </>
+              ) : !partnerMoonEnd ? (
+                <>
+                  <div className="mt-4 px-4 py-3 rounded-2xl" style={{ backgroundColor:"rgba(210,232,250,0.4)", border:"1px solid #B8D4E8" }}>
+                    <p style={{ fontSize:11, color:"#7AAAD0" }}>🫶 {_ymdLabel(partnerMoonStart)} から始まったよ。終了日をタップしてね</p>
+                  </div>
+                  {pDraftDate&&pDraftDate>=partnerMoonStart&&(
+                    <button onClick={async()=>{setPConfirming(true);await onConfirmPartnerEnd(pDraftDate);setPDraftDate(null);setPConfirming(false);}}
+                      disabled={pConfirming}
+                      className="mt-3 w-full py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+                      style={{ backgroundColor:pConfirming?"#B8D4E8":"#5B8EC4", color:"#fff" }}>
+                      {pConfirming?"保存中…":`${_ymdLabel(pDraftDate)} に終了する 🫶`}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="mt-4 px-4 py-3 rounded-2xl flex items-center justify-between"
+                  style={{ backgroundColor:"rgba(210,232,250,0.4)", border:"1px solid #B8D4E8" }}>
+                  <p style={{ fontSize:11, color:"#5B8EC4", fontWeight:600 }}>
+                    {_ymdLabel(partnerMoonStart)} 〜 {_ymdLabel(partnerMoonEnd)} ✓
+                  </p>
+                  {!showPResetConfirm?(
+                    <button onClick={()=>setShowPResetConfirm(true)}
+                      className="text-xs px-3 py-1 rounded-xl active:scale-95 transition-transform"
+                      style={{ color:"#C46880", backgroundColor:"rgba(255,182,193,0.2)", border:"1px solid #F4A8B8" }}>
+                      リセット
+                    </button>
+                  ):(
+                    <div className="flex gap-2">
+                      <button onClick={()=>setShowPResetConfirm(false)} className="text-xs px-2 py-1 rounded-xl" style={{ color:"#9A7B6A", backgroundColor:"rgba(255,255,255,0.8)", border:"1px solid #FDEBD0" }}>キャンセル</button>
+                      <button onClick={async()=>{setPResetting(true);await onResetPartnerPeriod();setShowPResetConfirm(false);setPResetting(false);}}
+                        disabled={pResetting}
+                        className="text-xs px-2 py-1 rounded-xl font-bold active:scale-95 transition-transform"
+                        style={{ backgroundColor:pResetting?"#FDEBD0":"#D97B6C", color:"#fff" }}>
+                        {pResetting?"…":"リセット"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* パートナー次回予測表示 */}
+              {pPredStartInt!==null&&(
+                <div className="mt-3 px-4 py-3 rounded-2xl" style={{ backgroundColor:"rgba(210,232,250,0.35)", border:`1px dashed ${pPredIsRef?"rgba(91,142,196,0.45)":"#5B8EC4"}` }}>
+                  <p style={{ fontSize:10, color:"#7AAAD0", fontWeight:600, marginBottom:4 }}>
+                    {pPredLabel}　{pPredNote}
+                  </p>
+                  <p style={{ fontSize:13, color:"#3A6EA8", fontWeight:700 }}>
+                    次回：{_ymdLabel(pPredStartInt)} 〜 {pPredEndInt!==null?_ymdLabel(pPredEndInt):"?"}
+                  </p>
+                </div>
+              )}
+            </div>
+            {/* パートナー記録済み履歴 */}
+            {partnerPeriodHistory&&partnerPeriodHistory.length>0&&(
+              <div className="px-5 py-4 flex flex-col gap-2" style={{ borderTop:"1px solid #D0E8F8", backgroundColor:"rgba(240,248,255,0.6)" }}>
+                <p className="font-bold text-xs" style={{ color:"#5B8EC4" }}>🗓️ パートナーの記録済み履歴</p>
+                {(showAllPHistory?partnerPeriodHistory:partnerPeriodHistory.slice(0,HISTORY_LIMIT)).map(rec=>(
+                  <div key={rec.start}>
+                    {pDeletingStart===rec.start?(
+                      <div className="px-3 py-2.5 rounded-2xl flex flex-col gap-2" style={{ backgroundColor:"rgba(255,100,80,0.07)", border:"1px solid rgba(217,123,108,0.35)" }}>
+                        <p style={{ fontSize:11, color:"#D97B6C", fontWeight:600 }}>{rec.start} 〜 {rec.end} を削除しますか？</p>
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={()=>setPDeletingStart(null)} className="px-3 py-1.5 rounded-xl text-xs" style={{ backgroundColor:"rgba(255,255,255,0.8)", color:"#9A7B6A", border:"1px solid #FDEBD0" }}>キャンセル</button>
+                          <button onClick={async()=>{setPDeleting(true);await onDeletePartnerHistory(rec.start);setPDeletingStart(null);setPDeleting(false);}} disabled={pDeleting}
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                            style={{ backgroundColor:pDeleting?"#FDEBD0":"#D97B6C", color:"#fff" }}>
+                            {pDeleting?"…":"削除する"}
+                          </button>
+                        </div>
+                      </div>
+                    ):(
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-2xl" style={{ backgroundColor:"rgba(91,142,196,0.08)", border:"1px solid #B8D4E8" }}>
+                        <span style={{ fontSize:12 }}>🫶</span>
+                        <span className="flex-1" style={{ fontSize:12, color:"#3A6EA8", fontWeight:500 }}>{rec.start} 〜 {rec.end}</span>
+                        <button onClick={()=>setPDeletingStart(rec.start)} className="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform" style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C", fontSize:12, flexShrink:0 }}>×</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {partnerPeriodHistory.length>HISTORY_LIMIT&&(
+                  <button onClick={()=>setShowAllPHistory(v=>!v)} className="mt-1 py-2 rounded-2xl text-xs font-semibold active:scale-95 transition-transform" style={{ color:"#5B8EC4", backgroundColor:"rgba(91,142,196,0.07)", border:"1px solid #B8D4E8" }}>
+                    {showAllPHistory?"折りたたむ ▲":`すべて見る（残り ${partnerPeriodHistory.length-HISTORY_LIMIT} 件）▼`}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1737,6 +2016,83 @@ export default function Home() {
     return () => clearInterval(id);
   }, [myEmail, isConnected, coupleId, mergeRow]);
 
+  // ─── 1f. 生理期間 broadcast チャンネル（即時同期） ──────────
+  const periodChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  useEffect(() => {
+    if (!coupleId || !myEmail || !isConnected) return;
+    const channel = supabase
+      .channel(`period_sync:${coupleId}`)
+      .on("broadcast", { event: "period_updated" }, async () => {
+        const rows = await fetchCoupleRows(coupleId);
+        if (!rows?.length) return;
+        for (const row of rows as unknown as SyncRow[]) {
+          if (row.user_email !== myEmail) mergeRow(row as SyncRow);
+        }
+      })
+      .subscribe();
+    periodChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); periodChannelRef.current = null; };
+  }, [coupleId, myEmail, isConnected, mergeRow]);
+
+  const broadcastPeriodUpdate = useCallback(() => {
+    periodChannelRef.current?.send({ type: "broadcast", event: "period_updated", payload: {} });
+  }, []);
+
+  // ─── パートナー生理ハンドラ ─────────────────────────────────
+  const handleConfirmPartnerStart = useCallback(async (start: number) => {
+    if (!coupleId || !myEmail || !partnerRow?.user_email) return;
+    await updatePartnerPeriod(coupleId, myEmail, partnerRow.user_email, start, null, partnerRow.period_history ?? null);
+    setSyncData(prev => prev.map(r =>
+      r.user_email === partnerRow.user_email ? { ...r, moon_start: start, moon_end: null } : r
+    ));
+    broadcastPeriodUpdate();
+    pop("パートナーの生理開始日を記録したよ 🫶");
+  }, [coupleId, myEmail, partnerRow, broadcastPeriodUpdate, pop]);
+
+  const handleConfirmPartnerEnd = useCallback(async (end: number) => {
+    if (!coupleId || !myEmail || !partnerRow?.user_email || !partnerRow.moon_start) return;
+    const toDateStr = (n: number) => {
+      const y = Math.floor(n/10000);
+      const m = String(Math.floor((n%10000)/100)).padStart(2,"0");
+      const d = String(n%100).padStart(2,"0");
+      return `${y}-${m}-${d}`;
+    };
+    const startStr = toDateStr(partnerRow.moon_start);
+    const endStr   = toDateStr(end);
+    const now = new Date().toISOString();
+    const existing = partnerRow.period_history ?? [];
+    const newHistory = existing.some(r=>r.start===startStr)
+      ? existing.map(r=>r.start===startStr?{...r,end:endStr,created_at:now}:r)
+      : [...existing,{start:startStr,end:endStr,created_at:now}];
+    await updatePartnerPeriod(coupleId, myEmail, partnerRow.user_email, partnerRow.moon_start, end, newHistory);
+    setSyncData(prev => prev.map(r =>
+      r.user_email === partnerRow.user_email ? { ...r, moon_end: end, period_history: newHistory } : r
+    ));
+    broadcastPeriodUpdate();
+    pop("パートナーの生理終了日を記録したよ 🫶");
+  }, [coupleId, myEmail, partnerRow, broadcastPeriodUpdate, pop]);
+
+  const handleResetPartnerPeriod = useCallback(async () => {
+    if (!coupleId || !myEmail || !partnerRow?.user_email) return;
+    await updatePartnerPeriod(coupleId, myEmail, partnerRow.user_email, null, null, partnerRow.period_history ?? null);
+    setSyncData(prev => prev.map(r =>
+      r.user_email === partnerRow.user_email ? { ...r, moon_start: null, moon_end: null } : r
+    ));
+    broadcastPeriodUpdate();
+    pop("パートナーの生理期間をリセットしたよ 🗑️");
+  }, [coupleId, myEmail, partnerRow, broadcastPeriodUpdate, pop]);
+
+  const handleDeletePartnerHistory = useCallback(async (startToDelete: string) => {
+    if (!coupleId || !myEmail || !partnerRow?.user_email) return;
+    const newHistory = (partnerRow.period_history ?? []).filter(r=>r.start!==startToDelete);
+    await updatePartnerPeriod(coupleId, myEmail, partnerRow.user_email, partnerRow.moon_start ?? null, partnerRow.moon_end ?? null, newHistory);
+    setSyncData(prev => prev.map(r =>
+      r.user_email === partnerRow.user_email ? { ...r, period_history: newHistory } : r
+    ));
+    broadcastPeriodUpdate();
+    pop("パートナーの履歴を削除したよ 🗑️");
+  }, [coupleId, myEmail, partnerRow, broadcastPeriodUpdate, pop]);
+
   // ─── handleDisconnect ──────────────────────────────────────
   const handleDisconnect = useCallback(async () => {
     const res = await disconnectCouple();
@@ -1855,8 +2211,9 @@ export default function Home() {
     setSyncData(prev => prev.map(r =>
       r.user_email === myEmail ? { ...r, moon_start: start, moon_end: null } : r
     ));
+    broadcastPeriodUpdate();
     pop("生理開始日を記録したよ 🌸");
-  }, [coupleId, myEmail, pop]);
+  }, [coupleId, myEmail, pop, broadcastPeriodUpdate]);
 
   // ─── 8c. 生理終了日の記録 + period_history への追記 ─────
   const handleConfirmEnd = useCallback(async (end: number) => {
@@ -1890,8 +2247,9 @@ export default function Home() {
     setSyncData(prev => prev.map(r =>
       r.user_email === myEmail ? { ...r, moon_end: end, period_history: newHistory } : r
     ));
+    broadcastPeriodUpdate();
     pop("生理終了日を記録したよ 🌙");
-  }, [coupleId, myEmail, savedMoonStart, myRow, pop]);
+  }, [coupleId, myEmail, savedMoonStart, myRow, pop, broadcastPeriodUpdate]);
 
   const handleResetPeriod = useCallback(async () => {
     if (!coupleId || !myEmail) return;
@@ -1905,8 +2263,9 @@ export default function Home() {
     setSyncData(prev => prev.map(r =>
       r.user_email === myEmail ? { ...r, moon_start: null, moon_end: null } : r
     ));
+    broadcastPeriodUpdate();
     pop("生理期間をリセットしたよ 🗑️");
-  }, [coupleId, myEmail, pop]);
+  }, [coupleId, myEmail, pop, broadcastPeriodUpdate]);
 
   // ─── 8d. 生理履歴削除 ───────────────────────────────────────
   const handleDeleteHistory = useCallback(async (startToDelete: string) => {
@@ -1987,6 +2346,13 @@ export default function Home() {
         isConnected={isConnected}
         partnerEmail={partnerEmail}
         onDisconnect={handleDisconnect}
+        partnerMoonStart={partnerRow?.moon_start ?? null}
+        partnerMoonEnd={partnerRow?.moon_end ?? null}
+        partnerPeriodHistory={(partnerRow?.period_history ?? []).length > 0 ? (partnerRow?.period_history ?? null) : null}
+        onConfirmPartnerStart={handleConfirmPartnerStart}
+        onConfirmPartnerEnd={handleConfirmPartnerEnd}
+        onResetPartnerPeriod={handleResetPartnerPeriod}
+        onDeletePartnerHistory={handleDeletePartnerHistory}
       />
     );
   }

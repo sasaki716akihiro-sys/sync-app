@@ -46,6 +46,49 @@ export async function updateSyncGoal(
 }
 
 /**
+ * パートナーの生理期間を書き込む（RLSバイパス）
+ * 自分以外の行に書くためサーバー側で実行。
+ */
+export async function updatePartnerPeriod(
+  coupleId: string,
+  myEmail: string,
+  partnerEmail: string,
+  moonStart: number | null,
+  moonEnd: number | null,
+  periodHistory: { start: string; end: string; created_at?: string }[] | null,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!coupleId?.trim() || !myEmail || !partnerEmail) return { ok: false, error: "invalid args" };
+
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.email !== myEmail) return { ok: false, error: "unauthorized" };
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY が未設定" };
+  }
+
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  const payload: Record<string, unknown> = {
+    couple_id:  coupleId,
+    user_email: partnerEmail,
+    moon_start: moonStart,
+    moon_end:   moonEnd,
+    updated_at: new Date().toISOString(),
+  };
+  if (periodHistory !== undefined) payload.period_history = periodHistory;
+
+  const { error } = await admin
+    .from("sync_status")
+    .upsert(payload, { onConflict: "couple_id,user_email" });
+
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/**
  * サービスロールキーを使ってRLSをバイパスし、
  * 同じcouple_idを持つすべての行を返す。
  *

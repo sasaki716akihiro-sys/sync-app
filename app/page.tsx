@@ -50,6 +50,7 @@ interface KimochiLogEntry {
   date:           string;  // YYYY-MM-DD
   my_kimochi:     Kimochi;
   partner_kimochi:Kimochi;
+  is_sync?:       boolean; // Perfect Sync が確定した日
 }
 
 // ─── 週次ふりかえりロジック ────────────────────────────────
@@ -1712,6 +1713,20 @@ export default function Home() {
   // ─── handleResetSync：お休み期間を終了して再選択可能にする ─
   const handleResetSync = useCallback(async () => {
     if (!coupleId || !myEmail) return;
+
+    // last_sync_date を null にする前に、その日を kimochi_log に is_sync: true で記録
+    const syncDate = myRow?.last_sync_date;
+    if (syncDate) {
+      const updatedLog: KimochiLogEntry[] = kimochiLog.some(e => e.date === syncDate)
+        ? kimochiLog.map(e => e.date === syncDate ? { ...e, is_sync: true } : e)
+        : [...kimochiLog, { date: syncDate, my_kimochi: "circle", partner_kimochi: null, is_sync: true }];
+      setKimochiLog(updatedLog);
+      await supabase.from("sync_status").upsert({
+        couple_id: coupleId, user_email: myEmail,
+        kimochi_log: updatedLog, updated_at: new Date().toISOString(),
+      }, { onConflict: "couple_id,user_email" });
+    }
+
     const { error } = await supabase.from("sync_status").upsert({
       couple_id:      coupleId,
       user_email:     myEmail,
@@ -1729,7 +1744,7 @@ export default function Home() {
           : r
       ));
     }
-  }, [coupleId, myEmail]);
+  }, [coupleId, myEmail, myRow?.last_sync_date, kimochiLog]);
 
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
   useEffect(() => {
@@ -2156,8 +2171,16 @@ export default function Home() {
           const weekDays = getWeeklyEntries(kimochiLog);
           const hasAnyEntry = weekDays.some(d => d.kimochi !== null);
           const { start, end } = getThisWeekRange();
-          const syncDates = lastSyncDate && lastSyncDate >= start && lastSyncDate <= end
-            ? [lastSyncDate] : [];
+          // is_sync フラグがあるログエントリ（リセット後も残る）
+          const logSyncDates = kimochiLog
+            .filter(e => e.is_sync && e.date >= start && e.date <= end)
+            .map(e => e.date);
+          // last_sync_date（まだリセットされていない場合のフォールバック）
+          const syncDates = [
+            ...logSyncDates,
+            ...(lastSyncDate && lastSyncDate >= start && lastSyncDate <= end && !logSyncDates.includes(lastSyncDate)
+              ? [lastSyncDate] : []),
+          ];
           if (!hasAnyEntry && syncDates.length === 0) return null;
 
           const kimochiStyle = (k: Kimochi): { sym: string; color: string } => {

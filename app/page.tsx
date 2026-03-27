@@ -1626,6 +1626,13 @@ export default function Home() {
     });
   }, []);
 
+  // ─── パートナーの sync_goal 変化を反映 ───────────────────
+  useEffect(() => {
+    if (partnerRow?.sync_goal != null) {
+      setSyncGoal(partnerRow.sync_goal);
+    }
+  }, [partnerRow?.sync_goal]);
+
   // ─── 自分の行から設定値をstateに反映 ─────────────────────
   const applyMySettings = useCallback((row: SyncRow) => {
     setSyncGoal(row.sync_goal ?? 4);
@@ -1991,16 +1998,16 @@ export default function Home() {
     setScreen("home");
   }, [coupleId, syncGoal, myEmail, pop]);
 
-  // ─── 9a. Sync目標の即時保存 ───────────────────────────────
+  // ─── 9a. Sync目標の即時保存（パートナー行にも共有） ────────
   const handleGoalChange = useCallback(async (newGoal: number) => {
     if (!coupleId || !myEmail) return;
-    await supabase.from("sync_status").upsert({
-      couple_id:  coupleId,
-      user_email: myEmail,
-      sync_goal:  newGoal,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "couple_id,user_email" });
-  }, [coupleId, myEmail]);
+    const rows = [{ couple_id: coupleId, user_email: myEmail, sync_goal: newGoal, updated_at: new Date().toISOString() }];
+    const partnerEmail = partnerRow?.user_email;
+    if (partnerEmail) {
+      rows.push({ couple_id: coupleId, user_email: partnerEmail, sync_goal: newGoal, updated_at: new Date().toISOString() });
+    }
+    await supabase.from("sync_status").upsert(rows, { onConflict: "couple_id,user_email" });
+  }, [coupleId, myEmail, partnerRow?.user_email]);
 
   // ─── 9c. リマインド設定の即時保存 ──────────────────────────
   const handleReminderChange = useCallback(async (weekday: number, weekend: number) => {

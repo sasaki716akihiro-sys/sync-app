@@ -34,9 +34,6 @@ interface SyncRow {
   period_days:     number | null;  // 自動計算された平均期間
   last_start_date: string | null;  // 直近の開始日 YYYY-MM-DD
   period_history:  PeriodRecord[] | null; // 直近3回分の履歴
-  // ── リマインド設定 ──
-  reminder_weekday: number | null; // 平日リマインド時刻（時）例: 17
-  reminder_weekend: number | null; // 休日リマインド時刻（時）例: 19
   // ── キモチ履歴（週次ふりかえり用） ──
   kimochi_log: KimochiLogEntry[] | null;
 }
@@ -92,12 +89,6 @@ function analyzeWeeklyLog(log: KimochiLogEntry[]): {
       return DOW_LABEL[d.getDay()] + "曜";
     });
   return { syncCount, closeDays };
-}
-
-// 今日リマインド時刻を返す（平日/休日）
-function getTodayReminderHour(weekday: number, weekend: number): number {
-  const dow = new Date().getDay();
-  return (dow === 0 || dow === 6) ? weekend : weekday;
 }
 
 // キモチログに今日の記録を追加（最大28件保持）
@@ -444,9 +435,8 @@ function SettingsScreen({
   onBack, syncGoal, setSyncGoal,
   initialConfirmedStart, initialConfirmedEnd,
   periodHistory,
-  reminderWeekday, setReminderWeekday, reminderWeekend, setReminderWeekend,
   onSave, saving, onConfirmStart, onConfirmEnd, onResetPeriod, onDeleteHistory,
-  onGoalChange, onReminderChange,
+  onGoalChange,
   isConnected, partnerEmail, onDisconnect,
 }: {
   onBack:()=>void;
@@ -454,15 +444,12 @@ function SettingsScreen({
   initialConfirmedStart: number | null;
   initialConfirmedEnd:   number | null;
   periodHistory: PeriodRecord[] | null;
-  reminderWeekday:number; setReminderWeekday:(n:number)=>void;
-  reminderWeekend:number; setReminderWeekend:(n:number)=>void;
   onSave:(cStart:number|null, cEnd:number|null)=>void; saving:boolean;
   onConfirmStart:(start:number)=>Promise<void>;
   onConfirmEnd:(end:number)=>Promise<void>;
   onResetPeriod:()=>Promise<void>;
   onDeleteHistory:(start:string)=>Promise<void>;
   onGoalChange:(newGoal:number)=>void;
-  onReminderChange:(weekday:number, weekend:number)=>void;
   isConnected: boolean;
   partnerEmail: string | null;
   onDisconnect: () => Promise<void>;
@@ -993,53 +980,6 @@ function SettingsScreen({
           </div>
         )}
 
-        {/* リマインド設定 */}
-        <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
-          <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
-            <div className="flex items-center gap-1.5">
-              <span style={{ fontSize:16 }}>🔔</span>
-              <p className="font-bold text-sm" style={{ color:"#B86540" }}>キモチ確認のリマインド時刻</p>
-            </div>
-            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-              平日と休日で別々に設定できるよ
-            </p>
-          </div>
-          <div className="px-5 py-4 flex flex-col gap-4" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-            {[
-              { label:"平日（月〜金）", value: reminderWeekday, setValue: (v:number) => { setReminderWeekday(v); onReminderChange(v, reminderWeekend); } },
-              { label:"休日（土・日）", value: reminderWeekend, setValue: (v:number) => { setReminderWeekend(v); onReminderChange(reminderWeekday, v); } },
-            ].map(({ label, value, setValue }) => (
-              <div key={label} className="flex items-center justify-between">
-                <p style={{ fontSize:12, color:"#9A7B6A", fontWeight:600 }}>{label}</p>
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>setValue(Math.max(0, value-1))}
-                    className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
-                    style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16, fontWeight:700 }}>−</button>
-                  <div className="flex items-baseline gap-0.5 w-16 justify-center">
-                    <span className="font-bold" style={{ fontSize:24, color:"#D97B6C" }}>
-                      {String(value).padStart(2,"0")}
-                    </span>
-                    <span style={{ fontSize:11, color:"#C4A898" }}>:00</span>
-                  </div>
-                  <button onClick={()=>setValue(Math.min(23, value+1))}
-                    className="w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
-                    style={{ backgroundColor:"#FFE0CC", color:"#B86540", fontSize:16, fontWeight:700 }}>＋</button>
-                </div>
-              </div>
-            ))}
-            <div className="px-4 py-2.5 rounded-2xl text-center"
-              style={{ backgroundColor:"rgba(255,224,204,0.3)", border:"1px solid #FFE0CC" }}>
-              <p style={{ fontSize:11, color:"#B86540" }}>
-                今日（{new Date().getDay()===0||new Date().getDay()===6?"休日":"平日"}）は&nbsp;
-                <span style={{ fontWeight:700 }}>
-                  {String(getTodayReminderHour(reminderWeekday, reminderWeekend)).padStart(2,"0")}:00
-                </span>
-                &nbsp;に確認しよう 🔔
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* ── パートナー接続 ─────────────────────────────── */}
         {isConnected && (
           <div className="rounded-3xl px-5 py-5 flex flex-col gap-3"
@@ -1459,16 +1399,11 @@ export default function Home() {
   const [coupleIdInput, setCoupleIdInput] = useState("");
   const [syncGoal,  setSyncGoal]  = useState(4);
   const now = new Date();
-  // ── リマインド設定 ────────────────────────────────────────
-  const [reminderWeekday, setReminderWeekday] = useState(17);
-  const [reminderWeekend, setReminderWeekend] = useState(19);
-  // Supabaseから実際の設定値を受け取ったかどうか（デフォルト値での誤判定防止）
-  const [reminderLoaded, setReminderLoaded] = useState(false);
   // ── キモチ履歴（週次ふりかえり） ─────────────────────────
   const [kimochiLog, setKimochiLog] = useState<KimochiLogEntry[]>([]);
 
-  // ── UI状態 ──
-  const [is17, setIs17] = useState(false);
+  // ── UI状態 ──（リマインド機能削除につきキモチ選択は常時解放）
+  const is17 = true;
 
   // ── Toast ──
   const [toast, setToast] = useState({on:false, msg:""});
@@ -1629,9 +1564,6 @@ export default function Home() {
   // ─── 自分の行から設定値をstateに反映 ─────────────────────
   const applyMySettings = useCallback((row: SyncRow) => {
     setSyncGoal(row.sync_goal ?? 4);
-    if (row.reminder_weekday != null) setReminderWeekday(row.reminder_weekday);
-    if (row.reminder_weekend != null) setReminderWeekend(row.reminder_weekend);
-    setReminderLoaded(true);
     if (row.kimochi_log) setKimochiLog(row.kimochi_log);
   }, []);
 
@@ -1795,8 +1727,6 @@ export default function Home() {
           ? { ...r, last_sync_date: null, kimochi: null, kimochi_date: null }
           : r
       ));
-      // クールダウン終了後はリマインド時刻チェックを無視してすぐ選択可能にする
-      setIs17(true);
     }
   }, [coupleId, myEmail]);
 
@@ -1812,23 +1742,6 @@ export default function Home() {
       setLoading(false);
     }
   }, [coupleId, myEmail, isConnected, loadAll]);
-
-  // ─── 3. リマインド時刻を過ぎたら自動的にキモチ選択を解放 ──
-  // ・reminderLoaded が true になるまで実行しない
-  //   （Supabase読み込み前のデフォルト値 17/19 での誤判定を防ぐ）
-  // ・設定変更直後に即チェック → 設定→ホーム遷移で即時反映
-  // ・1分ごとに再チェック → リマインド時刻になった瞬間に自動解放
-  // ・is17 を true にするだけ（false に戻す処理はしない）
-  useEffect(() => {
-    if (!reminderLoaded) return;
-    const unlock = () => {
-      const rHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
-      if (new Date().getHours() >= rHour) setIs17(true);
-    };
-    unlock();
-    const id = setInterval(unlock, 60_000);
-    return () => clearInterval(id);
-  }, [reminderWeekday, reminderWeekend, reminderLoaded]);
 
   // ─── 5. キモチ保存 ────────────────────────────────────────
   const saveMyKimochi = useCallback(async (val: Kimochi) => {
@@ -1997,18 +1910,7 @@ export default function Home() {
     await updateSyncGoal(coupleId, myEmail, partnerRow?.user_email ?? null, newGoal);
   }, [coupleId, myEmail, partnerRow?.user_email]);
 
-  // ─── 9c. リマインド設定の即時保存 ──────────────────────────
-  const handleReminderChange = useCallback(async (weekday: number, weekend: number) => {
-    if (!coupleId || !myEmail) return;
-    await supabase.from("sync_status").upsert(
-      { couple_id: coupleId, user_email: myEmail,
-        reminder_weekday: weekday, reminder_weekend: weekend,
-        updated_at: new Date().toISOString() },
-      { onConflict: "couple_id,user_email" }
-    );
-  }, [coupleId, myEmail]);
-
-  // ─── 9a. Sync目標の即時保存（9c の前に番号を詰める）─────
+  // ─── 9a. ─────────────────────────────────────────────────
 
 
   // ─── 画面分岐 ─────────────────────────────────────────────
@@ -2026,9 +1928,6 @@ export default function Home() {
         onResetPeriod={handleResetPeriod}
         onDeleteHistory={handleDeleteHistory}
         onGoalChange={handleGoalChange}
-        reminderWeekday={reminderWeekday} setReminderWeekday={setReminderWeekday}
-        reminderWeekend={reminderWeekend} setReminderWeekend={setReminderWeekend}
-        onReminderChange={handleReminderChange}
         isConnected={isConnected}
         partnerEmail={partnerEmail}
         onDisconnect={handleDisconnect}
@@ -2169,50 +2068,18 @@ export default function Home() {
           /* === 通常：キモチ確認 === */
           <div className="flex flex-col gap-3">
 
-            {/* ヘッダー行：タイトル＋リマインド時刻バッジ */}
-            {(() => {
-              const rHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
-              const rLabel = `${String(rHour).padStart(2,"0")}時`;
-              return (
-                <div className="flex items-center justify-between px-0.5">
-                  <div>
-                    <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
-                      今日のキモチを選んでね
-                    </p>
-                    <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                      言いにくい日も、選ぶだけでいいよ ☁️
-                    </p>
-                  </div>
-                  {!is17 ? (
-                    <button onClick={()=>{ setIs17(true); pop(`${rLabel}になりました 🌅`); }}
-                      className="px-3 py-1.5 rounded-full text-xs font-bold active:scale-95 transition-transform flex-shrink-0"
-                      style={{ backgroundColor:"#FFE0CC", color:"#B86540", border:"1.5px solid #FFB085" }}>
-                      🕔 {rLabel}にする
-                    </button>
-                  ) : (
-                    <span className="px-3 py-1.5 rounded-full text-xs font-bold flex-shrink-0"
-                      style={{ backgroundColor:"#FBE8E6", color:"#D97B6C" }}>🌅 {rLabel}</span>
-                  )}
-                </div>
-              );
-            })()}
+            {/* ヘッダー */}
+            <div className="px-0.5">
+              <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
+                今日のキモチを選んでね
+              </p>
+              <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                言いにくい日も、選ぶだけでいいよ ☁️
+              </p>
+            </div>
 
-            {!is17 ? (
-              /* リマインド時刻前：待機プレート */
-              <div className="rounded-3xl px-5 py-6 flex flex-col items-center gap-2 text-center"
-                style={{ backgroundColor:"rgba(255,255,255,0.6)", border:"1.5px dashed #FFE0CC" }}>
-                <span style={{ fontSize:32 }}>🕓</span>
-                <p className="font-semibold text-sm" style={{ color:"#B86540" }}>
-                  {String(getTodayReminderHour(reminderWeekday, reminderWeekend)).padStart(2,"0")}時になったらキモチを選べるよ
-                </p>
-                <p style={{ fontSize:11, color:"#C4A898" }}>
-                  上のボタンで今すぐ確認できます
-                </p>
-              </div>
-
-            ) : (
-              <>
-                {/* ─ メインカード ─ */}
+            <>
+              {/* ─ メインカード ─ */}
                 <div className="rounded-3xl overflow-hidden"
                   style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 24px rgba(255,176,133,0.18)" }}>
                   {/* あなたのキモチ */}
@@ -2280,15 +2147,12 @@ export default function Home() {
                   </div>
                 )}
               </>
-            )}
           </div>
         )}
 
         {/* ── ④ 週次ふりかえりカード ─────────────────────── */}
         {(() => {
           const { syncCount, closeDays } = analyzeWeeklyLog(kimochiLog);
-          const reminderHour = getTodayReminderHour(reminderWeekday, reminderWeekend);
-          const isWeekend = new Date().getDay()===0 || new Date().getDay()===6;
           if (kimochiLog.length === 0) return null;
           return (
             <div className="rounded-3xl overflow-hidden"
@@ -2297,13 +2161,6 @@ export default function Home() {
                 style={{ backgroundColor:"rgba(255,245,228,0.8)" }}>
                 <span style={{ fontSize:16 }}>📅</span>
                 <p className="font-bold text-sm" style={{ color:"#B86540" }}>今週のふりかえり</p>
-                <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor:"rgba(255,224,204,0.5)", border:"1px solid #FFD090" }}>
-                  <span style={{ fontSize:10 }}>🔔</span>
-                  <span style={{ fontSize:10, color:"#B86540" }}>
-                    今日 {String(reminderHour).padStart(2,"0")}:00（{isWeekend?"休日":"平日"}）
-                  </span>
-                </div>
               </div>
               <div className="px-4 py-4 flex flex-col gap-2.5"
                 style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>

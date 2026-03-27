@@ -4,6 +4,48 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 /**
+ * Sync目標をカップル両行に書き込む（RLSバイパス）
+ * ブラウザクライアントはパートナー行に書けないためサーバー側で実行。
+ */
+export async function updateSyncGoal(
+  coupleId: string,
+  myEmail: string,
+  partnerEmail: string | null,
+  newGoal: number
+): Promise<{ ok: boolean; error?: string }> {
+  if (!coupleId?.trim() || !myEmail) return { ok: false, error: "invalid args" };
+
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.email !== myEmail) return { ok: false, error: "unauthorized" };
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // フォールバック：自分の行だけ通常クライアントで更新
+    const { error } = await supabase.from("sync_status").upsert(
+      { couple_id: coupleId, user_email: myEmail, sync_goal: newGoal, updated_at: new Date().toISOString() },
+      { onConflict: "couple_id,user_email" }
+    );
+    return error ? { ok: false, error: error.message } : { ok: true };
+  }
+
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  const rows = [
+    { couple_id: coupleId, user_email: myEmail,      sync_goal: newGoal, updated_at: new Date().toISOString() },
+    ...(partnerEmail ? [{ couple_id: coupleId, user_email: partnerEmail, sync_goal: newGoal, updated_at: new Date().toISOString() }] : []),
+  ];
+
+  const { error } = await admin
+    .from("sync_status")
+    .upsert(rows, { onConflict: "couple_id,user_email" });
+
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/**
  * サービスロールキーを使ってRLSをバイパスし、
  * 同じcouple_idを持つすべての行を返す。
  *

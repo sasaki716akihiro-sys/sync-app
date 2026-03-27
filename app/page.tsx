@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
 import { checkConnection, disconnectCouple, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
-import { fetchCoupleRows } from "@/app/actions/sync";
+import { fetchCoupleRows, updateSyncGoal } from "@/app/actions/sync";
 import { createClient } from "@/lib/supabase/client";
 import { getSyncMessage, getWaitingMessage, type SyncMessage } from "@/lib/syncMessages";
 
@@ -1626,13 +1626,6 @@ export default function Home() {
     });
   }, []);
 
-  // ─── パートナーの sync_goal 変化を反映 ───────────────────
-  useEffect(() => {
-    if (partnerRow?.sync_goal != null) {
-      setSyncGoal(partnerRow.sync_goal);
-    }
-  }, [partnerRow?.sync_goal]);
-
   // ─── 自分の行から設定値をstateに反映 ─────────────────────
   const applyMySettings = useCallback((row: SyncRow) => {
     setSyncGoal(row.sync_goal ?? 4);
@@ -1998,15 +1991,10 @@ export default function Home() {
     setScreen("home");
   }, [coupleId, syncGoal, myEmail, pop]);
 
-  // ─── 9a. Sync目標の即時保存（パートナー行にも共有） ────────
+  // ─── 9a. Sync目標の即時保存（サーバーアクションで両行に書き込み）──
   const handleGoalChange = useCallback(async (newGoal: number) => {
     if (!coupleId || !myEmail) return;
-    const rows = [{ couple_id: coupleId, user_email: myEmail, sync_goal: newGoal, updated_at: new Date().toISOString() }];
-    const partnerEmail = partnerRow?.user_email;
-    if (partnerEmail) {
-      rows.push({ couple_id: coupleId, user_email: partnerEmail, sync_goal: newGoal, updated_at: new Date().toISOString() });
-    }
-    await supabase.from("sync_status").upsert(rows, { onConflict: "couple_id,user_email" });
+    await updateSyncGoal(coupleId, myEmail, partnerRow?.user_email ?? null, newGoal);
   }, [coupleId, myEmail, partnerRow?.user_email]);
 
   // ─── 9c. リマインド設定の即時保存 ──────────────────────────

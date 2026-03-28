@@ -26,11 +26,8 @@ Deno.serve(async (req) => {
       return new Response("invalid payload", { status: 400 });
     }
 
-    console.log("[send-push] 受信:", JSON.stringify({ couple_id: record.couple_id, user_email: record.user_email, kimochi: record.kimochi, kimochi_date: record.kimochi_date }));
-
     // kimochi が null または未入力の場合はスキップ
     if (!record.kimochi) {
-      console.log("[send-push] skip: no kimochi");
       return new Response("no kimochi", { status: 200 });
     }
 
@@ -40,9 +37,7 @@ Deno.serve(async (req) => {
     now.setTime(now.getTime() + 9 * 60 * 60 * 1000);
     const today = now.toISOString().slice(0, 10);
     const kimochiDate = (record.kimochi_date ?? "").slice(0, 10);
-    console.log("[send-push] today(JST):", today, "kimochiDate:", kimochiDate);
     if (kimochiDate !== today) {
-      console.log("[send-push] skip: not today");
       return new Response("not today", { status: 200 });
     }
 
@@ -55,10 +50,7 @@ Deno.serve(async (req) => {
       .eq("couple_id", record.couple_id)
       .neq("user_email", record.user_email);
 
-    console.log("[send-push] partnerRows:", JSON.stringify(partnerRows), "error:", error);
-
     if (error || !partnerRows?.length) {
-      console.log("[send-push] skip: partner not found");
       return new Response("partner not found", { status: 200 });
     }
 
@@ -66,14 +58,12 @@ Deno.serve(async (req) => {
 
     // パートナーが通知登録していない場合はスキップ
     if (!partner.push_subscription) {
-      console.log("[send-push] skip: no subscription");
       return new Response("no subscription", { status: 200 });
     }
 
     // パートナーがすでに今日キモチを入力済みの場合は通知しない
     const partnerDate = (partner.kimochi_date ?? "").slice(0, 10);
     if (partnerDate === kimochiDate && partner.kimochi) {
-      console.log("[send-push] skip: partner already entered");
       return new Response("partner already entered", { status: 200 });
     }
 

@@ -1774,6 +1774,14 @@ export default function Home() {
     if (permission === "granted") await registerPushSubscription();
   }, [registerPushSubscription]);
 
+  // ─── 1f-2. 許可済みの場合はアプリ起動時に自動で購読を登録/更新 ──
+  useEffect(() => {
+    if (!coupleId || !myEmail) return;
+    if (Notification.permission === "granted") {
+      registerPushSubscription();
+    }
+  }, [coupleId, myEmail, registerPushSubscription]);
+
   // ─── 1d. Realtime subscription（sync_status の変更をリアルタイム受信）─
   useEffect(() => {
     if (!coupleId || !myEmail) return;

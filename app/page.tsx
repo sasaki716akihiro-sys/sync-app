@@ -1426,6 +1426,8 @@ export default function Home() {
   const now = new Date();
   // ── キモチ履歴（週次ふりかえり） ─────────────────────────
   const [kimochiLog, setKimochiLog] = useState<KimochiLogEntry[]>([]);
+  // ── Push通知許可状態 ──
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
 
   // ── UI状態 ──（リマインド機能削除につきキモチ選択は常時解放）
   const is17 = true;
@@ -1723,45 +1725,50 @@ export default function Home() {
     return () => clearInterval(id);
   }, [myEmail, isConnected]);
 
-  // ─── 1e. Web Push 通知登録 ─────────────────────────────────
-  // パートナーと接続済みのときだけSWを登録し、push subscriptionをDBに保存する。
-  // ユーザーが通知を許可した場合のみ有効になる。
+  // ─── 1e. Web Push — SW登録 & 現在の通知許可状態を確認 ──────
   useEffect(() => {
-    if (!coupleId || !myEmail || !isConnected) return;
-    if (!VAPID_PUBLIC_KEY) return;
     if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator) || !("Notification" in window)) {
+      setNotifPermission("unsupported"); return;
+    }
+    setNotifPermission(Notification.permission);
+    navigator.serviceWorker.register("/sw.js").catch(e =>
+      console.error("[Push] SW register failed:", e)
+    );
+  }, []);
+
+  // ─── 1f. Push subscription をDBに保存する関数（ボタン押下時に呼ぶ）──
+  const registerPushSubscription = useCallback(async () => {
+    if (!coupleId || !myEmail || !VAPID_PUBLIC_KEY) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-
-    (async () => {
-      try {
-        const reg = await navigator.serviceWorker.register("/sw.js");
-        await navigator.serviceWorker.ready;
-
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") return;
-
-        // 既存のsubscriptionを再利用（なければ新規作成）
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly:      true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
-          });
-        }
-
-        await supabase.from("sync_status").upsert({
-          couple_id:         coupleId,
-          user_email:        myEmail,
-          push_subscription: sub.toJSON(),
-          updated_at:        new Date().toISOString(),
-        }, { onConflict: "couple_id,user_email" });
-
-        console.log("[Push] subscription registered");
-      } catch (e) {
-        console.error("[Push] registration failed:", e);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly:      true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
+        });
       }
-    })();
-  }, [coupleId, myEmail, isConnected]);
+      await supabase.from("sync_status").upsert({
+        couple_id:         coupleId,
+        user_email:        myEmail,
+        push_subscription: sub.toJSON(),
+        updated_at:        new Date().toISOString(),
+      }, { onConflict: "couple_id,user_email" });
+      setNotifPermission("granted");
+      console.log("[Push] subscription registered");
+    } catch (e) {
+      console.error("[Push] subscription failed:", e);
+    }
+  }, [coupleId, myEmail]);
+
+  const handleEnableNotif = useCallback(async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === "granted") await registerPushSubscription();
+  }, [registerPushSubscription]);
 
   // ─── 1d. Realtime subscription（sync_status の変更をリアルタイム受信）─
   useEffect(() => {
@@ -2401,6 +2408,21 @@ export default function Home() {
                 )}
               </>
           </div>
+        )}
+
+        {/* ── 通知許可バナー ──────────────────────────────── */}
+        {isConnected && notifPermission === "default" && (
+          <button
+            onClick={handleEnableNotif}
+            className="w-full rounded-2xl px-4 py-3 flex items-center gap-3 active:scale-95 transition-transform"
+            style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1.5px solid #FFD090" }}>
+            <span style={{ fontSize:22 }}>🔔</span>
+            <div className="text-left flex-1">
+              <p className="text-xs font-bold" style={{ color:"#B86540" }}>通知を受け取る</p>
+              <p style={{ fontSize:10, color:"#C4A898" }}>パートナーがキモチを入力したら教えてあげるよ</p>
+            </div>
+            <span style={{ fontSize:11, color:"#D97B6C", fontWeight:600 }}>許可する →</span>
+          </button>
         )}
 
         {/* ── ④ 週次ふりかえりカード ─────────────────────── */}

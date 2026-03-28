@@ -31,6 +31,13 @@ Deno.serve(async (req) => {
       return new Response("no kimochi", { status: 200 });
     }
 
+    // kimochi が実際に変化した時だけ通知する
+    // （kimochi_log や last_sync_date などの別フィールド更新で重複発火しないよう）
+    const oldKimochi = body?.old_record?.kimochi;
+    if (oldKimochi === record.kimochi) {
+      return new Response("kimochi unchanged", { status: 200 });
+    }
+
     // kimochi_date が今日でない場合はスキップ（古いデータの更新を無視）
     // JST (UTC+9) 基準で今日の日付を算出
     const now = new Date();

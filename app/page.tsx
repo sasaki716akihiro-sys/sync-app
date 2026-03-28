@@ -13,6 +13,19 @@ import { getSyncMessage, getWaitingMessage, type SyncMessage } from "@/lib/syncM
 // 作られ、Realtimeの購読が切れる原因になる
 const supabase = createClient();
 
+// ─── Web Push ─────────────────────────────────────────────
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
+// Base64URL → Uint8Array（applicationServerKey用）
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const output  = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
+
 // ─── 型 ──────────────────────────────────────────────────
 type Kimochi = "circle" | "triangle" | "cross" | null;
 type Screen  = "home" | "settings" | "connect";
@@ -1709,6 +1722,46 @@ export default function Home() {
     }, 30_000);
     return () => clearInterval(id);
   }, [myEmail, isConnected]);
+
+  // ─── 1e. Web Push 通知登録 ─────────────────────────────────
+  // パートナーと接続済みのときだけSWを登録し、push subscriptionをDBに保存する。
+  // ユーザーが通知を許可した場合のみ有効になる。
+  useEffect(() => {
+    if (!coupleId || !myEmail || !isConnected) return;
+    if (!VAPID_PUBLIC_KEY) return;
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        await navigator.serviceWorker.ready;
+
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+
+        // 既存のsubscriptionを再利用（なければ新規作成）
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly:      true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
+          });
+        }
+
+        await supabase.from("sync_status").upsert({
+          couple_id:         coupleId,
+          user_email:        myEmail,
+          push_subscription: sub.toJSON(),
+          updated_at:        new Date().toISOString(),
+        }, { onConflict: "couple_id,user_email" });
+
+        console.log("[Push] subscription registered");
+      } catch (e) {
+        console.error("[Push] registration failed:", e);
+      }
+    })();
+  }, [coupleId, myEmail, isConnected]);
 
   // ─── 1d. Realtime subscription（sync_status の変更をリアルタイム受信）─
   useEffect(() => {

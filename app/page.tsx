@@ -1745,23 +1745,27 @@ export default function Home() {
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
+        // Uint8Array のまま渡す（iOS互換）
+        const key = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
         sub = await reg.pushManager.subscribe({
           userVisibleOnly:      true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
+          applicationServerKey: key as unknown as ArrayBuffer,
         });
       }
-      await supabase.from("sync_status").upsert({
+      const { error } = await supabase.from("sync_status").upsert({
         couple_id:         coupleId,
         user_email:        myEmail,
         push_subscription: sub.toJSON(),
         updated_at:        new Date().toISOString(),
       }, { onConflict: "couple_id,user_email" });
+      if (error) throw error;
       setNotifPermission("granted");
-      console.log("[Push] subscription registered");
+      pop("通知を設定したよ 🔔");
     } catch (e) {
       console.error("[Push] subscription failed:", e);
+      pop("通知の設定に失敗しました");
     }
-  }, [coupleId, myEmail]);
+  }, [coupleId, myEmail, pop]);
 
   const handleEnableNotif = useCallback(async () => {
     if (!("Notification" in window)) return;

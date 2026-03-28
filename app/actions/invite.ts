@@ -226,6 +226,12 @@ export async function joinWithInviteCode(rawInput: string): Promise<JoinResult> 
       .upsert({ ...rest, couple_id: coupleId }, { onConflict: "couple_id,user_email" });
   }
 
+  // 古い行を削除（両ユーザーとも新 coupleId の行だけ残す）
+  await admin.from("sync_status").delete()
+    .eq("user_email", email).neq("couple_id", coupleId);
+  await admin.from("sync_status").delete()
+    .eq("user_email", partnerEmail).neq("couple_id", coupleId);
+
   console.log("[Invite] connected:", email, "←→", partnerEmail, "coupleId=", coupleId);
   return { ok: true, coupleId, partnerEmail };
 }

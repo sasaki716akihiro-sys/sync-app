@@ -2266,9 +2266,9 @@ export default function Home() {
                   生理 {periodDayCount} 日目
                 </span>
               </div>
-              {/* 絵文字 + テキスト */}
+              {/* アイコン + テキスト */}
               <div className="flex items-start gap-3">
-                <span style={{ fontSize:44, lineHeight:1, flexShrink:0 }}>{periodCopy!.emoji}</span>
+                <Image src={`/images/period-status-${periodLevel}.png`} alt="" width={52} height={52} style={{ flexShrink:0 }} />
                 <div className="flex flex-col gap-1.5">
                   <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
                     {periodCopy!.title}

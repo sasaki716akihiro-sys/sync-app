@@ -254,6 +254,18 @@ export async function disconnectCouple(): Promise<DisconnectResult> {
 
   if (!couple) return { ok: false, error: "接続中のパートナーが見つかりません" };
 
+  // 切断前に sync_status のデータをソロモード用行（couple_id = email）に移行
+  // → 再接続時に kimochi_log などが引き継がれるようにする
+  const { data: currentRow } = await admin
+    .from("sync_status").select("*")
+    .eq("couple_id", couple.id).eq("user_email", email).maybeSingle();
+  if (currentRow) {
+    const { couple_id: _old, ...rest } = currentRow as Record<string, unknown>;
+    void _old;
+    await admin.from("sync_status")
+      .upsert({ ...rest, couple_id: email }, { onConflict: "couple_id,user_email" });
+  }
+
   const { error: de } = await admin
     .from("couples")
     .delete()

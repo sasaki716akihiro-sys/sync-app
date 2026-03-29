@@ -2267,8 +2267,8 @@ export default function Home() {
                 </span>
               </div>
               {/* アイコン + テキスト */}
-              <div className="flex items-start gap-3">
-                <Image src={`/images/period-status-${periodLevel}.png`} alt="" width={52} height={52} style={{ flexShrink:0 }} />
+              <div className="flex flex-col items-center gap-3 text-center">
+                <Image src={`/images/period-status-${periodLevel}.png`} alt="" width={88} height={88} style={{ mixBlendMode:"multiply" }} />
                 <div className="flex flex-col gap-1.5">
                   <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
                     {periodCopy!.title}

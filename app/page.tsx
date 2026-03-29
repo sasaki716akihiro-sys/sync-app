@@ -1777,6 +1777,7 @@ export default function Home() {
   // ─── 1f-2. 許可済みの場合はアプリ起動時に自動で購読を登録/更新 ──
   useEffect(() => {
     if (!coupleId || !myEmail) return;
+    if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
       registerPushSubscription();
     }

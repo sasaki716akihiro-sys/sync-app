@@ -2298,9 +2298,9 @@ export default function Home() {
                   パートナーの生理 {partnerPeriodDayCount} 日目
                 </span>
               </div>
-              {/* 絵文字 + テキスト */}
-              <div className="flex items-start gap-3">
-                <span style={{ fontSize:44, lineHeight:1, flexShrink:0 }}>{partnerPeriodCopy.emoji}</span>
+              {/* アイコン + テキスト */}
+              <div className="flex flex-col items-center gap-3 text-center">
+                <Image src={`/images/period-status-${partnerPeriodLevel}.png`} alt="" width={88} height={88} style={{ mixBlendMode:"multiply" }} />
                 <div className="flex flex-col gap-1.5">
                   <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
                     {partnerPeriodCopy.title}

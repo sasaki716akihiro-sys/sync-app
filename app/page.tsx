@@ -2355,8 +2355,56 @@ export default function Home() {
               <div className="rounded-3xl overflow-hidden"
                 style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 24px rgba(255,176,133,0.18)" }}>
 
-                {/* ① 今日の状態サマリー（新規） */}
-                <div className="px-5 pt-5 pb-4 flex items-center justify-around"
+                {/* 🆕 今日の状態ラベル（既存の state から導出のみ・ロジック変更なし） */}
+                {isConnected && (() => {
+                  let label: string = "";
+                  let tc: string = "#9A7B6A";
+                  let bc: string = "rgba(248,244,240,0.8)";
+                  let bd: string = "#EDE0D0";
+
+                  if (!myKimochi && !partnerKimochi) {
+                    label = "まだふたりとも選んでないよ";
+                  } else if (myKimochi && !partnerKimochi) {
+                    label = "あなたは伝えたよ。パートナーを待ってるね";
+                    tc = "#B86540"; bc = "rgba(255,242,225,0.8)"; bd = "#FFD090";
+                  } else if (!myKimochi && partnerKimochi) {
+                    label = "パートナーが先に伝えてくれたよ";
+                    tc = "#5A9E7A"; bc = "rgba(220,245,232,0.8)"; bd = "#A8C9A0";
+                  } else if (myKimochi === "circle" && partnerKimochi === "circle") {
+                    label = "今日はパーフェクトシンク ✨";
+                    tc = "#C4603A"; bc = "rgba(255,242,180,0.8)"; bd = "#FFD580";
+                  } else if (syncMessage?.type === "sync_soso") {
+                    label = "今日はふたりともちょっとのんびり";
+                    tc = "#B8943A"; bc = "rgba(255,248,220,0.8)"; bd = "#E8D890";
+                  } else if (syncMessage?.type === "sync_tired") {
+                    label = "今日はふたりとも疲れ気味かも";
+                    tc = "#8B7BA8"; bc = "rgba(240,235,250,0.8)"; bd = "#D8C8F0";
+                  } else if (syncMessage?.type === "slight_gap") {
+                    label = "今日は少し気持ちがズレてるかも";
+                    tc = "#B8943A"; bc = "rgba(255,248,220,0.8)"; bd = "#E8D890";
+                  } else if (syncMessage?.type === "big_gap") {
+                    label = "今日はキモチに差がありそう";
+                    tc = "#8B7BA8"; bc = "rgba(240,235,250,0.8)"; bd = "#D8C8F0";
+                  } else if (syncMessage?.type === "both_low") {
+                    label = "今日はふたりともしんどい日かも";
+                    tc = "#8B7BA8"; bc = "rgba(240,235,250,0.8)"; bd = "#D8C8F0";
+                  }
+
+                  if (!label) return null;
+
+                  return (
+                    <div className="flex justify-center pt-3.5 pb-1"
+                      style={{ backgroundColor: "rgba(255,252,248,0.98)" }}>
+                      <span className="px-3.5 py-1 rounded-full text-xs font-semibold"
+                        style={{ backgroundColor: bc, border: `1px solid ${bd}`, color: tc }}>
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* ① 今日の状態サマリー */}
+                <div className="px-5 pt-3 pb-4 flex items-center justify-around"
                   style={{ backgroundColor:"rgba(255,252,248,0.98)" }}>
 
                   {/* あなたの状態 */}

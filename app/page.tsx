@@ -2530,11 +2530,12 @@ export default function Home() {
           </button>
         )}
 
-        {/* ── ④ 週次ふりかえりカード ─────────────────────── */}
+        {/* ── ④ 週次ふりかえりカード（改善版：2段構成） ─────────── */}
         {(() => {
           const weekDays = getWeeklyEntries(kimochiLog);
           const hasAnyEntry = weekDays.some(d => d.kimochi !== null);
           const { start, end } = getThisWeekRange();
+          const todayStr = getLocalDateStr();
           // is_sync フラグがあるログエントリ（リセット後も残る）
           const logSyncDates = kimochiLog
             .filter(e => e.is_sync && e.date >= start && e.date <= end)
@@ -2547,55 +2548,112 @@ export default function Home() {
           ];
           if (!hasAnyEntry && syncDates.length === 0) return null;
 
-          const kimochiStyle = (k: Kimochi): { sym: string; color: string } => {
-            if (k === "circle")   return { sym: "○", color: "#5A9E7A" };
-            if (k === "triangle") return { sym: "△", color: "#D97B6C" };
-            if (k === "cross")    return { sym: "✕", color: "#B0A0B8" };
-            return { sym: "—", color: "#E0D0C8" };
+          // ─ 導出値（既存ロジックをそのまま活用） ────────────
+          const entryCount = weekDays.filter(d => d.kimochi !== null).length;
+          const lastEntryDay = [...weekDays].reverse().find(d => d.kimochi !== null);
+          // 最後にSyncした日：今週内なら曜日、先週以前なら日付
+          const lastSyncDisplay: string | null = (() => {
+            if (syncDates.length > 0) {
+              const last = [...syncDates].sort().at(-1)!;
+              return DOW_LABEL[new Date(last + "T00:00:00").getDay()];
+            }
+            if (lastSyncDate) {
+              const [, m, day] = lastSyncDate.split("-");
+              return `${parseInt(m)}/${parseInt(day)}`;
+            }
+            return null;
+          })();
+          const syncDateSet = new Set(syncDates);
+
+          // ─ スタイル定義 ──────────────────────────────────
+          const kimochiStyle = (k: Kimochi): { sym: string; color: string; bg: string } => {
+            if (k === "circle")   return { sym: "○", color: "#5A9E7A", bg: "rgba(90,158,122,0.07)"  };
+            if (k === "triangle") return { sym: "△", color: "#D97B6C", bg: "rgba(217,123,108,0.07)" };
+            if (k === "cross")    return { sym: "✕", color: "#B0A0B8", bg: "rgba(176,160,184,0.07)" };
+            return { sym: "—", color: "#D8C8C0", bg: "transparent" };
           };
 
           return (
             <div className="rounded-3xl overflow-hidden"
               style={{ border:"1px solid #F0DFC8", boxShadow:"0 2px 8px rgba(255,176,133,0.06)" }}>
+
+              {/* カードヘッダー */}
               <div className="px-4 py-2.5 flex items-center gap-2"
                 style={{ backgroundColor:"rgba(255,248,235,0.75)" }}>
                 <span style={{ fontSize:14 }}>📅</span>
                 <p className="text-xs font-bold" style={{ color:"#C4A898" }}>今週のふりかえり</p>
               </div>
-              <div className="px-5 py-4 flex flex-col gap-3"
+
+              <div className="px-4 py-3 flex flex-col gap-3"
                 style={{ backgroundColor:"rgba(255,255,255,0.70)" }}>
 
-                {/* 日別キモチ */}
-                <div className="flex justify-between">
-                  {weekDays.map(({ dow, kimochi }) => {
-                    const { sym, color } = kimochiStyle(kimochi);
+                {/* ─ 上段：今週の要約（3項目） ─ */}
+                <div className="flex items-center pb-3"
+                  style={{ borderBottom:"1px solid #F5EDE0" }}>
+                  {/* 今週の入力 */}
+                  <div className="flex flex-col items-center gap-0.5 flex-1">
+                    <span style={{ fontSize:9, color:"#C4A898", fontWeight:600 }}>今週の入力</span>
+                    <div className="flex items-baseline gap-0.5">
+                      <span className="font-bold" style={{ fontSize:16, color:"#B86540", lineHeight:1 }}>{entryCount}</span>
+                      <span style={{ fontSize:10, color:"#C4A898", fontWeight:600 }}>日</span>
+                    </div>
+                  </div>
+                  <div style={{ width:1, height:28, backgroundColor:"#F0E0D0", flexShrink:0 }}/>
+                  {/* 最後の入力 */}
+                  <div className="flex flex-col items-center gap-0.5 flex-1">
+                    <span style={{ fontSize:9, color:"#C4A898", fontWeight:600 }}>最後の入力</span>
+                    <span className="font-bold" style={{ fontSize:16, color: lastEntryDay ? "#B86540" : "#D8C8C0", lineHeight:1 }}>
+                      {lastEntryDay ? lastEntryDay.dow : "—"}
+                    </span>
+                  </div>
+                  <div style={{ width:1, height:28, backgroundColor:"#F0E0D0", flexShrink:0 }}/>
+                  {/* 最後のSync */}
+                  <div className="flex flex-col items-center gap-0.5 flex-1">
+                    <span style={{ fontSize:9, color:"#C4A898", fontWeight:600 }}>最後のSync</span>
+                    <span className="font-bold" style={{ fontSize:16, color: lastSyncDisplay ? "#5A9E7A" : "#D8C8C0", lineHeight:1 }}>
+                      {lastSyncDisplay ?? "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ─ 下段：曜日ごとの自分の選択履歴（縦リスト） ─ */}
+                <div className="flex flex-col gap-1">
+                  {weekDays.map(({ date, dow, kimochi }) => {
+                    const { sym, color, bg } = kimochiStyle(kimochi);
+                    const isToday   = date === todayStr;
+                    const isSyncDay = syncDateSet.has(date);
                     return (
-                      <div key={dow} className="flex flex-col items-center gap-1">
-                        <span style={{ fontSize:10, color:"#C4A898", fontWeight:600 }}>{dow}</span>
-                        <span style={{ fontSize:18, fontWeight:700, color }}>{sym}</span>
+                      <div key={date}
+                        className="flex items-center gap-3 px-2 py-1 rounded-xl"
+                        style={{ backgroundColor: kimochi ? bg : "transparent" }}>
+                        {/* 曜日 */}
+                        <span style={{
+                          fontSize:11, fontWeight:600, width:16, textAlign:"center",
+                          color: isToday ? "#B86540" : "#C4A898",
+                        }}>
+                          {dow}
+                        </span>
+                        {/* シンボル */}
+                        <span style={{ fontSize:18, fontWeight:700, color, lineHeight:1, width:20, textAlign:"center" }}>
+                          {sym}
+                        </span>
+                        {/* 右端バッジ */}
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          {isSyncDay && (
+                            <span className="px-2 py-0.5 rounded-full"
+                              style={{ fontSize:9, fontWeight:700, backgroundColor:"rgba(90,158,122,0.13)", color:"#5A9E7A" }}>
+                              ✨ Sync
+                            </span>
+                          )}
+                          {isToday && (
+                            <span style={{ fontSize:9, color:"#D0A898", fontWeight:600 }}>今日</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Sync日 */}
-                {syncDates.length > 0 && (
-                  <div className="flex items-center gap-2 pt-2"
-                    style={{ borderTop:"1px solid #F5EDE0" }}>
-                    <span style={{ fontSize:11, color:"#A89890", fontWeight:600 }}>✨ Sync</span>
-                    <div className="flex gap-1.5">
-                      {syncDates.map(sd => {
-                        const [, m, day] = sd.split("-");
-                        return (
-                          <span key={sd} className="px-2 py-0.5 rounded-full text-xs font-bold"
-                            style={{ backgroundColor:"rgba(90,158,122,0.13)", color:"#5A9E7A" }}>
-                            {parseInt(m)}/{parseInt(day)}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           );

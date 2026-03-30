@@ -2346,7 +2346,7 @@ export default function Home() {
                 今日のふたりの状態
               </p>
               <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                気持ちを選ぶと、ふたりの状態がわかるよ
+                ふたりの温度感が、ここに見えてくるよ
               </p>
             </div>
 
@@ -2371,7 +2371,7 @@ export default function Home() {
                       {myKimochi==="circle" ? "○" : myKimochi==="triangle" ? "△" : myKimochi==="cross" ? "✕" : "—"}
                     </span>
                     <span style={{ fontSize:10, fontWeight:600, color: myKimochi ? "#D97B6C" : "#C4A898" }}>
-                      {myKimochi ? "選択済み" : "未選択"}
+                      {myKimochi ? "伝えたよ ✓" : "まだ選んでないよ"}
                     </span>
                   </div>
 
@@ -2391,14 +2391,14 @@ export default function Home() {
                         {partnerKimochi ? "✓" : "—"}
                       </span>
                       <span style={{ fontSize:10, fontWeight:600, color: partnerKimochi ? "#5A9E7A" : "#C4A898" }}>
-                        {partnerKimochi ? "入力済み" : "待ち中..."}
+                        {partnerKimochi ? "伝えてくれた ✓" : "まだみたい"}
                       </span>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-1.5">
                       <span style={{ fontSize:11, color:"#C4A898", fontWeight:600 }}>パートナー</span>
                       <span style={{ fontSize:48, fontWeight:700, lineHeight:1, color:"#E0D0C8" }}>—</span>
-                      <span style={{ fontSize:10, fontWeight:600, color:"#C4A898" }}>未接続</span>
+                      <span style={{ fontSize:10, fontWeight:600, color:"#C4A898" }}>まだつながってないよ</span>
                     </div>
                   )}
                 </div>
@@ -2411,12 +2411,12 @@ export default function Home() {
                   style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
                   <div className="flex items-center gap-1.5 mb-3">
                     <span style={{ fontSize:11, color:"#C4A898", fontWeight:600 }}>
-                      {myKimochi ? "今日のキモチを変更する" : "今日のキモチを選んでね ☁️"}
+                      {myKimochi ? "選びなおすこともできるよ" : "今日の気持ちを、そっと選んでみてね"}
                     </span>
                     {myKimochi && (
                       <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
                         style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
-                        ✓ 選択済み
+                        ✓ 伝えたよ
                       </span>
                     )}
                   </div>
@@ -2459,7 +2459,7 @@ export default function Home() {
             <span style={{ fontSize:22 }}>🔔</span>
             <div className="text-left flex-1">
               <p className="text-xs font-bold" style={{ color:"#B86540" }}>通知を受け取る</p>
-              <p style={{ fontSize:10, color:"#C4A898" }}>パートナーがキモチを入力したら教えてあげるよ</p>
+              <p style={{ fontSize:10, color:"#C4A898" }}>相手が気持ちを伝えたとき、通知でお知らせするよ</p>
             </div>
             <span style={{ fontSize:11, color:"#D97B6C", fontWeight:600 }}>許可する →</span>
           </button>
@@ -2517,7 +2517,7 @@ export default function Home() {
                 {syncDates.length > 0 && (
                   <div className="flex items-center gap-2 pt-2"
                     style={{ borderTop:"1px solid #F5EDE0" }}>
-                    <span style={{ fontSize:11, color:"#A89890", fontWeight:600 }}>Sync</span>
+                    <span style={{ fontSize:11, color:"#A89890", fontWeight:600 }}>✨ Sync</span>
                     <div className="flex gap-1.5">
                       {syncDates.map(sd => {
                         const [, m, day] = sd.split("-");

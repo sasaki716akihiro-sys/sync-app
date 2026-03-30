@@ -2363,30 +2363,30 @@ export default function Home() {
                   let bd: string = "#EDE0D0";
 
                   if (!myKimochi && !partnerKimochi) {
-                    label = "まだふたりとも選んでないよ";
+                    label = "まだ途中だよ";
                   } else if (myKimochi && !partnerKimochi) {
-                    label = "あなたは伝えたよ。パートナーを待ってるね";
+                    label = "パートナー待ちだよ";
                     tc = "#B86540"; bc = "rgba(255,242,225,0.8)"; bd = "#FFD090";
                   } else if (!myKimochi && partnerKimochi) {
-                    label = "パートナーが先に伝えてくれたよ";
+                    label = "先に伝えてくれてるよ";
                     tc = "#5A9E7A"; bc = "rgba(220,245,232,0.8)"; bd = "#A8C9A0";
                   } else if (myKimochi === "circle" && partnerKimochi === "circle") {
-                    label = "今日はパーフェクトシンク ✨";
+                    label = "今日はシンクしたよ ✨";
                     tc = "#C4603A"; bc = "rgba(255,242,180,0.8)"; bd = "#FFD580";
                   } else if (syncMessage?.type === "sync_soso") {
-                    label = "今日はふたりともちょっとのんびり";
+                    label = "今日はのんびり日";
                     tc = "#B8943A"; bc = "rgba(255,248,220,0.8)"; bd = "#E8D890";
                   } else if (syncMessage?.type === "sync_tired") {
-                    label = "今日はふたりとも疲れ気味かも";
+                    label = "今日はおつかれ気味";
                     tc = "#8B7BA8"; bc = "rgba(240,235,250,0.8)"; bd = "#D8C8F0";
                   } else if (syncMessage?.type === "slight_gap") {
-                    label = "今日は少し気持ちがズレてるかも";
+                    label = "少しズレ気味かも";
                     tc = "#B8943A"; bc = "rgba(255,248,220,0.8)"; bd = "#E8D890";
                   } else if (syncMessage?.type === "big_gap") {
-                    label = "今日はキモチに差がありそう";
+                    label = "歩幅が少し違う日";
                     tc = "#8B7BA8"; bc = "rgba(240,235,250,0.8)"; bd = "#D8C8F0";
                   } else if (syncMessage?.type === "both_low") {
-                    label = "今日はふたりともしんどい日かも";
+                    label = "今日はしんどい日かも";
                     tc = "#8B7BA8"; bc = "rgba(240,235,250,0.8)"; bd = "#D8C8F0";
                   }
 
@@ -2423,9 +2423,23 @@ export default function Home() {
                     </span>
                   </div>
 
-                  {/* 中央コネクター */}
-                  <div style={{ fontSize:22, opacity: (myKimochi && partnerKimochi) ? 0.9 : 0.3 }}>
-                    {(myKimochi && partnerKimochi) ? "💛" : "・・・"}
+                  {/* 中央コネクター：2点＋ラインで関係を静かに表現 */}
+                  <div className="flex items-center gap-1.5">
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      backgroundColor: myKimochi ? "#D4A090" : "#E0D4CC",
+                      transition: "background-color 0.3s ease",
+                    }}/>
+                    <div style={{
+                      width: 22, height: 1.5, borderRadius: 1,
+                      backgroundColor: (myKimochi && partnerKimochi) ? "#DEC8A0" : "#EAE0D8",
+                      transition: "background-color 0.3s ease",
+                    }}/>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      backgroundColor: (isConnected && partnerKimochi) ? "#86B89A" : "#E0D4CC",
+                      transition: "background-color 0.3s ease",
+                    }}/>
                   </div>
 
                   {/* パートナーの状態 */}
@@ -2477,13 +2491,16 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* ─ SyncMessage カード（補助情報として軽量化） ─ */}
+              {/* ─ SyncMessage カード（今日のヒント・提案として役割明示） ─ */}
               {syncMessage && (
-                <div className="rounded-2xl px-4 py-3 flex flex-col gap-1"
+                <div className="rounded-2xl px-4 pt-3 pb-3.5 flex flex-col gap-1"
                   style={{
                     backgroundColor: "rgba(248,245,255,0.65)",
                     border: "1px solid #E4D8F5",
                   }}>
+                  <p className="text-xs font-semibold" style={{ color: "#C0B0D8" }}>
+                    今日のヒント
+                  </p>
                   <p className="text-sm font-semibold" style={{ color: "#7A5FA0" }}>
                     {syncMessage.message}
                   </p>

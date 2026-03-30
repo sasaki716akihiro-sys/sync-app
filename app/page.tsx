@@ -2223,11 +2223,13 @@ export default function Home() {
               <span style={{ fontSize:10, color:"#B86540", fontWeight:600 }}>🔗 パートナーと接続する</span>
             </button>
           )}
-          {/* 目標サマリー（補助情報） */}
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
-            style={{ backgroundColor:"rgba(255,255,255,0.5)", border:"1px solid #F5E8D8" }}>
-            <span style={{ fontSize:10, color:"#D0BDB0" }}>目標 {syncGoal}回 / 月</span>
-          </div>
+          {/* 目標サマリー（補助情報・生理期間中は非表示） */}
+          {!isInPeriod && !isPartnerInPeriod && (
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+              style={{ backgroundColor:"rgba(255,255,255,0.5)", border:"1px solid #F5E8D8" }}>
+              <span style={{ fontSize:10, color:"#D0BDB0" }}>目標 {syncGoal}回 / 月</span>
+            </div>
+          )}
           {/* 生理期間中バッジ */}
           {isInPeriod && (
             <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
@@ -2249,31 +2251,48 @@ export default function Home() {
         {/* ── ③ メインカード：状態別に完全分岐 ─────────── */}
 
         {isInPeriod ? (
-          /* === 自分が生理期間中：お休みモードカード === */
+          /* === 自分が生理期間中：お休みモードカード（本人向け） === */
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between px-0.5">
+            {/* セクション見出し：本人向け「休んでいい」トーン */}
+            <div className="px-0.5">
               <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
                 今日はお休みモード 🌸
               </p>
+              <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                キモチの選択も、今日はお休みしているよ
+              </p>
             </div>
-            <div className="rounded-3xl px-5 py-5"
-              style={{ backgroundColor:"rgba(255,242,246,0.95)", border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
-              {/* 日数バッジ */}
-              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
-                style={{ backgroundColor:"rgba(244,168,184,0.25)", border:"1px solid #F4A8B8" }}>
-                <span style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
-                  生理 {periodDayCount} 日目
+
+            <div className="rounded-3xl overflow-hidden"
+              style={{ border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
+
+              {/* ① 状況ラベル：誰の生理・何日目かを明示 */}
+              <div className="px-5 py-3 flex items-center justify-between"
+                style={{ backgroundColor:"rgba(244,168,184,0.18)", borderBottom:"1px solid rgba(244,168,184,0.25)" }}>
+                <span style={{ fontSize:12, color:"#C46880", fontWeight:700 }}>
+                  あなたの生理 {periodDayCount}日目
                 </span>
+                <Image src={`/images/period-status-${periodLevel}.png`} alt="" width={40} height={40} style={{ mixBlendMode:"multiply", opacity:0.9 }} />
               </div>
-              {/* アイコン + テキスト */}
-              <div className="flex flex-col items-center gap-3 text-center">
-                <Image src={`/images/period-status-${periodLevel}.png`} alt="" width={88} height={88} style={{ mixBlendMode:"multiply" }} />
-                <div className="flex flex-col gap-1.5">
-                  <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
-                    {periodCopy!.title}
-                  </p>
-                  <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.6 }}>
-                    {periodCopy!.message}
+
+              {/* ② 今日の結論 ＋ ③ 今日の提案（periodCopy を活用） */}
+              <div className="px-5 py-4 flex flex-col gap-2"
+                style={{ backgroundColor:"rgba(255,242,246,0.95)" }}>
+                <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
+                  {periodCopy!.title}
+                </p>
+                <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.7 }}>
+                  {periodCopy!.message}
+                </p>
+              </div>
+
+              {/* ④ 休息を許可するフッター（本人専用・責めない表現） */}
+              <div className="px-5 pb-4"
+                style={{ backgroundColor:"rgba(255,242,246,0.95)" }}>
+                <div className="px-3 py-2.5 rounded-2xl text-center"
+                  style={{ backgroundColor:"rgba(255,255,255,0.65)", border:"1px solid rgba(244,168,184,0.35)" }}>
+                  <p style={{ fontSize:11, color:"#C46880" }}>
+                    今日はできることだけで十分だよ。ゆっくり休んでね 🌸
                   </p>
                 </div>
               </div>
@@ -2281,40 +2300,50 @@ export default function Home() {
           </div>
 
         ) : isPartnerInPeriod ? (
-          /* === パートナーが生理期間中：ケアカード === */
+          /* === パートナーが生理期間中：ケアカード（パートナー向け） === */
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between px-0.5">
+            {/* セクション見出し：パートナー向け「気づかい」トーン */}
+            <div className="px-0.5">
               <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
-                今日はそっと寄り添う日 🌸
+                今日はそっと気づかう日 🌸
+              </p>
+              <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
+                相手の休息を最優先に、今日を過ごそう
               </p>
             </div>
-            <div className="rounded-3xl px-5 py-5"
-              style={{ backgroundColor:"rgba(255,242,246,0.95)", border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
-              {/* 日数バッジ */}
-              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full mb-3"
-                style={{ backgroundColor:"rgba(244,168,184,0.25)", border:"1px solid #F4A8B8" }}>
-                <span style={{ fontSize:11, color:"#C46880", fontWeight:600 }}>
-                  パートナーの生理 {partnerPeriodDayCount} 日目
+
+            <div className="rounded-3xl overflow-hidden"
+              style={{ border:"1.5px solid #F4A8B8", boxShadow:"0 4px 24px rgba(255,176,193,0.18)" }}>
+
+              {/* ① 状況ラベル：パートナーの何日目かを明示 */}
+              <div className="px-5 py-3 flex items-center justify-between"
+                style={{ backgroundColor:"rgba(244,168,184,0.18)", borderBottom:"1px solid rgba(244,168,184,0.25)" }}>
+                <span style={{ fontSize:12, color:"#C46880", fontWeight:700 }}>
+                  パートナーの生理 {partnerPeriodDayCount}日目
                 </span>
+                <Image src={`/images/period-status-${partnerPeriodLevel}.png`} alt="" width={40} height={40} style={{ mixBlendMode:"multiply", opacity:0.9 }} />
               </div>
-              {/* アイコン + テキスト */}
-              <div className="flex flex-col items-center gap-3 text-center">
-                <Image src={`/images/period-status-${partnerPeriodLevel}.png`} alt="" width={88} height={88} style={{ mixBlendMode:"multiply" }} />
-                <div className="flex flex-col gap-1.5">
-                  <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
-                    {partnerPeriodCopy.title}
-                  </p>
-                  <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.6 }}>
-                    {partnerPeriodCopy.message}
+
+              {/* ② 今日の結論 ＋ ③ 今日の提案（partnerPeriodCopy を活用） */}
+              <div className="px-5 py-4 flex flex-col gap-2"
+                style={{ backgroundColor:"rgba(255,242,246,0.95)" }}>
+                <p className="font-bold leading-snug" style={{ fontSize:15, color:"#4A3728" }}>
+                  {partnerPeriodCopy.title}
+                </p>
+                <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.7 }}>
+                  {partnerPeriodCopy.message}
+                </p>
+              </div>
+
+              {/* ④ 気づかいを促すフッター（パートナー専用・行動に寄せた表現） */}
+              <div className="px-5 pb-4"
+                style={{ backgroundColor:"rgba(255,242,246,0.95)" }}>
+                <div className="px-3 py-2.5 rounded-2xl text-center"
+                  style={{ backgroundColor:"rgba(255,255,255,0.65)", border:"1px solid rgba(244,168,184,0.35)" }}>
+                  <p style={{ fontSize:11, color:"#C46880" }}>
+                    今日はキモチ選択はなし。そばにいるだけで、きっと伝わるよ 🌿
                   </p>
                 </div>
-              </div>
-              {/* キモチ選択できない旨 */}
-              <div className="mt-4 px-3 py-2.5 rounded-2xl text-center"
-                style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #F0D0DA" }}>
-                <p style={{ fontSize:11, color:"#C46880" }}>
-                  今日はふたりともキモチの選択をお休みしているよ 🌸
-                </p>
               </div>
             </div>
           </div>

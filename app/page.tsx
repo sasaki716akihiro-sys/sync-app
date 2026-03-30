@@ -2223,11 +2223,10 @@ export default function Home() {
               <span style={{ fontSize:10, color:"#B86540", fontWeight:600 }}>🔗 パートナーと接続する</span>
             </button>
           )}
-          {/* 目標サマリー */}
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-full"
-            style={{ backgroundColor:"rgba(255,255,255,0.7)", border:"1px solid #FDEBD0" }}>
-            <span style={{ fontSize:11, color:"#C4A898" }}>🎯</span>
-            <span style={{ fontSize:10, color:"#9A7B6A" }}>目標 {syncGoal}回 / 月</span>
+          {/* 目標サマリー（補助情報） */}
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+            style={{ backgroundColor:"rgba(255,255,255,0.5)", border:"1px solid #F5E8D8" }}>
+            <span style={{ fontSize:10, color:"#D0BDB0" }}>目標 {syncGoal}回 / 月</span>
           </div>
           {/* 生理期間中バッジ */}
           {isInPeriod && (
@@ -2338,88 +2337,116 @@ export default function Home() {
           </div>
 
         ) : (
-          /* === 通常：キモチ確認 === */
+          /* === 通常：今日のふたりの状態 === */
           <div className="flex flex-col gap-3">
 
-            {/* ヘッダー */}
+            {/* ヘッダー：入力誘導から状態表示へ */}
             <div className="px-0.5">
               <p className="font-bold" style={{ fontSize:16, color:"#4A3728" }}>
-                今日のキモチを選んでね
+                今日のふたりの状態
               </p>
               <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                言いにくい日も、選ぶだけでいいよ ☁️
+                気持ちを選ぶと、ふたりの状態がわかるよ
               </p>
             </div>
 
             <>
-              {/* ─ メインカード ─ */}
-                <div className="rounded-3xl overflow-hidden"
-                  style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 24px rgba(255,176,133,0.18)" }}>
-                  {/* あなたのキモチ */}
-                  <div className="px-4 pt-4 pb-3"
-                    style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <span style={{ fontSize:14 }}>🌸</span>
-                      <span className="text-xs font-bold" style={{ color:"#B86540" }}>あなたのキモチ</span>
-                      {myKimochi ? (
-                        <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                          style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
-                          ✓ 選択済み
-                        </span>
-                      ) : (
-                        <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
-                          まだ選んでいないよ
-                        </span>
-                      )}
-                    </div>
-                    <KimochiRow
-                      label="" avatar=""
-                      selected={myKimochi}
-                      onSelect={handleKimochiSelect}
-                      disabled={false}
-                    />
+              {/* ─ メインカード：状態サマリー ＋ 選択UI ─ */}
+              <div className="rounded-3xl overflow-hidden"
+                style={{ border:"1.5px solid #FFE0CC", boxShadow:"0 4px 24px rgba(255,176,133,0.18)" }}>
+
+                {/* ① 今日の状態サマリー（新規） */}
+                <div className="px-5 pt-5 pb-4 flex items-center justify-around"
+                  style={{ backgroundColor:"rgba(255,252,248,0.98)" }}>
+
+                  {/* あなたの状態 */}
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span style={{ fontSize:11, color:"#B86540", fontWeight:600 }}>🌸 あなた</span>
+                    <span style={{
+                      fontSize:48, fontWeight:700, lineHeight:1,
+                      color: myKimochi
+                        ? (myKimochi==="circle" ? "#D97B6C" : myKimochi==="triangle" ? "#B8943A" : "#8B7BA8")
+                        : "#E0D0C8",
+                    }}>
+                      {myKimochi==="circle" ? "○" : myKimochi==="triangle" ? "△" : myKimochi==="cross" ? "✕" : "—"}
+                    </span>
+                    <span style={{ fontSize:10, fontWeight:600, color: myKimochi ? "#D97B6C" : "#C4A898" }}>
+                      {myKimochi ? "選択済み" : "未選択"}
+                    </span>
                   </div>
 
-                  {/* パートナーのキモチ（接続中のみ・入力有無のみ表示）*/}
-                  {isConnected && (
-                    <div className="px-4 pt-3 pb-4"
-                      style={{ borderTop:"1px solid #F0F7EE", backgroundColor:"rgba(245,252,245,0.9)" }}>
-                      <div className="flex items-center gap-1.5">
-                        <span style={{ fontSize:14 }}>🌿</span>
-                        <span className="text-xs font-bold" style={{ color:"#5A9E7A" }}>パートナーのキモチ</span>
-                        {partnerKimochi ? (
-                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
-                            style={{ backgroundColor:"rgba(90,158,122,0.12)", color:"#5A9E7A" }}>
-                            ✓ 入力済み
-                          </span>
-                        ) : (
-                          <span className="ml-auto text-xs" style={{ color:"#C4A898" }}>
-                            まだ選んでいないよ
-                          </span>
-                        )}
-                      </div>
+                  {/* 中央コネクター */}
+                  <div style={{ fontSize:22, opacity: (myKimochi && partnerKimochi) ? 0.9 : 0.3 }}>
+                    {(myKimochi && partnerKimochi) ? "💛" : "・・・"}
+                  </div>
+
+                  {/* パートナーの状態 */}
+                  {isConnected ? (
+                    <div className="flex flex-col items-center gap-1.5">
+                      <span style={{ fontSize:11, color:"#5A9E7A", fontWeight:600 }}>🌿 パートナー</span>
+                      <span style={{
+                        fontSize:48, fontWeight:700, lineHeight:1,
+                        color: partnerKimochi ? "#5A9E7A" : "#E0D0C8",
+                      }}>
+                        {partnerKimochi ? "✓" : "—"}
+                      </span>
+                      <span style={{ fontSize:10, fontWeight:600, color: partnerKimochi ? "#5A9E7A" : "#C4A898" }}>
+                        {partnerKimochi ? "入力済み" : "待ち中..."}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5">
+                      <span style={{ fontSize:11, color:"#C4A898", fontWeight:600 }}>パートナー</span>
+                      <span style={{ fontSize:48, fontWeight:700, lineHeight:1, color:"#E0D0C8" }}>—</span>
+                      <span style={{ fontSize:10, fontWeight:600, color:"#C4A898" }}>未接続</span>
                     </div>
                   )}
                 </div>
 
-                {/* ─ SyncMessage カード ─ */}
-                {syncMessage && (
-                  <div className="rounded-2xl px-4 py-3 flex flex-col gap-1"
-                    style={{
-                      backgroundColor: "rgba(230,220,245,0.5)",
-                      border: "1.5px solid #D8C8F0",
-                    }}>
-                    <p className="text-sm font-semibold" style={{ color: "#7A5FA0" }}>
-                      {syncMessage.message}
-                    </p>
-                    {syncMessage.actionSuggestion && (
-                      <p className="text-xs" style={{ color: "#9E85C0" }}>
-                        {syncMessage.actionSuggestion}
-                      </p>
+                {/* 区切り線 */}
+                <div style={{ height:"1px", backgroundColor:"#F0E8D8", margin:"0 16px" }}/>
+
+                {/* ② キモチ選択エリア（既存のKimochiRow、ラベルのみ変更） */}
+                <div className="px-4 pt-3 pb-4"
+                  style={{ backgroundColor:"rgba(255,255,255,0.82)" }}>
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span style={{ fontSize:11, color:"#C4A898", fontWeight:600 }}>
+                      {myKimochi ? "今日のキモチを変更する" : "今日のキモチを選んでね ☁️"}
+                    </span>
+                    {myKimochi && (
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-semibold"
+                        style={{ backgroundColor:"rgba(217,123,108,0.12)", color:"#D97B6C" }}>
+                        ✓ 選択済み
+                      </span>
                     )}
                   </div>
-                )}
-              </>
+                  <KimochiRow
+                    label="" avatar=""
+                    selected={myKimochi}
+                    onSelect={handleKimochiSelect}
+                    disabled={false}
+                  />
+                </div>
+              </div>
+
+              {/* ─ SyncMessage カード（補助情報として軽量化） ─ */}
+              {syncMessage && (
+                <div className="rounded-2xl px-4 py-3 flex flex-col gap-1"
+                  style={{
+                    backgroundColor: "rgba(248,245,255,0.65)",
+                    border: "1px solid #E4D8F5",
+                  }}>
+                  <p className="text-sm font-semibold" style={{ color: "#7A5FA0" }}>
+                    {syncMessage.message}
+                  </p>
+                  {syncMessage.actionSuggestion && (
+                    <p className="text-xs" style={{ color: "#9E85C0" }}>
+                      {syncMessage.actionSuggestion}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
           </div>
         )}
 
@@ -2464,14 +2491,14 @@ export default function Home() {
 
           return (
             <div className="rounded-3xl overflow-hidden"
-              style={{ border:"1.5px solid #FDEBD0", boxShadow:"0 2px 12px rgba(255,176,133,0.08)" }}>
-              <div className="px-4 py-3 flex items-center gap-2"
-                style={{ backgroundColor:"rgba(255,245,228,0.8)" }}>
-                <span style={{ fontSize:16 }}>📅</span>
-                <p className="font-bold text-sm" style={{ color:"#B86540" }}>今週のふりかえり</p>
+              style={{ border:"1px solid #F0DFC8", boxShadow:"0 2px 8px rgba(255,176,133,0.06)" }}>
+              <div className="px-4 py-2.5 flex items-center gap-2"
+                style={{ backgroundColor:"rgba(255,248,235,0.75)" }}>
+                <span style={{ fontSize:14 }}>📅</span>
+                <p className="text-xs font-bold" style={{ color:"#C4A898" }}>今週のふりかえり</p>
               </div>
               <div className="px-5 py-4 flex flex-col gap-3"
-                style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+                style={{ backgroundColor:"rgba(255,255,255,0.70)" }}>
 
                 {/* 日別キモチ */}
                 <div className="flex justify-between">

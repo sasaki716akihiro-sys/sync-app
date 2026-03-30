@@ -19,6 +19,15 @@ export async function updateSyncGoal(
   const { data: { user } } = await supabase.auth.getUser();
   if (user?.email !== myEmail) return { ok: false, error: "unauthorized" };
 
+  // 自分がそのcouple_idに属するか確認（RLSクライアントで検証）
+  const { data: membership } = await supabase
+    .from("sync_status")
+    .select("couple_id")
+    .eq("couple_id", coupleId.trim())
+    .eq("user_email", myEmail)
+    .maybeSingle();
+  if (!membership) return { ok: false, error: "unauthorized" };
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     // フォールバック：自分の行だけ通常クライアントで更新
     const { error } = await supabase.from("sync_status").upsert(
@@ -62,6 +71,15 @@ export async function updatePartnerPeriod(
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (user?.email !== myEmail) return { ok: false, error: "unauthorized" };
+
+  // 自分がそのcouple_idに属するか確認（RLSクライアントで検証）
+  const { data: membership } = await supabase
+    .from("sync_status")
+    .select("couple_id")
+    .eq("couple_id", coupleId.trim())
+    .eq("user_email", myEmail)
+    .maybeSingle();
+  if (!membership) return { ok: false, error: "unauthorized" };
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY が未設定" };
@@ -109,6 +127,15 @@ export async function fetchCoupleRows(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user?.email) return null;
+
+  // 自分がそのcouple_idに属するか確認（RLSクライアントで検証）
+  const { data: membership } = await supabase
+    .from("sync_status")
+    .select("couple_id")
+    .eq("couple_id", coupleId.trim())
+    .eq("user_email", user.email)
+    .maybeSingle();
+  if (!membership) return null;
 
   // サービスロールキーが未設定の場合はスキップ（フォールバック：クライアント側クエリ）
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {

@@ -1798,6 +1798,8 @@ export default function Home() {
           mergeRow(row);
           // 自分の行が更新された場合は設定値も反映
           if (row.user_email === myEmail) applyMySettings(row);
+          // パートナー行のsync_goal更新も反映（両行は常に同じ値で書き込まれる）
+          else if (row.sync_goal != null) setSyncGoal(row.sync_goal);
         }
       )
       .subscribe();

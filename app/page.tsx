@@ -1521,26 +1521,31 @@ export default function Home() {
   const partnerPeriodLevel = partnerPeriodDayCount <= 2 ? "max" : partnerPeriodDayCount <= 4 ? "mid" : "low";
   const partnerPeriodPatterns = {
     max: [
-      { emoji: "🤍", title: "今日はかなりしんどいはずだよ",   message: "そっと寄り添って、ゆっくりさせてあげてね" },
-      { emoji: "🤍", title: "一番しんどい時期かもしれないよ", message: "温かくして、無理させないようにしてあげてね" },
-      { emoji: "🫶", title: "今日は特に気にかけてあげてね",   message: "ゆっくり休める環境を作ってあげよう" },
-      { emoji: "🤍", title: "今は体がつらい時期だよ",         message: "そばにいるだけで、きっと伝わるよ" },
+      { emoji: "🤍", title: "今日はかなりつらい日かも",     message: "家のことは少し任せて、ゆっくり休ませてあげてね" },
+      { emoji: "🤍", title: "一番しんどい時期だよ",         message: "無理に動かさず、そっとそばにいてあげてね" },
+      { emoji: "🤍", title: "今日は体がきつい頃だよ",       message: "あたたかくして、横になれる時間を作ってあげよう" },
+      { emoji: "🤍", title: "今が一番大変な日かも",         message: "会話より休息を優先できる日かもしれないよ" },
     ],
     mid: [
-      { emoji: "🌸", title: "少しずつ楽になってくる頃だよ",   message: "引き続きそっと見守ってあげてね" },
-      { emoji: "🌸", title: "まだしんどさが残る時期かも",     message: "できることがあれば、そっと手を差し伸べてあげてね" },
-      { emoji: "🌸", title: "もうひと息の頃だよ",             message: "穏やかに過ごせるようにそばにいてあげてね" },
-      { emoji: "🌸", title: "回復してきている頃かも",         message: "無理させないように気にかけてあげてね" },
+      { emoji: "🌸", title: "まだしんどさが残る頃かも",     message: "家事や負担、少し代われると助かるかもしれないよ" },
+      { emoji: "🌸", title: "もうひと息の時期だよ",         message: "大丈夫？のひとことだけでも十分だよ" },
+      { emoji: "🌸", title: "少しずつ楽になってくる頃だよ", message: "安心して過ごせるよう、そばにいてあげてね" },
+      { emoji: "🌸", title: "回復途中の大切な時期だよ",     message: "引き続き、無理させないように気にかけてあげてね" },
     ],
     low: [
-      { emoji: "🌿", title: "もうすぐ楽になるころだよ",       message: "引き続き気にかけてあげてね" },
-      { emoji: "🌿", title: "だいぶ落ち着いてきた頃かな",     message: "いつも通り一緒に過ごせるといいね" },
-      { emoji: "🌿", title: "ほぼ終わりに近づいてるよ",       message: "お疲れさまって伝えてあげてね" },
-      { emoji: "🌿", title: "回復してきている頃だよ",         message: "自然に笑顔で接してあげてね" },
+      { emoji: "🌿", title: "だいぶ落ち着いてきた頃かな",   message: "ひとこと気にかけるだけでも、十分伝わるよ" },
+      { emoji: "🌿", title: "ほぼ終わりに近づいてるよ",     message: "お疲れさまって、伝えてあげてね" },
+      { emoji: "🌿", title: "もうすぐ楽になる頃だよ",       message: "いつも通りに笑顔で過ごせるといいね" },
+      { emoji: "🌿", title: "回復してきている頃だよ",       message: "無理しすぎないよう、やさしく接してあげてね" },
     ],
   };
   const partnerPeriodCopyList = partnerPeriodPatterns[partnerPeriodLevel];
   const partnerPeriodCopy = partnerPeriodCopyList[partnerPeriodDayCount % partnerPeriodCopyList.length];
+  const partnerCareFooter = partnerPeriodLevel === "max"
+    ? "今日はSyncより休息優先 🤍"
+    : partnerPeriodLevel === "mid"
+    ? "今日はそっと気づかう日 🌸"
+    : "今日は無理せず一緒に 🌿";
 
   const myKimochi: Kimochi = myRow?.kimochi_date?.substring(0,10) === today
     ? normalizeKimochi(myRow.kimochi) : null;
@@ -2310,7 +2315,11 @@ export default function Home() {
                 今日はそっと気づかう日 🌸
               </p>
               <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                相手の休息を最優先に、今日を過ごそう
+                {partnerPeriodLevel === "max"
+                  ? "まず休めることを、いちばんに考えよう"
+                  : partnerPeriodLevel === "mid"
+                  ? "負担を少し軽くしてあげよう"
+                  : "ひとこと気にかけながら過ごそう"}
               </p>
             </div>
 
@@ -2337,13 +2346,13 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* ④ 気づかいを促すフッター（パートナー専用・行動に寄せた表現） */}
+              {/* ④ 気づかいを促すフッター（パートナー専用・レベル別短文） */}
               <div className="px-5 pb-4"
                 style={{ backgroundColor:"rgba(255,242,246,0.95)" }}>
                 <div className="px-3 py-2.5 rounded-2xl text-center"
                   style={{ backgroundColor:"rgba(255,255,255,0.65)", border:"1px solid rgba(244,168,184,0.35)" }}>
                   <p style={{ fontSize:11, color:"#C46880" }}>
-                    今日はキモチ選択はなし。そばにいるだけで、きっと伝わるよ 🌿
+                    {partnerCareFooter}
                   </p>
                 </div>
               </div>

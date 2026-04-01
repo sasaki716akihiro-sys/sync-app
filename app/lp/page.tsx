@@ -6,7 +6,7 @@ import {
   Users, HelpCircle, Shuffle, Feather, TrendingUp,
   UserPlus, Link2, MousePointerClick, Star, ChevronDown,
   ArrowRight, Shield, CheckCircle2, Bell, Calendar,
-  Smartphone, Check,
+  Smartphone, Check, Menu, X,
 } from "lucide-react";
 
 // ─── データ ────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ const faqs = [
 // ─── ミニCTAコンポーネント ─────────────────────────────────────────
 function MiniCta({ label }: { label: string }) {
   return (
-    <div className="text-center mt-14">
+    <div className="text-center mt-10 md:mt-14">
       <a
         href="/login"
         className="inline-flex items-center gap-2 bg-rose-500 text-white font-bold px-8 py-3.5 rounded-full hover:bg-rose-600 hover:shadow-lg hover:-translate-y-0.5 transition-all"
@@ -58,7 +58,7 @@ function MiniCta({ label }: { label: string }) {
 // ─── メインコンポーネント ──────────────────────────────────────────
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div
@@ -73,31 +73,56 @@ export default function LandingPage() {
             <img src="/icon-192.png" alt="Sync Couple" className="w-8 h-8 rounded-xl object-cover" />
             <span className="font-bold text-gray-900 text-lg tracking-tight">Sync Couple</span>
           </a>
-          <div className="flex items-center gap-3">
-            <a href="#contact" className="text-gray-500 text-sm font-medium hover:text-rose-500 transition-colors hidden sm:block">
-              お問い合わせ
-            </a>
+
+          {/* PC: アンカーメニュー */}
+          <div className="hidden md:flex items-center gap-6">
+            <a href="#features" className="text-gray-500 text-sm font-medium hover:text-rose-500 transition-colors">特徴</a>
+            <a href="#howto"    className="text-gray-500 text-sm font-medium hover:text-rose-500 transition-colors">使い方</a>
+            <a href="#faq"      className="text-gray-500 text-sm font-medium hover:text-rose-500 transition-colors">FAQ</a>
             <a href="/login" className="bg-rose-500 text-white text-sm font-bold px-4 py-2 rounded-full hover:bg-rose-600 transition-colors">
               無料で始める
             </a>
           </div>
+
+          {/* スマホ: CTAボタン + ハンバーガー */}
+          <div className="flex md:hidden items-center gap-2">
+            <a href="/login" className="bg-rose-500 text-white text-sm font-bold px-4 py-2 rounded-full hover:bg-rose-600 transition-colors">
+              無料で始める
+            </a>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-2 text-gray-600 hover:text-rose-500 transition-colors"
+              aria-label="メニュー"
+            >
+              {menuOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
         </div>
+
+        {/* スマホ: ドロップダウンメニュー */}
+        {menuOpen && (
+          <div className="md:hidden bg-white border-t border-rose-100 px-5 py-3 flex flex-col">
+            <a href="#features" onClick={() => setMenuOpen(false)} className="text-gray-700 text-sm font-medium py-3 border-b border-gray-100">特徴</a>
+            <a href="#howto"    onClick={() => setMenuOpen(false)} className="text-gray-700 text-sm font-medium py-3 border-b border-gray-100">使い方</a>
+            <a href="#faq"      onClick={() => setMenuOpen(false)} className="text-gray-700 text-sm font-medium py-3">FAQ</a>
+          </div>
+        )}
       </nav>
 
       {/* ══ 1. ファーストビュー ══════════════════════════════════ */}
-      <section className="pt-24 pb-20 relative overflow-hidden bg-gradient-to-br from-rose-50 via-white to-violet-50">
+      <section className="pt-20 pb-12 md:pt-24 md:pb-20 relative overflow-hidden bg-gradient-to-br from-rose-50 via-white to-violet-50">
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-rose-100/50 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-violet-100/50 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-5xl mx-auto px-5 relative">
-          <div className="flex flex-col lg:flex-row items-center gap-14">
+          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-14">
 
             {/* テキスト */}
             <div className="flex-1 text-center lg:text-left">
-              <div className="inline-flex items-center gap-1.5 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-5">
+              <div className="inline-flex items-center gap-1.5 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
                 <Sparkles size={12} /> 夫婦向けコミュニケーションアプリ
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-[1.25] mb-4">
+              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-[1.25] mb-3">
                 ふたりの気持ち、<br />
                 <span className="text-rose-500">もっとそっと</span><br />
                 つながる。
@@ -105,12 +130,12 @@ export default function LandingPage() {
               <p className="text-rose-600 font-semibold text-sm mb-3">
                 言いにくい気持ちや体調を、やさしく共有できる夫婦向けアプリ
               </p>
-              <p className="text-gray-600 text-base leading-relaxed mb-8 max-w-md mx-auto lg:mx-0">
+              <p className="text-gray-600 text-base leading-relaxed mb-6 max-w-md mx-auto lg:mx-0">
                 言いたいけど、言えない。伝わってほしいけど、伝えられない。<br />
                 Sync Couple は、夫婦のすれ違いをやさしく減らします。
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-6">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-5">
                 <a
                   href="/login"
                   className="bg-rose-500 text-white font-bold px-7 py-4 rounded-2xl hover:bg-rose-600 hover:shadow-lg hover:-translate-y-0.5 transition-all text-center flex items-center justify-center gap-2"
@@ -130,7 +155,7 @@ export default function LandingPage() {
                 {[
                   { Icon: Smartphone, label: "インストール不要" },
                   { Icon: Check,      label: "1日1タップでOK" },
-                  { Icon: Heart,      label: "パートナーとやさしくつながる" },
+                  { Icon: Heart,      label: "やさしくつながる" },
                 ].map(({ Icon, label }, i) => (
                   <div
                     key={i}
@@ -147,7 +172,7 @@ export default function LandingPage() {
               <div className="relative">
 
                 {/* メイン画像 */}
-                <div className="w-80 md:w-96 rounded-3xl overflow-hidden shadow-2xl border border-rose-100/60"
+                <div className="w-72 md:w-96 rounded-3xl overflow-hidden shadow-2xl border border-rose-100/60"
                   style={{ boxShadow: "0 20px 60px -10px rgba(251,113,133,0.25), 0 8px 24px -4px rgba(0,0,0,0.08)" }}>
                   <img
                     src="/images/hero-main.png"
@@ -156,16 +181,16 @@ export default function LandingPage() {
                   />
                 </div>
 
-                {/* 通知チップ（右上に浮かせる） */}
-                <div className="absolute -top-3 -right-3 bg-white rounded-2xl px-3 py-2 shadow-lg border border-gray-100 flex items-center gap-2 whitespace-nowrap">
+                {/* 通知チップ（右上）— スマホでは非表示 */}
+                <div className="hidden sm:flex absolute -top-3 -right-3 bg-white rounded-2xl px-3 py-2 shadow-lg border border-gray-100 items-center gap-2 whitespace-nowrap">
                   <div className="w-6 h-6 bg-rose-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Bell size={12} className="text-rose-500" strokeWidth={1.5} />
                   </div>
                   <span className="text-xs font-semibold text-gray-700">パートナーが伝えてくれた</span>
                 </div>
 
-                {/* 生理カレンダーチップ（左下に浮かせる） */}
-                <div className="absolute -bottom-3 -left-3 bg-white rounded-2xl px-3 py-2 shadow-lg border border-violet-100 flex items-center gap-2 whitespace-nowrap">
+                {/* 生理カレンダーチップ（左下）— スマホでは非表示 */}
+                <div className="hidden sm:flex absolute -bottom-3 -left-3 bg-white rounded-2xl px-3 py-2 shadow-lg border border-violet-100 items-center gap-2 whitespace-nowrap">
                   <div className="w-6 h-6 bg-violet-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Calendar size={12} className="text-violet-500" strokeWidth={1.5} />
                   </div>
@@ -179,22 +204,22 @@ export default function LandingPage() {
       </section>
 
       {/* ══ 2. よくある悩み ════════════════════════════════════ */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-12 md:py-20 bg-gray-50">
         <div className="max-w-5xl mx-auto px-5">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8 md:mb-12">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">Problem</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">こんなこと、ありませんか</h2>
-            <p className="text-gray-600 mt-3 text-sm">忙しいふたりの間に、少しずつすれ違いが生まれていませんか。</p>
+            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">こんなこと、ありませんか</h2>
+            <p className="text-gray-600 mt-2 text-sm">忙しいふたりの間に、少しずつすれ違いが生まれていませんか。</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {problems.map(({ Icon, title, desc }, i) => (
               <div
                 key={i}
-                className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow"
+                className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow"
               >
-                <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Icon size={18} className="text-rose-400" strokeWidth={1.5} />
+                <div className="w-9 h-9 md:w-10 md:h-10 bg-rose-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Icon size={17} className="text-rose-400" strokeWidth={1.5} />
                 </div>
                 <div>
                   <p className="font-semibold text-gray-800 text-sm mb-1">{title}</p>
@@ -204,7 +229,7 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <div className="text-center mt-10 py-5 bg-white rounded-2xl border border-rose-100 max-w-2xl mx-auto px-6">
+          <div className="text-center mt-8 py-4 md:py-5 bg-white rounded-2xl border border-rose-100 max-w-2xl mx-auto px-6">
             <p className="text-gray-700 text-sm leading-relaxed">
               Sync Couple は、そういった「言えない気持ち」を<br />
               <span className="text-rose-500 font-bold">やさしくシェアできる仕組み</span>をつくりました。
@@ -214,23 +239,23 @@ export default function LandingPage() {
       </section>
 
       {/* ══ 3. Sync Coupleでできること ═══════════════════════════ */}
-      <section id="features" className="py-20 bg-white">
+      <section id="features" className="py-12 md:py-20 bg-white">
         <div className="max-w-5xl mx-auto px-5">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">Features</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Sync Couple でできること</h2>
+            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">Sync Couple でできること</h2>
           </div>
 
-          <div className="space-y-20">
+          <div className="space-y-14 md:space-y-20">
 
             {/* ── Feature 1: キモチ選択 ── */}
-            <div className="flex flex-col md:flex-row items-center gap-12">
+            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
               <div className="flex-1 order-2 md:order-1">
-                <div className="inline-flex items-center gap-2 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-5">
+                <div className="inline-flex items-center gap-2 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
                   01 / 今日のキモチ
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">今日のキモチを選ぶだけ</h3>
-                <p className="text-gray-600 leading-relaxed mb-5">
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-3">今日のキモチを選ぶだけ</h3>
+                <p className="text-gray-600 leading-relaxed mb-4 text-sm md:text-base">
                   ○・△・✕の3つから今日の気持ちを選ぶだけ。長い文章を書かなくても、今日の調子がパートナーに届きます。ふたりの気持ちが一致したとき、特別な演出でお知らせします。
                 </p>
                 <ul className="space-y-2.5">
@@ -251,15 +276,15 @@ export default function LandingPage() {
 
               {/* スクショ 1 */}
               <div className="flex-1 order-1 md:order-2 flex justify-center">
-                <div className="relative" style={{ width: "290px", height: "430px" }}>
+                <div className="relative" style={{ width: "260px", height: "390px" }}>
                   {/* Perfect Sync（後ろ・右） */}
-                  <div className="absolute right-0 top-8 w-44 bg-gray-900 rounded-[2rem] p-1 shadow-xl rotate-3 z-0">
+                  <div className="absolute right-0 top-8 w-40 bg-gray-900 rounded-[2rem] p-1 shadow-xl rotate-3 z-0">
                     <div className="rounded-[1.6rem] overflow-hidden">
                       <img src="/images/ss-perfect-sync.png" alt="パーフェクトシンク演出" className="w-full block" />
                     </div>
                   </div>
                   {/* キモチ選択（前・左） */}
-                  <div className="absolute left-0 top-0 w-48 bg-gray-900 rounded-[2rem] p-1 shadow-2xl -rotate-1 z-10">
+                  <div className="absolute left-0 top-0 w-44 bg-gray-900 rounded-[2rem] p-1 shadow-2xl -rotate-1 z-10">
                     <div className="rounded-[1.7rem] overflow-hidden">
                       <img src="/images/ss-kimochi.png" alt="キモチ選択画面" className="w-full block" />
                     </div>
@@ -271,10 +296,10 @@ export default function LandingPage() {
             <div className="border-t border-gray-100" />
 
             {/* ── Feature 2: 生理期間 ── */}
-            <div className="flex flex-col md:flex-row items-center gap-12">
+            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
               {/* スクショ 2 */}
               <div className="flex-1 flex justify-center">
-                <div className="w-52 bg-gray-900 rounded-[2.5rem] p-1 shadow-2xl">
+                <div className="w-48 md:w-52 bg-gray-900 rounded-[2.5rem] p-1 shadow-2xl">
                   <div className="rounded-[2rem] overflow-hidden">
                     <img src="/images/ss-calendar.png" alt="生理カレンダー画面" className="w-full block" />
                   </div>
@@ -282,11 +307,11 @@ export default function LandingPage() {
               </div>
 
               <div className="flex-1">
-                <div className="inline-flex items-center gap-2 bg-violet-100 text-violet-600 text-xs font-bold px-3 py-1.5 rounded-full mb-5">
+                <div className="inline-flex items-center gap-2 bg-violet-100 text-violet-600 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
                   02 / 生理期間共有
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">生理期間をやさしく共有</h3>
-                <p className="text-gray-600 leading-relaxed mb-5">
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-3">生理期間をやさしく共有</h3>
+                <p className="text-gray-600 leading-relaxed mb-4 text-sm md:text-base">
                   生理開始日を記録するだけで、次回以降の周期を自動計算。パートナーには「今がどんな時期か」がやさしく伝わります。「なんか機嫌悪い？」のすれ違いを未然に防ぎます。
                 </p>
                 <ul className="space-y-2.5">
@@ -309,13 +334,13 @@ export default function LandingPage() {
             <div className="border-t border-gray-100" />
 
             {/* ── Feature 3: 通知 ── */}
-            <div className="flex flex-col md:flex-row items-center gap-12">
+            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
               <div className="flex-1 order-2 md:order-1">
-                <div className="inline-flex items-center gap-2 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-5">
+                <div className="inline-flex items-center gap-2 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
                   03 / 通知機能
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">パートナーが選んだら、すぐ通知</h3>
-                <p className="text-gray-600 leading-relaxed mb-5">
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-3">パートナーが選んだら、すぐ通知</h3>
+                <p className="text-gray-600 leading-relaxed mb-4 text-sm md:text-base">
                   パートナーがキモチを選んだタイミングで、プッシュ通知が届きます。「早く選んで」ではなく、「相手が気持ちを伝えたよ」というやさしいお知らせ。通知を許可するだけで、すぐ使えます。
                 </p>
                 <ul className="space-y-2.5">
@@ -336,7 +361,7 @@ export default function LandingPage() {
 
               {/* モックアップ 3 */}
               <div className="flex-1 order-1 md:order-2 flex justify-center">
-                <div className="w-60 space-y-3">
+                <div className="w-56 md:w-60 space-y-3">
                   {/* ロック画面通知 */}
                   <div className="bg-gray-900 rounded-3xl overflow-hidden shadow-2xl">
                     <div className="px-5 pt-5 pb-2 text-center">
@@ -382,15 +407,15 @@ export default function LandingPage() {
       </section>
 
       {/* ══ 4. 使い方 ═══════════════════════════════════════════ */}
-      <section className="py-20 bg-rose-50">
+      <section id="howto" className="py-12 md:py-20 bg-rose-50">
         <div className="max-w-5xl mx-auto px-5">
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 md:mb-14">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">How to Use</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">たった3ステップで始められる</h2>
-            <p className="text-gray-600 text-sm mt-3">インストール不要。ブラウザから今すぐ始められます。</p>
+            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">たった3ステップで始められる</h2>
+            <p className="text-gray-600 text-sm mt-2">インストール不要。ブラウザから今すぐ始められます。</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+          <div className="grid grid-cols-3 md:grid-cols-3 gap-4 md:gap-8 relative">
             <div className="hidden md:block absolute top-10 left-[22%] right-[22%] border-t-2 border-dashed border-rose-200 pointer-events-none" />
             {[
               { Icon: UserPlus,          step: "01", title: "アカウント作成",       desc: "メールアドレスだけで登録完了。無料でお使いいただけます。" },
@@ -398,14 +423,28 @@ export default function LandingPage() {
               { Icon: MousePointerClick, step: "03", title: "毎日タップするだけ",   desc: "今日のキモチを選ぶだけ。あとはアプリがそっとつないでくれます。" },
             ].map(({ Icon, step, title, desc }, i) => (
               <div key={i} className="relative z-10 text-center">
-                <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-md border border-rose-100">
-                  <Icon size={28} className="text-rose-400" strokeWidth={1.5} />
+                <div className="w-14 h-14 md:w-20 md:h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-3 md:mb-5 shadow-md border border-rose-100">
+                  <Icon size={22} className="text-rose-400 md:hidden" strokeWidth={1.5} />
+                  <Icon size={28} className="text-rose-400 hidden md:block" strokeWidth={1.5} />
                 </div>
-                <div className="inline-block bg-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full mb-3">
+                <div className="inline-block bg-rose-500 text-white text-xs font-bold px-2 py-1 md:px-3 rounded-full mb-2 md:mb-3">
                   STEP {step}
                 </div>
-                <h3 className="text-base font-bold text-gray-900 mb-2">{title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed max-w-xs mx-auto">{desc}</p>
+                <h3 className="text-xs md:text-base font-bold text-gray-900 mb-1 md:mb-2">{title}</h3>
+                <p className="text-gray-500 text-xs leading-relaxed hidden md:block max-w-xs mx-auto">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* スマホ用：説明テキストを別行に表示 */}
+          <div className="md:hidden mt-6 space-y-3">
+            {[
+              { step: "01", title: "アカウント作成",       desc: "メールアドレスだけで登録完了。無料でお使いいただけます。" },
+              { step: "02", title: "パートナーとつながる", desc: "カップルIDを発行してパートナーに共有。1分でペアリングできます。" },
+              { step: "03", title: "毎日タップするだけ",   desc: "今日のキモチを選ぶだけ。あとはアプリがそっとつないでくれます。" },
+            ].map(({ step, title, desc }, i) => (
+              <div key={i} className="bg-white rounded-xl p-4 border border-rose-100 text-sm text-gray-600 leading-relaxed">
+                <span className="text-rose-500 font-bold mr-2">STEP {step}：{title}</span>{desc}
               </div>
             ))}
           </div>
@@ -413,21 +452,21 @@ export default function LandingPage() {
       </section>
 
       {/* ══ 5. ベネフィット ══════════════════════════════════════ */}
-      <section className="py-20 bg-white">
+      <section className="py-12 md:py-20 bg-white">
         <div className="max-w-5xl mx-auto px-5">
-          <div className="text-center mb-14">
+          <div className="text-center mb-8 md:mb-14">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">Benefits</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">ふたりの関係が、少しずつ変わる</h2>
+            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">ふたりの関係が、少しずつ変わる</h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
             {benefits.map(({ Icon, title, desc }, i) => (
-              <div key={i} className="bg-rose-50 border border-rose-100 rounded-2xl p-6 text-center hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-rose-100">
-                  <Icon size={22} className="text-rose-400" strokeWidth={1.5} />
+              <div key={i} className="bg-rose-50 border border-rose-100 rounded-2xl p-4 md:p-6 text-center hover:shadow-md transition-shadow">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl flex items-center justify-center mx-auto mb-3 md:mb-4 shadow-sm border border-rose-100">
+                  <Icon size={20} className="text-rose-400" strokeWidth={1.5} />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">{title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{desc}</p>
+                <h3 className="font-bold text-gray-900 mb-1 md:mb-2 text-sm md:text-base">{title}</h3>
+                <p className="text-gray-600 text-xs md:text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
@@ -436,8 +475,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══ ユーザーの声 ══════════════════════════════════════════ */}
-      <section className="py-20 bg-gradient-to-br from-rose-50 to-violet-50">
+      {/* ══ ユーザーの声（PC のみ表示） ══════════════════════════ */}
+      <section className="hidden md:block py-20 bg-gradient-to-br from-rose-50 to-violet-50">
         <div className="max-w-5xl mx-auto px-5">
           <div className="text-center mb-12">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">Voice</p>
@@ -463,11 +502,11 @@ export default function LandingPage() {
       </section>
 
       {/* ══ 6. FAQ ══════════════════════════════════════════════ */}
-      <section className="py-20 bg-white">
+      <section id="faq" className="py-12 md:py-20 bg-white">
         <div className="max-w-3xl mx-auto px-5">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8 md:mb-12">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">FAQ</p>
-            <h2 className="text-3xl font-bold text-gray-900">よくある質問</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">よくある質問</h2>
           </div>
           <div className="space-y-2">
             {faqs.map((faq, i) => (
@@ -478,19 +517,19 @@ export default function LandingPage() {
                 }`}
               >
                 <button
-                  className="w-full flex items-center justify-between p-5 text-left"
+                  className="w-full flex items-center justify-between p-4 md:p-5 text-left"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   aria-expanded={openFaq === i}
                 >
-                  <span className="font-medium text-gray-800 pr-4 text-sm md:text-base">{faq.q}</span>
+                  <span className="font-medium text-gray-800 pr-4 text-sm">{faq.q}</span>
                   <ChevronDown
                     size={18}
                     className={`text-rose-400 flex-shrink-0 transition-transform duration-200 ${openFaq === i ? "rotate-180" : ""}`}
                   />
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-5 border-t border-rose-100">
-                    <p className="text-gray-600 text-sm leading-relaxed pt-4">{faq.a}</p>
+                  <div className="px-4 md:px-5 pb-4 md:pb-5 border-t border-rose-100">
+                    <p className="text-gray-600 text-sm leading-relaxed pt-3">{faq.a}</p>
                   </div>
                 )}
               </div>
@@ -499,18 +538,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-
       {/* ══ 7. CTA ══════════════════════════════════════════════ */}
-      <section id="register" className="py-24 bg-gradient-to-br from-rose-500 to-rose-600 text-white relative overflow-hidden">
+      <section id="register" className="py-16 md:py-24 bg-gradient-to-br from-rose-500 to-rose-600 text-white relative overflow-hidden">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/5 rounded-full pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-white/5 rounded-full pointer-events-none" />
 
         <div className="max-w-2xl mx-auto px-5 text-center relative">
-          <div className="mx-auto mb-6 w-16 h-16 rounded-2xl overflow-hidden shadow-lg">
+          <div className="mx-auto mb-5 w-14 h-14 md:w-16 md:h-16 rounded-2xl overflow-hidden shadow-lg">
             <img src="/icon-192.png" alt="Sync Couple" className="w-full h-full object-cover" />
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">今日から、少しずつ。</h2>
-          <p className="text-rose-100 text-base md:text-lg mb-10 leading-relaxed">
+          <h2 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4">今日から、少しずつ。</h2>
+          <p className="text-rose-100 text-sm md:text-lg mb-8 md:mb-10 leading-relaxed">
             毎日1タップで、ふたりの気持ちがやさしくつながる。<br />
             Sync Couple で、新しいコミュニケーションを始めませんか。
           </p>
@@ -518,7 +556,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
               href="/login"
-              className="bg-white text-rose-600 font-bold px-10 py-4 rounded-2xl hover:bg-rose-50 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-lg"
+              className="bg-white text-rose-600 font-bold px-10 py-4 rounded-2xl hover:bg-rose-50 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-base md:text-lg"
             >
               今すぐ無料で始める <ArrowRight size={18} />
             </a>
@@ -529,58 +567,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ══ お問い合わせ ══════════════════════════════════════════ */}
-      <section id="contact" className="py-16 bg-gray-50">
-        <div className="max-w-xl mx-auto px-5">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">お問い合わせ</h2>
-            <p className="text-gray-500 text-sm mt-2">導入相談・取材・提携など、お気軽にどうぞ。</p>
-          </div>
-          <form className="bg-white rounded-2xl p-7 shadow-sm border border-gray-100 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                お名前 <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="山田 太郎"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                メールアドレス <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="email"
-                placeholder="your@email.com"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                お問い合わせ内容 <span className="text-rose-400">*</span>
-              </label>
-              <textarea
-                rows={4}
-                placeholder="ご質問・ご相談内容をご記入ください"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent resize-none"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-rose-500 text-white font-bold py-3.5 rounded-xl hover:bg-rose-600 transition-colors flex items-center justify-center gap-2"
-            >
-              送信する <ArrowRight size={16} />
-            </button>
-          </form>
-        </div>
-      </section>
-
       {/* ══ 8. フッター ══════════════════════════════════════════ */}
-      <footer className="bg-gray-900 text-gray-400 py-14">
+      <footer className="bg-gray-900 text-gray-400 py-12 md:py-14">
         <div className="max-w-5xl mx-auto px-5">
-          <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-10">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8 md:gap-10 mb-8 md:mb-10">
             <div>
               <a href="#" className="flex items-center gap-2 mb-4">
                 <img src="/icon-192.png" alt="Sync Couple" className="w-9 h-9 rounded-xl object-cover" />
@@ -592,13 +582,13 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="flex gap-12">
+            <div className="flex gap-10 md:gap-12">
               <div>
                 <p className="text-white font-semibold mb-4 text-sm">サービス</p>
                 <ul className="space-y-2.5 text-sm">
                   <li><a href="#features" className="hover:text-white transition-colors">機能紹介</a></li>
-                  <li><a href="/login" className="hover:text-white transition-colors">アプリを始める</a></li>
-                  <li><a href="#contact"  className="hover:text-white transition-colors">お問い合わせ</a></li>
+                  <li><a href="#howto"    className="hover:text-white transition-colors">使い方</a></li>
+                  <li><a href="/login"   className="hover:text-white transition-colors">アプリを始める</a></li>
                 </ul>
               </div>
               <div>
@@ -607,6 +597,7 @@ export default function LandingPage() {
                   <li><a href="#" className="hover:text-white transition-colors">利用規約</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">プライバシーポリシー</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">特定商取引法に基づく表記</a></li>
+                  <li><a href="mailto:info@synccoupleapp.com" className="hover:text-white transition-colors">お問い合わせ</a></li>
                 </ul>
               </div>
             </div>

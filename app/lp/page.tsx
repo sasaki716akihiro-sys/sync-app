@@ -122,7 +122,7 @@ export default function LandingPage() {
               <div className="inline-flex items-center gap-1.5 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
                 <Sparkles size={12} /> 夫婦向けコミュニケーションアプリ
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-[1.25] mb-3">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 leading-[1.25] mb-3">
                 ふたりの気持ち、<br />
                 <span className="text-rose-500">もっとそっと</span><br />
                 つながる。
@@ -130,8 +130,8 @@ export default function LandingPage() {
               <p className="text-rose-600 font-semibold text-sm mb-3">
                 言いにくい気持ちや体調を、やさしく共有できる夫婦向けアプリ
               </p>
-              <p className="text-gray-600 text-base leading-relaxed mb-6 max-w-md mx-auto lg:mx-0">
-                言いたいけど、言えない。伝わってほしいけど、伝えられない。<br />
+              <p className="text-gray-600 text-sm sm:text-base leading-relaxed mb-6 max-w-md mx-auto lg:mx-0 text-pretty">
+                言いたいけど、言えない。伝わってほしいけど、伝えられない。<br className="hidden sm:block" />
                 Sync Couple は、夫婦のすれ違いをやさしく減らします。
               </p>
 
@@ -208,7 +208,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-5">
           <div className="text-center mb-8 md:mb-12">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">Problem</p>
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">こんなこと、ありませんか</h2>
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 text-balance">こんなこと、ありませんか</h2>
             <p className="text-gray-600 mt-2 text-sm">忙しいふたりの間に、少しずつすれ違いが生まれていませんか。</p>
           </div>
 
@@ -231,7 +231,7 @@ export default function LandingPage() {
 
           <div className="text-center mt-8 py-4 md:py-5 bg-white rounded-2xl border border-rose-100 max-w-2xl mx-auto px-6">
             <p className="text-gray-700 text-sm leading-relaxed">
-              Sync Couple は、そういった「言えない気持ち」を<br />
+              Sync Couple は、そういった「言えない気持ち」を<br className="hidden sm:block" />
               <span className="text-rose-500 font-bold">やさしくシェアできる仕組み</span>をつくりました。
             </p>
           </div>
@@ -243,7 +243,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-5">
           <div className="text-center mb-10 md:mb-16">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">Features</p>
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">Sync Couple でできること</h2>
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 text-balance">Sync Couple でできること</h2>
           </div>
 
           <div className="space-y-14 md:space-y-20">
@@ -411,7 +411,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-5">
           <div className="text-center mb-10 md:mb-14">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">How to Use</p>
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">たった3ステップで始められる</h2>
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 text-balance">たった3ステップで始められる</h2>
             <p className="text-gray-600 text-sm mt-2">インストール不要。ブラウザから今すぐ始められます。</p>
           </div>
 
@@ -456,7 +456,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-5">
           <div className="text-center mb-8 md:mb-14">
             <p className="text-rose-500 font-bold text-xs mb-2 tracking-widest uppercase">Benefits</p>
-            <h2 className="text-2xl md:text-4xl font-bold text-gray-900">ふたりの関係が、少しずつ変わる</h2>
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 text-balance">ふたりの関係が、少しずつ変わる</h2>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
@@ -548,8 +548,8 @@ export default function LandingPage() {
             <img src="/icon-192.png" alt="Sync Couple" className="w-full h-full object-cover" />
           </div>
           <h2 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4">今日から、少しずつ。</h2>
-          <p className="text-rose-100 text-sm md:text-lg mb-8 md:mb-10 leading-relaxed">
-            毎日1タップで、ふたりの気持ちがやさしくつながる。<br />
+          <p className="text-rose-100 text-sm md:text-lg mb-8 md:mb-10 leading-relaxed text-pretty">
+            毎日1タップで、ふたりの気持ちがやさしくつながる。<br className="hidden sm:block" />
             Sync Couple で、新しいコミュニケーションを始めませんか。
           </p>
 

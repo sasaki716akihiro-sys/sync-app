@@ -48,12 +48,23 @@ Deno.serve(async (req) => {
       return new Response("not today", { status: 200 });
     }
 
+    // 直近5分以内に今日のkimochi更新が既にあった場合は重複通知を抑制
+    // （例: ○→△の素早い変更で通知が連発しないように）
+    const oldKimochiDate = (body?.old_record?.kimochi_date ?? "").slice(0, 10);
+    const oldUpdatedAt   = body?.old_record?.updated_at;
+    if (oldKimochi && oldKimochiDate === today && oldUpdatedAt) {
+      const diffMs = Date.now() - new Date(oldUpdatedAt).getTime();
+      if (diffMs < 5 * 60 * 1000) {
+        return new Response("duplicate suppressed (5min)", { status: 200 });
+      }
+    }
+
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // パートナーの行を取得
+    // パートナーの行を取得（自分の入力状況に関わらず通知するため push_subscription のみ取得）
     const { data: partnerRows, error } = await admin
       .from("sync_status")
-      .select("push_subscription, kimochi, kimochi_date")
+      .select("push_subscription")
       .eq("couple_id", record.couple_id)
       .neq("user_email", record.user_email);
 
@@ -68,18 +79,12 @@ Deno.serve(async (req) => {
       return new Response("no subscription", { status: 200 });
     }
 
-    // パートナーがすでに今日キモチを入力済みの場合は通知しない
-    const partnerDate = (partner.kimochi_date ?? "").slice(0, 10);
-    if (partnerDate === kimochiDate && partner.kimochi) {
-      return new Response("partner already entered", { status: 200 });
-    }
-
     // Web Push 送信
     await webpush.sendNotification(
       partner.push_subscription,
       JSON.stringify({
-        title: "パートナーがキモチを入力したよ 💌",
-        body: "あなたのキモチも教えてね 🌸",
+        title: "パートナーがキモチを入力しました 💌",
+        body: "タップして確認しよう 🌸",
       })
     );
 

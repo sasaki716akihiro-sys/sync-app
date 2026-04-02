@@ -594,9 +594,9 @@ export default function LandingPage() {
               <div>
                 <p className="text-white font-semibold mb-4 text-sm">法的情報</p>
                 <ul className="space-y-2.5 text-sm">
-                  <li><a href="#" className="hover:text-white transition-colors">利用規約</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">プライバシーポリシー</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">特定商取引法に基づく表記</a></li>
+                  <li><a href="/terms" className="hover:text-white transition-colors">利用規約</a></li>
+                  <li><a href="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</a></li>
+                  <li><a href="/tokushoho" className="hover:text-white transition-colors">特定商取引法に基づく表記</a></li>
                   <li><a href="mailto:info@synccoupleapp.com" className="hover:text-white transition-colors">お問い合わせ</a></li>
                 </ul>
               </div>
@@ -604,7 +604,7 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-gray-800 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-xs text-gray-600">© 2024 Sync Couple. All rights reserved.</p>
+            <p className="text-xs text-gray-600">© 2025 Sync Couple. All rights reserved.</p>
             <a
               href="/login"
               className="bg-rose-500 text-white text-sm font-bold px-6 py-2.5 rounded-full hover:bg-rose-600 transition-colors flex items-center gap-2"

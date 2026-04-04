@@ -80,13 +80,27 @@ Deno.serve(async (req) => {
     }
 
     // Web Push 送信
-    await webpush.sendNotification(
-      partner.push_subscription,
-      JSON.stringify({
-        title: "パートナーがキモチを入力しました 💌",
-        body: "タップして確認しよう 🌸",
-      })
-    );
+    try {
+      await webpush.sendNotification(
+        partner.push_subscription,
+        JSON.stringify({
+          title: "パートナーがキモチを入力しました 💌",
+          body: "タップして確認しよう 🌸",
+        })
+      );
+    } catch (pushErr: any) {
+      // 410 Gone / 404 = サブスクリプション失効 → DBから削除して次回以降の無駄な送信を防ぐ
+      if (pushErr?.statusCode === 410 || pushErr?.statusCode === 404) {
+        await admin
+          .from("sync_status")
+          .update({ push_subscription: null })
+          .eq("couple_id", record.couple_id)
+          .neq("user_email", record.user_email);
+        console.log("[send-push] 期限切れサブスクリプション削除 →", record.couple_id);
+        return new Response("subscription expired, deleted", { status: 200 });
+      }
+      throw pushErr;
+    }
 
     console.log("[send-push] 送信成功 →", record.couple_id);
     return new Response("ok", { status: 200 });

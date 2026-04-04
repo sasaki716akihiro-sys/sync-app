@@ -1780,13 +1780,33 @@ export default function Home() {
   }, [registerPushSubscription]);
 
   // ─── 1f-2. 許可済みの場合はアプリ起動時に自動で購読を登録/更新 ──
+  // 別デバイスで登録済みのサブスクリプションを上書きしないよう、
+  // 「このブラウザのエンドポイントがDBと異なる場合のみ保存」する
   useEffect(() => {
     if (!coupleId || !myEmail) return;
     if (!("Notification" in window)) return;
-    if (Notification.permission === "granted") {
-      registerPushSubscription();
-    }
-  }, [coupleId, myEmail, registerPushSubscription]);
+    if (Notification.permission !== "granted") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        const dbEndpoint = (myRow?.push_subscription as { endpoint?: string } | null)?.endpoint;
+
+        // このデバイスにサブスクリプションがなく、DBに別デバイスの登録がある → 上書きしない
+        if (!sub && dbEndpoint) return;
+
+        // DBと同じエンドポイント → 再保存不要
+        if (sub && dbEndpoint === sub.endpoint) return;
+
+        // 上記以外（初回登録 or エンドポイント更新）→ 保存
+        await registerPushSubscription();
+      } catch (e) {
+        console.error("[Push] auto-register check failed:", e);
+      }
+    })();
+  }, [coupleId, myEmail, myRow?.push_subscription, registerPushSubscription]);
 
   // ─── 1d. Realtime subscription（sync_status の変更をリアルタイム受信）─
   useEffect(() => {

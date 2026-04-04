@@ -1,6 +1,16 @@
 // ─── Service Worker for Web Push Notifications ───────────────
 // パートナーがキモチを入力したときにプッシュ通知を受信して表示する
 
+// 新バージョンのSWを即時有効化（waiting状態をスキップ）
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+});
+
+// 有効化後、既存の全クライアントをこのSWが即座に制御
+self.addEventListener("activate", (event) => {
+  event.waitUntil(clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   let data = { title: "ふたりのきもち", body: "パートナーからのメッセージがあります 🌸" };
   try {

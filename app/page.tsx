@@ -49,6 +49,8 @@ interface SyncRow {
   period_history:  PeriodRecord[] | null; // 直近3回分の履歴
   // ── キモチ履歴（週次ふりかえり用） ──
   kimochi_log: KimochiLogEntry[] | null;
+  // ── プッシュ通知 ──
+  push_subscription: { endpoint?: string } | null;
 }
 
 // 生理履歴の1件

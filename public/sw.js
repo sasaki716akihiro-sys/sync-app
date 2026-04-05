@@ -24,8 +24,7 @@ self.addEventListener("push", (event) => {
       body: data.body,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
-      tag: "kimochi-nudge",       // 同じタグで上書き（常に最新通知を表示）
-      renotify: true,             // 既存通知があっても再アラートする
+      tag: "kimochi-" + Date.now(), // 毎回ユニークにして重複抑制を回避
       data: { url: "/" },
     })
   );

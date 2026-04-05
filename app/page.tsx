@@ -2029,7 +2029,15 @@ export default function Home() {
     await saveMyKimochi(val);
     await saveKimochiLog(val);
     pop("キモチを更新したよ 🌸");
-  }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod, isPartnerInPeriod]);
+    // パートナーにプッシュ通知（fire-and-forget）
+    if (coupleId) {
+      fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coupleId }),
+      }).catch(e => console.error("[Push] notify failed:", e));
+    }
+  }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod, isPartnerInPeriod, coupleId]);
 
   // ─── 8b. 生理開始日の記録 ────────────────────────────────
   const handleConfirmStart = useCallback(async (start: number) => {

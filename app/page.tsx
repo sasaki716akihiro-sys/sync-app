@@ -1549,31 +1549,69 @@ function NoCoupleIdScreen({ onGoSettings }: { onGoSettings:()=>void }) {
 
 
 
-// ─── 夫婦の木カード ───────────────────────────────────────
+// ─── 夫婦の木エリア ───────────────────────────────────────
+const TREE_SUBTEXTS: Record<number, string> = {
+  1: "ふたりで続けた気持ちが、少しずつ育っていくよ",
+  2: "小さな芽が、ふたりの手で育ち始めているよ",
+  3: "やさしい葉が、ふたりの日々をそっと包んでいるよ",
+  4: "すくすく育つ木が、ふたりの積み重ねを教えてくれるよ",
+  5: "青々と茂る葉が、ふたりの絆の深さを映しているよ",
+  6: "花が咲いたよ。ふたりの想いが、こんなに色づいた",
+  7: "実をつけた木。ふたりで育てた、大切な時間のかたち",
+};
+
 function TreeCard({ treeData }: { treeData: TreeLevelData }) {
+  const subtext = TREE_SUBTEXTS[treeData.level] ?? "";
   return (
-    <div className="rounded-3xl overflow-hidden"
-      style={{ border:"1px solid #D2EAC0", boxShadow:"0 2px 12px rgba(80,140,60,0.10)" }}>
-      <div className="px-4 py-2.5 flex items-center gap-2"
-        style={{ backgroundColor:"rgba(215,242,198,0.55)" }}>
-        <span style={{ fontSize:13 }}>🌳</span>
-        <p className="text-xs font-bold" style={{ color:"#5A8A40" }}>ふたりの木</p>
-      </div>
-      <div className="px-5 py-4 flex items-center gap-4"
-        style={{ backgroundColor:"rgba(248,255,244,0.88)" }}>
-        <div className="flex items-center justify-center rounded-2xl flex-shrink-0"
-          style={{ width:60, height:60, backgroundColor: treeData.bg }}>
-          <span style={{ fontSize:34, lineHeight:1 }}>{treeData.emoji}</span>
+    <div className="flex flex-col items-center py-7 px-4 gap-5"
+      style={{
+        background:   "linear-gradient(180deg, rgba(240,250,234,0) 0%, rgba(232,247,222,0.55) 40%, rgba(240,250,234,0) 100%)",
+        borderTop:    "1px solid rgba(180,220,155,0.30)",
+        borderBottom: "1px solid rgba(180,220,155,0.30)",
+      }}>
+
+      {/* ラベル */}
+      <p style={{ fontSize:11, color:"#8AAA68", fontWeight:600, letterSpacing:"0.10em" }}>
+        ふたりの木
+      </p>
+
+      {/* 木のビジュアル（主役） */}
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center justify-center"
+          style={{
+            width:          100,
+            height:         100,
+            borderRadius:   "50%",
+            backgroundColor: treeData.bg,
+            boxShadow:      "0 4px 24px rgba(100,160,60,0.14)",
+          }}>
+          <span style={{ fontSize:58, lineHeight:1 }}>{treeData.emoji}</span>
         </div>
-        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-          <p className="font-bold" style={{ fontSize:18, color:"#3A6820", lineHeight:1.2 }}>
-            {treeData.name}
-          </p>
-          <p style={{ fontSize:11, color:"#6A9850", lineHeight:1.5 }}>
-            {treeData.title}
-          </p>
-        </div>
       </div>
+
+      {/* 木の名前 */}
+      <div className="flex flex-col items-center gap-1.5">
+        <p className="font-bold" style={{ fontSize:22, color:"#3A6420", lineHeight:1 }}>
+          {treeData.name}
+        </p>
+
+        {/* 称号（補助） */}
+        <span className="px-3.5 py-1 rounded-full"
+          style={{
+            fontSize:         11,
+            color:            "#6A9448",
+            backgroundColor:  "rgba(155,210,110,0.18)",
+            border:           "1px solid rgba(140,200,90,0.30)",
+            fontWeight:       600,
+          }}>
+          {treeData.title}
+        </span>
+      </div>
+
+      {/* 補足文 */}
+      <p style={{ fontSize:11, color:"#9AAA80", textAlign:"center", lineHeight:1.8 }}>
+        {subtext}
+      </p>
     </div>
   );
 }

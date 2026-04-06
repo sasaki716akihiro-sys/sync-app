@@ -1541,6 +1541,9 @@ export default function Home() {
     r => r.user_email === myEmail && r.couple_id === coupleId
   ) ?? null;
 
+  // push_subscription のエンドポイント文字列（プリミティブにすることで useEffect の無限ループを防ぐ）
+  const myPushEndpoint = (myRow?.push_subscription as { endpoint?: string } | null)?.endpoint ?? null;
+
   // パートナーの行（接続中のみ）
   const partnerRow = (isConnected && myEmail)
     ? (syncData.find(r => r.user_email !== myEmail && r.couple_id === coupleId) ?? null)
@@ -1883,13 +1886,12 @@ export default function Home() {
       try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
-        const dbEndpoint = (myRow?.push_subscription as { endpoint?: string } | null)?.endpoint;
 
         // このデバイスにサブスクリプションがなく、DBに別デバイスの登録がある → 上書きしない
-        if (!sub && dbEndpoint) return;
+        if (!sub && myPushEndpoint) return;
 
         // DBと同じエンドポイント → 再保存不要
-        if (sub && dbEndpoint === sub.endpoint) return;
+        if (sub && myPushEndpoint === sub.endpoint) return;
 
         // 上記以外（初回登録 or エンドポイント更新）→ 保存
         await registerPushSubscription();
@@ -1897,7 +1899,7 @@ export default function Home() {
         console.error("[Push] auto-register check failed:", e);
       }
     })();
-  }, [coupleId, myEmail, myRow?.push_subscription, registerPushSubscription]);
+  }, [coupleId, myEmail, myPushEndpoint, registerPushSubscription]);
 
   // ─── 1d. Realtime subscription（sync_status の変更をリアルタイム受信）─
   useEffect(() => {

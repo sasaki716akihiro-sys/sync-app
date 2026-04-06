@@ -217,6 +217,16 @@ export default function LoginPage() {
                 ? "ログイン 🌸"
                 : "アカウントを作成 💌"}
             </button>
+
+            {mode === "signup" && (
+              <p className="text-center text-xs leading-relaxed" style={{ color: "#C4A898" }}>
+                アカウントを作成することで、
+                <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#D97B6C" }}>利用規約</a>
+                および
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#D97B6C" }}>プライバシーポリシー</a>
+                に同意したものとみなします。
+              </p>
+            )}
           </form>
         </div>
 

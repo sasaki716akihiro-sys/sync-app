@@ -1551,7 +1551,7 @@ function NoCoupleIdScreen({ onGoSettings }: { onGoSettings:()=>void }) {
 
 // ─── 夫婦の木エリア ───────────────────────────────────────
 const TREE_SUBTEXTS: Record<number, string> = {
-  1: "ふたりで続けた気持ちが、少しずつ育っていくよ",
+  1: "ふたりが入力した日だけ、この木は育っていくよ",
   2: "小さな芽が、ふたりの手で育ち始めているよ",
   3: "やさしい葉が、ふたりの日々をそっと包んでいるよ",
   4: "すくすく育つ木が、ふたりの積み重ねを教えてくれるよ",
@@ -1560,56 +1560,93 @@ const TREE_SUBTEXTS: Record<number, string> = {
   7: "実をつけた木。ふたりで育てた、大切な時間のかたち",
 };
 
+// たね専用ビジュアル：土に半分埋まった種
+function SeedVisual() {
+  return (
+    <div style={{ position:"relative", width:100, height:100, borderRadius:"50%", overflow:"hidden",
+      backgroundColor:"#EDE4D2", boxShadow:"0 3px 14px rgba(120,90,50,0.12)" }}>
+      {/* 土の層 */}
+      <div style={{
+        position:"absolute", bottom:0, left:0, right:0, height:38,
+        backgroundColor:"rgba(120,85,45,0.18)",
+        borderTop:"1px solid rgba(120,85,45,0.22)",
+      }}/>
+      {/* 種（小さく地面に半分埋まった形） */}
+      <div style={{
+        position:"absolute",
+        bottom:22,
+        left:"50%",
+        transform:"translateX(-50%)",
+        width:22,
+        height:28,
+        backgroundColor:"#7A4E28",
+        borderRadius:"50% 50% 46% 46%",
+      }}/>
+      {/* 種の光沢（小さな楕円） */}
+      <div style={{
+        position:"absolute",
+        bottom:36,
+        left:"calc(50% - 4px)",
+        width:7,
+        height:9,
+        backgroundColor:"rgba(190,145,88,0.38)",
+        borderRadius:"50%",
+      }}/>
+    </div>
+  );
+}
+
 function TreeCard({ treeData }: { treeData: TreeLevelData }) {
   const subtext = TREE_SUBTEXTS[treeData.level] ?? "";
+  const isSeed  = treeData.level === 1;
+
+  // 背景グラデーション：たねは土っぽい暖色、それ以外は緑
+  const areaBg = isSeed
+    ? "linear-gradient(180deg, rgba(250,246,238,0) 0%, rgba(240,230,210,0.45) 40%, rgba(250,246,238,0) 100%)"
+    : "linear-gradient(180deg, rgba(240,250,234,0) 0%, rgba(232,247,222,0.55) 40%, rgba(240,250,234,0) 100%)";
+  const borderColor = isSeed ? "rgba(190,160,110,0.28)" : "rgba(180,220,155,0.30)";
+  const nameColor   = isSeed ? "#7A5830"                : "#3A6420";
+  const labelColor  = isSeed ? "#A08858"                : "#8AAA68";
+  const badgeBg     = isSeed ? "rgba(200,165,100,0.16)" : "rgba(155,210,110,0.18)";
+  const badgeBorder = isSeed ? "rgba(190,155,90,0.28)"  : "rgba(140,200,90,0.30)";
+  const badgeColor  = isSeed ? "#8A6838"                : "#6A9448";
+  const textColor   = isSeed ? "#B09A78"                : "#9AAA80";
+
   return (
     <div className="flex flex-col items-center py-7 px-4 gap-5"
-      style={{
-        background:   "linear-gradient(180deg, rgba(240,250,234,0) 0%, rgba(232,247,222,0.55) 40%, rgba(240,250,234,0) 100%)",
-        borderTop:    "1px solid rgba(180,220,155,0.30)",
-        borderBottom: "1px solid rgba(180,220,155,0.30)",
-      }}>
+      style={{ background:areaBg, borderTop:`1px solid ${borderColor}`, borderBottom:`1px solid ${borderColor}` }}>
 
       {/* ラベル */}
-      <p style={{ fontSize:11, color:"#8AAA68", fontWeight:600, letterSpacing:"0.10em" }}>
+      <p style={{ fontSize:11, color:labelColor, fontWeight:600, letterSpacing:"0.10em" }}>
         ふたりの木
       </p>
 
       {/* 木のビジュアル（主役） */}
-      <div className="flex flex-col items-center gap-2">
+      {isSeed ? (
+        <SeedVisual />
+      ) : (
         <div className="flex items-center justify-center"
-          style={{
-            width:          100,
-            height:         100,
-            borderRadius:   "50%",
-            backgroundColor: treeData.bg,
-            boxShadow:      "0 4px 24px rgba(100,160,60,0.14)",
-          }}>
+          style={{ width:100, height:100, borderRadius:"50%", backgroundColor:treeData.bg,
+            boxShadow:"0 4px 24px rgba(100,160,60,0.14)" }}>
           <span style={{ fontSize:58, lineHeight:1 }}>{treeData.emoji}</span>
         </div>
-      </div>
+      )}
 
       {/* 木の名前 */}
       <div className="flex flex-col items-center gap-1.5">
-        <p className="font-bold" style={{ fontSize:22, color:"#3A6420", lineHeight:1 }}>
+        <p className="font-bold" style={{ fontSize:22, color:nameColor, lineHeight:1 }}>
           {treeData.name}
         </p>
-
         {/* 称号（補助） */}
         <span className="px-3.5 py-1 rounded-full"
-          style={{
-            fontSize:         11,
-            color:            "#6A9448",
-            backgroundColor:  "rgba(155,210,110,0.18)",
-            border:           "1px solid rgba(140,200,90,0.30)",
-            fontWeight:       600,
-          }}>
+          style={{ fontSize:11, color:badgeColor, backgroundColor:badgeBg,
+            border:`1px solid ${badgeBorder}`, fontWeight:600 }}>
           {treeData.title}
         </span>
       </div>
 
       {/* 補足文 */}
-      <p style={{ fontSize:11, color:"#9AAA80", textAlign:"center", lineHeight:1.8 }}>
+      <p style={{ fontSize:11, color:textColor, textAlign:"center", lineHeight:1.8 }}>
         {subtext}
       </p>
     </div>

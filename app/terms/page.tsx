@@ -93,7 +93,7 @@ export default function TermsPage() {
           </section>
 
           <section className="border-t border-gray-200 pt-6">
-            <p className="text-sm text-gray-500">お問い合わせ：<a href="mailto:info@synccoupleapp.com" className="text-rose-500 hover:underline">info@synccoupleapp.com</a></p>
+            <p className="text-sm text-gray-500">お問い合わせ：<a href="https://docs.google.com/forms/d/e/1FAIpQLSdeRI32etS8-oM9DFp_xm-eyvP312w0ONt9vVYD3uiLsjM1Yw/viewform" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">お問い合わせフォーム</a></p>
           </section>
 
         </div>

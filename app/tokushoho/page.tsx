@@ -15,8 +15,8 @@ const items: { label: string; value: string | React.ReactNode }[] = [
   {
     label: "お問い合わせ先",
     value: (
-      <a href="mailto:info@synccoupleapp.com" className="text-rose-500 hover:underline">
-        info@synccoupleapp.com
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSdeRI32etS8-oM9DFp_xm-eyvP312w0ONt9vVYD3uiLsjM1Yw/viewform" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">
+        お問い合わせフォーム
       </a>
     ),
   },
@@ -89,10 +89,10 @@ export default function TokushohoPage() {
 
         <p className="mt-8 text-sm text-gray-500 leading-relaxed">
           代表者・所在地・電話番号の開示をご希望の場合は、
-          <a href="mailto:info@synccoupleapp.com" className="text-rose-500 hover:underline">
-            info@synccoupleapp.com
+          <a href="https://docs.google.com/forms/d/e/1FAIpQLSdeRI32etS8-oM9DFp_xm-eyvP312w0ONt9vVYD3uiLsjM1Yw/viewform" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">
+            お問い合わせフォーム
           </a>
-          までご連絡ください。遅滞なく開示いたします。
+          よりご連絡ください。遅滞なく開示いたします。
         </p>
       </main>
 

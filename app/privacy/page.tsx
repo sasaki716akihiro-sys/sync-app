@@ -101,7 +101,7 @@ export default function PrivacyPage() {
           <section className="border-t border-gray-200 pt-6">
             <h2 className="text-lg font-bold text-gray-900 mb-3">お問い合わせ</h2>
             <p className="text-sm">個人情報の取り扱いに関するお問い合わせは以下までご連絡ください。</p>
-            <p className="text-sm mt-1">メール：<a href="mailto:info@synccoupleapp.com" className="text-rose-500 hover:underline">info@synccoupleapp.com</a></p>
+            <p className="text-sm mt-1"><a href="https://docs.google.com/forms/d/e/1FAIpQLSdeRI32etS8-oM9DFp_xm-eyvP312w0ONt9vVYD3uiLsjM1Yw/viewform" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">お問い合わせフォーム</a></p>
           </section>
 
         </div>

@@ -597,7 +597,7 @@ export default function LandingPage() {
                   <li><a href="/terms" className="hover:text-white transition-colors">利用規約</a></li>
                   <li><a href="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</a></li>
                   <li><a href="/tokushoho" className="hover:text-white transition-colors">特定商取引法に基づく表記</a></li>
-                  <li><a href="mailto:info@synccoupleapp.com" className="hover:text-white transition-colors">お問い合わせ</a></li>
+                  <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSdeRI32etS8-oM9DFp_xm-eyvP312w0ONt9vVYD3uiLsjM1Yw/viewform" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">お問い合わせ</a></li>
                 </ul>
               </div>
             </div>

@@ -1052,6 +1052,27 @@ function SettingsScreen({
           </div>
         )}
 
+        {/* お問い合わせ */}
+        <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
+          <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
+            <p className="font-bold text-sm" style={{ color:"#B86540" }}>✉️ お問い合わせ</p>
+          </div>
+          <div className="px-5 py-5" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+            <p className="text-xs leading-relaxed mb-3" style={{ color:"#9A7B6A" }}>
+              ご意見・ご要望・不具合のご報告はこちらからお気軽にどうぞ。
+            </p>
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSdeRI32etS8-oM9DFp_xm-eyvP312w0ONt9vVYD3uiLsjM1Yw/viewform"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-2.5 rounded-2xl text-sm font-bold text-center active:scale-95 transition-transform"
+              style={{ backgroundColor:"#FFF5E0", color:"#B86540", border:"1px solid #F5CBA7" }}
+            >
+              お問い合わせフォームを開く
+            </a>
+          </div>
+        </div>
+
         {/* 退会 */}
         <WithdrawSection />
 

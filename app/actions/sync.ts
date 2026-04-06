@@ -107,6 +107,64 @@ export async function updatePartnerPeriod(
 }
 
 /**
+ * 夫婦の木のポイント・レベルをカップル両行に書き込む（RLSバイパス）
+ */
+export async function updateTreeData(
+  coupleId: string,
+  myEmail: string,
+  partnerEmail: string | null,
+  treePoints: number,
+  treeLevel: number,
+  treeLastPointDate: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!coupleId?.trim() || !myEmail) return { ok: false, error: "invalid args" };
+
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.email !== myEmail) return { ok: false, error: "unauthorized" };
+
+  const { data: membership } = await supabase
+    .from("sync_status")
+    .select("couple_id")
+    .eq("couple_id", coupleId.trim())
+    .eq("user_email", myEmail)
+    .maybeSingle();
+  if (!membership) return { ok: false, error: "unauthorized" };
+
+  const now = new Date().toISOString();
+  const treePayload = {
+    tree_points:          treePoints,
+    tree_level:           treeLevel,
+    tree_last_point_date: treeLastPointDate,
+    updated_at:           now,
+  };
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !partnerEmail) {
+    const { error } = await supabase.from("sync_status").upsert(
+      { couple_id: coupleId, user_email: myEmail, ...treePayload },
+      { onConflict: "couple_id,user_email" }
+    );
+    return error ? { ok: false, error: error.message } : { ok: true };
+  }
+
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  const rows = [
+    { couple_id: coupleId, user_email: myEmail,      ...treePayload },
+    { couple_id: coupleId, user_email: partnerEmail, ...treePayload },
+  ];
+
+  const { error } = await admin
+    .from("sync_status")
+    .upsert(rows, { onConflict: "couple_id,user_email" });
+
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+/**
  * サービスロールキーを使ってRLSをバイパスし、
  * 同じcouple_idを持つすべての行を返す。
  *

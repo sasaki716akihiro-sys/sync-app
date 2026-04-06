@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { logout } from "@/app/auth/actions";
 import { checkConnection, disconnectCouple, issueInviteCode, joinWithInviteCode } from "@/app/actions/invite";
-import { fetchCoupleRows, updateSyncGoal, updatePartnerPeriod } from "@/app/actions/sync";
+import { fetchCoupleRows, updateSyncGoal, updatePartnerPeriod, updateTreeData } from "@/app/actions/sync";
 import { createClient } from "@/lib/supabase/client";
 import { getSyncMessage, getWaitingMessage, type SyncMessage } from "@/lib/syncMessages";
 
@@ -51,6 +51,10 @@ interface SyncRow {
   kimochi_log: KimochiLogEntry[] | null;
   // ── プッシュ通知 ──
   push_subscription: { endpoint?: string } | null;
+  // ── 夫婦の木 ──
+  tree_points:          number | null;
+  tree_level:           number | null;
+  tree_last_point_date: string | null;
 }
 
 // 生理履歴の1件
@@ -195,6 +199,36 @@ function getLocalDateStr(d = new Date()): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+// ─── 夫婦の木 ─────────────────────────────────────────────
+const TREE_LEVELS = [
+  { level:1, minPoints:0,  name:"たね",         title:"はじめの一歩",          emoji:"🌰", bg:"#F5ECD8" },
+  { level:2, minPoints:5,  name:"ふたば",        title:"気持ちを向け合うふたり", emoji:"🌱", bg:"#DFF2DF" },
+  { level:3, minPoints:12, name:"若葉",           title:"すこし通じたふたり",     emoji:"🌿", bg:"#D5EDCF" },
+  { level:4, minPoints:22, name:"小さな木",       title:"いい感じのふたり",       emoji:"🌳", bg:"#CAE8C4" },
+  { level:5, minPoints:35, name:"青々とした木",   title:"あうんの呼吸",           emoji:"🌲", bg:"#BEE3B8" },
+  { level:6, minPoints:50, name:"花が咲く木",     title:"心が近づいたふたり",     emoji:"🌸", bg:"#F5DFF0" },
+  { level:7, minPoints:70, name:"実をつけた木",   title:"ぬくもり夫婦",           emoji:"🍎", bg:"#F5E5D5" },
+] as const;
+
+type TreeLevelData = typeof TREE_LEVELS[number];
+
+const TREE_LEVELUP_MESSAGES: Record<number, string> = {
+  2: "ふたりの歩みが、少しずつ重なり始めているよ。",
+  3: "気持ちを伝え合う習慣が、やさしく根付いてきたね。",
+  4: "ふたりのリズムが、だんだん合ってきた気がするよ。",
+  5: "少しずつ、ふたりのタイミングが重なってきています。",
+  6: "ふたりの心が、静かに近づいていっているよ。",
+  7: "ふたりで育てた木が、こんなに大きく実をつけたね。",
+};
+
+function getTreeLevelData(points: number): TreeLevelData {
+  let current: TreeLevelData = TREE_LEVELS[0];
+  for (const lvl of TREE_LEVELS) {
+    if (points >= lvl.minPoints) current = lvl;
+  }
+  return current;
 }
 
 // ─── キモチ選択行 ────────────────────────────────────────
@@ -1515,6 +1549,77 @@ function NoCoupleIdScreen({ onGoSettings }: { onGoSettings:()=>void }) {
 
 
 
+// ─── 夫婦の木カード ───────────────────────────────────────
+function TreeCard({ treeData }: { treeData: TreeLevelData }) {
+  return (
+    <div className="rounded-3xl overflow-hidden"
+      style={{ border:"1px solid #D2EAC0", boxShadow:"0 2px 12px rgba(80,140,60,0.10)" }}>
+      <div className="px-4 py-2.5 flex items-center gap-2"
+        style={{ backgroundColor:"rgba(215,242,198,0.55)" }}>
+        <span style={{ fontSize:13 }}>🌳</span>
+        <p className="text-xs font-bold" style={{ color:"#5A8A40" }}>ふたりの木</p>
+      </div>
+      <div className="px-5 py-4 flex items-center gap-4"
+        style={{ backgroundColor:"rgba(248,255,244,0.88)" }}>
+        <div className="flex items-center justify-center rounded-2xl flex-shrink-0"
+          style={{ width:60, height:60, backgroundColor: treeData.bg }}>
+          <span style={{ fontSize:34, lineHeight:1 }}>{treeData.emoji}</span>
+        </div>
+        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+          <p className="font-bold" style={{ fontSize:18, color:"#3A6820", lineHeight:1.2 }}>
+            {treeData.name}
+          </p>
+          <p style={{ fontSize:11, color:"#6A9850", lineHeight:1.5 }}>
+            {treeData.title}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 木のレベルアップモーダル ─────────────────────────────
+function TreeLevelUpModal({ treeData, onClose }: {
+  treeData: TreeLevelData; onClose: () => void;
+}) {
+  const message = TREE_LEVELUP_MESSAGES[treeData.level] ?? "";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor:"rgba(20,40,10,0.45)", backdropFilter:"blur(5px)" }}>
+      <div className="w-full max-w-xs rounded-3xl overflow-hidden"
+        style={{ backgroundColor:"#FAFFF5", boxShadow:"0 20px 60px rgba(20,50,10,0.32)" }}>
+        {/* ヘッダー */}
+        <div className="px-6 py-7 flex flex-col items-center gap-3 text-center"
+          style={{ background:"linear-gradient(160deg,#E8F8D0,#D0EDB8)" }}>
+          <span style={{ fontSize:60, lineHeight:1 }}>{treeData.emoji}</span>
+          <p className="font-bold" style={{ fontSize:18, color:"#3A6818", lineHeight:1.3 }}>
+            夫婦の木が育ちました
+          </p>
+        </div>
+        {/* ボディ */}
+        <div className="px-6 py-5 flex flex-col gap-4">
+          <div className="rounded-2xl px-4 py-3 flex flex-col gap-0.5 text-center"
+            style={{ backgroundColor:"rgba(195,238,165,0.35)", border:"1px solid #A8D880" }}>
+            <p style={{ fontSize:10, color:"#6A9840", fontWeight:700, letterSpacing:"0.06em" }}>
+              新しい称号
+            </p>
+            <p className="font-bold" style={{ fontSize:15, color:"#3A6818" }}>{treeData.title}</p>
+          </div>
+          <p className="text-sm text-center leading-relaxed" style={{ color:"#7A9868" }}>
+            {message}
+          </p>
+          <button onClick={onClose}
+            className="w-full py-3.5 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+            style={{ background:"linear-gradient(135deg,#7AC050,#5A9838)", color:"#FAFFF5",
+              boxShadow:"0 4px 16px rgba(80,152,40,0.38)" }}>
+            やったね 🌟
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── メインページ ─────────────────────────────────────────
 export default function Home() {
   const [myEmail,      setMyEmail]      = useState("");
@@ -1526,6 +1631,8 @@ export default function Home() {
   const [partnerEmail,    setPartnerEmail]    = useState<string | null>(null);
   const [showPerfectSync, setShowPerfectSync] = useState(false);
   const [syncMessage,     setSyncMessage]     = useState<SyncMessage | null>(null);
+  const [showTreeLevelUp, setShowTreeLevelUp] = useState(false);
+  const [treeLevelUpInfo, setTreeLevelUpInfo] = useState<TreeLevelData | null>(null);
 
   // ── ★ source of truth: DBの行をそのまま保持 ─────────────
   // myRow / partnerRow は myEmail で毎回派生させる
@@ -1564,6 +1671,11 @@ export default function Home() {
 
   // push_subscription のエンドポイント文字列（プリミティブにすることで useEffect の無限ループを防ぐ）
   const myPushEndpoint = (myRow?.push_subscription as { endpoint?: string } | null)?.endpoint ?? null;
+
+  // ── 夫婦の木：派生値 ─────────────────────────────────────
+  const treePoints        = myRow?.tree_points          ?? 0;
+  const treeLastPointDate = myRow?.tree_last_point_date ?? null;
+  const currentTreeData   = getTreeLevelData(treePoints);
 
   // パートナーの行（接続中のみ）
   const partnerRow = (isConnected && myEmail)
@@ -1717,6 +1829,43 @@ export default function Home() {
       ));
     }
   }, [myKimochi, partnerKimochi, today, coupleId, myEmail, myRow?.last_sync_date]);
+
+  // ─── 夫婦の木：ポイント加算（両者入力完了時・1日1回）─────────
+  const savingTreeRef = useRef(false);
+  useEffect(() => {
+    if (!myKimochi || !partnerKimochi) return;
+    if (treeLastPointDate === today) return;
+    if (!coupleId || !myEmail || !isConnected) return;
+    if (savingTreeRef.current) return;
+
+    const isPerfectSync = myKimochi === "circle" && partnerKimochi === "circle";
+    const addedPoints = 1 + (isPerfectSync ? 3 : 0);
+    const newPoints   = treePoints + addedPoints;
+    const oldLvl      = getTreeLevelData(treePoints);
+    const newLvl      = getTreeLevelData(newPoints);
+
+    // レベルアップ演出（セッション中1回）
+    if (newLvl.level > oldLvl.level) {
+      const key = `tree_levelup_${today}_${newLvl.level}`;
+      if (typeof sessionStorage !== "undefined" && !sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        setTreeLevelUpInfo(newLvl);
+        setShowTreeLevelUp(true);
+      }
+    }
+
+    savingTreeRef.current = true;
+
+    // 楽観的更新（両行を同じ値に）
+    setSyncData(prev => prev.map(r =>
+      r.couple_id === coupleId
+        ? { ...r, tree_points: newPoints, tree_level: newLvl.level, tree_last_point_date: today }
+        : r
+    ));
+
+    updateTreeData(coupleId, myEmail, partnerRow?.user_email ?? null, newPoints, newLvl.level, today)
+      .finally(() => { savingTreeRef.current = false; });
+  }, [myKimochi, partnerKimochi, today, treePoints, treeLastPointDate, coupleId, myEmail, isConnected, partnerRow?.user_email]);
 
   // ─── SyncMessage 更新 ─────────────────────────────────────
   useEffect(() => {
@@ -2328,6 +2477,9 @@ export default function Home() {
 
       <Toast msg={toast.msg} on={toast.on}/>
       {showPerfectSync && <PerfectSyncOverlay onClose={() => setShowPerfectSync(false)} />}
+      {showTreeLevelUp && treeLevelUpInfo && (
+        <TreeLevelUpModal treeData={treeLevelUpInfo} onClose={() => setShowTreeLevelUp(false)} />
+      )}
 
       <div className="w-full max-w-sm flex flex-col px-4 pt-6 pb-10 gap-4">
 
@@ -2711,6 +2863,9 @@ export default function Home() {
             <span style={{ fontSize:11, color:"#D97B6C", fontWeight:600 }}>許可する →</span>
           </button>
         )}
+
+        {/* ── 夫婦の木カード ──────────────────────────────────── */}
+        <TreeCard treeData={currentTreeData} />
 
         {/* ── ④ 週次ふりかえりカード（改善版：2段構成） ─────────── */}
         {(() => {

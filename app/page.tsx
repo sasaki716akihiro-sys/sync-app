@@ -1560,46 +1560,186 @@ const TREE_SUBTEXTS: Record<number, string> = {
   7: "実をつけた木。ふたりで育てた、大切な時間のかたち",
 };
 
-// たね専用ビジュアル：土に半分埋まった種
-function SeedVisual() {
+// ─── 成長段階別SVGイラスト ────────────────────────────────
+function TreeVisual({ level }: { level: number }) {
+  // レベルごとの背景色・影
+  const bgMap: Record<number, string> = {
+    1:"#EAE0CA", 2:"#D5ECBC", 3:"#C5E5A8",
+    4:"#B2DC98", 5:"#A0D080", 6:"#C8DEB0", 7:"#B8D4A0",
+  };
+  const shadowMap: Record<number, string> = {
+    1:"0 4px 18px rgba(120,90,50,0.18)",
+    2:"0 4px 20px rgba(80,150,50,0.14)",
+    3:"0 4px 20px rgba(70,140,45,0.16)",
+    4:"0 4px 22px rgba(60,135,35,0.18)",
+    5:"0 4px 24px rgba(50,125,30,0.20)",
+    6:"0 4px 24px rgba(60,130,40,0.18)",
+    7:"0 4px 24px rgba(50,125,30,0.20)",
+  };
+  const soilYMap: Record<number, number> = {
+    1:62, 2:70, 3:72, 4:76, 5:78, 6:78, 7:78,
+  };
+  const bg     = bgMap[level]     ?? "#EAE0CA";
+  const shadow = shadowMap[level] ?? shadowMap[1];
+  const sy     = soilYMap[level]  ?? 78; // soil top y
+  const sh     = 100 - sy;               // soil height
+
   return (
-    <div style={{ position:"relative", width:100, height:100, borderRadius:"50%", overflow:"hidden",
-      backgroundColor:"#E8DCC8", boxShadow:"0 4px 18px rgba(120,90,50,0.16)" }}>
-      {/* 土の層 */}
-      <div style={{
-        position:"absolute", bottom:0, left:0, right:0, height:38,
-        backgroundColor:"rgba(110,75,38,0.26)",
-        borderTop:"1.5px solid rgba(110,75,38,0.35)",
-      }}/>
-      {/* 種（小さく地面に半分埋まった形） */}
-      <div style={{
-        position:"absolute",
-        bottom:22,
-        left:"50%",
-        transform:"translateX(-50%)",
-        width:22,
-        height:28,
-        backgroundColor:"#6B3E1C",
-        borderRadius:"50% 50% 46% 46%",
-      }}/>
-      {/* 種の光沢 */}
-      <div style={{
-        position:"absolute",
-        bottom:36,
-        left:"calc(50% - 4px)",
-        width:7,
-        height:9,
-        backgroundColor:"rgba(200,158,100,0.45)",
-        borderRadius:"50%",
-      }}/>
+    <div style={{ width:110, height:110, borderRadius:"50%", overflow:"hidden",
+      backgroundColor:bg, boxShadow:shadow, flexShrink:0 }}>
+      <svg width="110" height="110" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+
+        {/* ── 土（全レベル共通） ── */}
+        <rect x="0" y={sy} width="110" height={sh} fill="rgba(105,70,35,0.22)"/>
+        <line x1="0" y1={sy} x2="110" y2={sy}
+          stroke="rgba(105,70,35,0.40)" strokeWidth="1.8"/>
+
+        {/* ── Lv1 たね ── */}
+        {level === 1 && <>
+          {/* 種（縦長の楕円、地面に半分埋まった位置） */}
+          <ellipse cx="55" cy="58" rx="12" ry="16" fill="#6B3E1C"/>
+          {/* 光沢 */}
+          <ellipse cx="50" cy="51" rx="4" ry="5" fill="rgba(200,155,95,0.44)"/>
+        </>}
+
+        {/* ── Lv2 ふたば ── */}
+        {level === 2 && <>
+          {/* 茎 */}
+          <line x1="55" y1="70" x2="55" y2="50"
+            stroke="#6A9840" strokeWidth="3" strokeLinecap="round"/>
+          {/* 左葉 */}
+          <ellipse cx="44" cy="53" rx="13" ry="7.5" fill="#8ACC58"
+            transform="rotate(-38,44,53)"/>
+          {/* 右葉 */}
+          <ellipse cx="66" cy="53" rx="13" ry="7.5" fill="#8ACC58"
+            transform="rotate(38,66,53)"/>
+          {/* 葉脈（左） */}
+          <line x1="44" y1="50" x2="39" y2="43"
+            stroke="rgba(255,255,255,0.38)" strokeWidth="1.2" strokeLinecap="round"/>
+          {/* 葉脈（右） */}
+          <line x1="66" y1="50" x2="71" y2="43"
+            stroke="rgba(255,255,255,0.38)" strokeWidth="1.2" strokeLinecap="round"/>
+        </>}
+
+        {/* ── Lv3 若葉 ── */}
+        {level === 3 && <>
+          {/* 茎（高め） */}
+          <line x1="55" y1="72" x2="55" y2="36"
+            stroke="#589038" strokeWidth="2.8" strokeLinecap="round"/>
+          {/* 下の葉ペア */}
+          <ellipse cx="43" cy="64" rx="14" ry="7.5" fill="#88C850"
+            transform="rotate(-42,43,64)"/>
+          <ellipse cx="67" cy="64" rx="14" ry="7.5" fill="#88C850"
+            transform="rotate(42,67,64)"/>
+          {/* 上の葉ペア */}
+          <ellipse cx="43" cy="52" rx="13" ry="7" fill="#78BC48"
+            transform="rotate(-30,43,52)"/>
+          <ellipse cx="67" cy="52" rx="13" ry="7" fill="#78BC48"
+            transform="rotate(30,67,52)"/>
+          {/* 頂点の葉 */}
+          <ellipse cx="55" cy="36" rx="9" ry="12" fill="#8CCC58"/>
+        </>}
+
+        {/* ── Lv4 小さな木 ── */}
+        {level === 4 && <>
+          {/* 幹 */}
+          <rect x="50" y="62" width="10" height="16" fill="#8B6040" rx="4"/>
+          <line x1="53.5" y1="64" x2="53.5" y2="75"
+            stroke="rgba(255,255,255,0.18)" strokeWidth="1.8" strokeLinecap="round"/>
+          {/* 樹冠 */}
+          <circle cx="55" cy="50" r="22" fill="#6AB840"/>
+          <circle cx="40" cy="56" r="16" fill="#72C048"/>
+          <circle cx="70" cy="56" r="16" fill="#72C048"/>
+          <circle cx="55" cy="35" r="16" fill="#80CC58"/>
+          <circle cx="46" cy="46" r="12" fill="#78C850"/>
+          <circle cx="64" cy="46" r="12" fill="#78C850"/>
+        </>}
+
+        {/* ── Lv5 青々とした木 ── */}
+        {level === 5 && <>
+          {/* 幹（太め） */}
+          <rect x="49" y="60" width="12" height="20" fill="#7A5038" rx="5"/>
+          <line x1="53" y1="62" x2="53" y2="77"
+            stroke="rgba(255,255,255,0.16)" strokeWidth="1.8" strokeLinecap="round"/>
+          {/* 樹冠（大きく、重なり豊か） */}
+          <circle cx="55" cy="46" r="26" fill="#60A838"/>
+          <circle cx="36" cy="55" r="19" fill="#68B040"/>
+          <circle cx="74" cy="55" r="19" fill="#68B040"/>
+          <circle cx="55" cy="30" r="17" fill="#78BE50"/>
+          <circle cx="42" cy="40" r="15" fill="#70B848"/>
+          <circle cx="68" cy="40" r="15" fill="#70B848"/>
+          <circle cx="55" cy="48" r="15" fill="#78C050"/>
+        </>}
+
+        {/* ── Lv6 花が咲く木 ── */}
+        {level === 6 && <>
+          {/* 幹 */}
+          <rect x="49" y="60" width="12" height="20" fill="#7A5038" rx="5"/>
+          <line x1="53" y1="62" x2="53" y2="77"
+            stroke="rgba(255,255,255,0.16)" strokeWidth="1.8" strokeLinecap="round"/>
+          {/* 樹冠 */}
+          <circle cx="55" cy="46" r="26" fill="#60A838"/>
+          <circle cx="36" cy="55" r="19" fill="#68B040"/>
+          <circle cx="74" cy="55" r="19" fill="#68B040"/>
+          <circle cx="55" cy="30" r="17" fill="#78BE50"/>
+          <circle cx="42" cy="40" r="15" fill="#70B848"/>
+          <circle cx="68" cy="40" r="15" fill="#70B848"/>
+          <circle cx="55" cy="48" r="15" fill="#78C050"/>
+          {/* 花（白い外側＋淡い中心） */}
+          <circle cx="42" cy="40" r="5.5" fill="white" opacity="0.92"/>
+          <circle cx="42" cy="40" r="2.5" fill="#FFB8C8" opacity="0.85"/>
+          <circle cx="68" cy="38" r="5" fill="white" opacity="0.88"/>
+          <circle cx="68" cy="38" r="2.2" fill="#FFE8C0" opacity="0.82"/>
+          <circle cx="55" cy="28" r="5" fill="white" opacity="0.90"/>
+          <circle cx="55" cy="28" r="2.2" fill="#FFF0B8" opacity="0.84"/>
+          <circle cx="48" cy="53" r="4.5" fill="white" opacity="0.86"/>
+          <circle cx="48" cy="53" r="2" fill="#FFB8C8" opacity="0.78"/>
+          <circle cx="65" cy="55" r="4.5" fill="white" opacity="0.86"/>
+          <circle cx="65" cy="55" r="2" fill="#FFE0B0" opacity="0.78"/>
+        </>}
+
+        {/* ── Lv7 実をつけた木 ── */}
+        {level === 7 && <>
+          {/* 幹 */}
+          <rect x="49" y="60" width="12" height="20" fill="#7A5038" rx="5"/>
+          <line x1="53" y1="62" x2="53" y2="77"
+            stroke="rgba(255,255,255,0.16)" strokeWidth="1.8" strokeLinecap="round"/>
+          {/* 樹冠 */}
+          <circle cx="55" cy="46" r="26" fill="#60A838"/>
+          <circle cx="36" cy="55" r="19" fill="#68B040"/>
+          <circle cx="74" cy="55" r="19" fill="#68B040"/>
+          <circle cx="55" cy="30" r="17" fill="#78BE50"/>
+          <circle cx="42" cy="40" r="15" fill="#70B848"/>
+          <circle cx="68" cy="40" r="15" fill="#70B848"/>
+          <circle cx="55" cy="48" r="15" fill="#78C050"/>
+          {/* 花（控えめに） */}
+          <circle cx="44" cy="36" r="4.5" fill="white" opacity="0.82"/>
+          <circle cx="44" cy="36" r="2" fill="#FFB8C8" opacity="0.75"/>
+          <circle cx="66" cy="32" r="4" fill="white" opacity="0.80"/>
+          <circle cx="66" cy="32" r="1.8" fill="#FFE8C0" opacity="0.72"/>
+          {/* 実（丸くてやさしい色） */}
+          <circle cx="40" cy="53" r="6" fill="#E06848"/>
+          <circle cx="40" cy="53" r="4" fill="#EE7858"/>
+          <circle cx="38" cy="51" r="1.8" fill="rgba(255,255,255,0.52)"/>
+          <circle cx="68" cy="50" r="5.5" fill="#D87040"/>
+          <circle cx="68" cy="50" r="3.8" fill="#E88050"/>
+          <circle cx="66" cy="48" r="1.6" fill="rgba(255,255,255,0.52)"/>
+          <circle cx="53" cy="57" r="5.5" fill="#E06848"/>
+          <circle cx="53" cy="57" r="3.8" fill="#EE7858"/>
+          <circle cx="51" cy="55" r="1.6" fill="rgba(255,255,255,0.52)"/>
+          <circle cx="66" cy="60" r="5" fill="#D87040"/>
+          <circle cx="66" cy="60" r="3.5" fill="#E88050"/>
+          <circle cx="64" cy="58" r="1.4" fill="rgba(255,255,255,0.52)"/>
+        </>}
+
+      </svg>
     </div>
   );
 }
 
 function TreeCard({ treeData }: { treeData: TreeLevelData }) {
-  const subtext = TREE_SUBTEXTS[treeData.level] ?? "";
-  const isSeed  = treeData.level === 1;
-
+  const subtext  = TREE_SUBTEXTS[treeData.level] ?? "";
+  const isSeed   = treeData.level === 1;
   const nameColor   = isSeed ? "#6A4820" : "#3A6420";
   const labelColor  = isSeed ? "#8C7248" : "#7A9E58";
   const badgeBg     = isSeed ? "rgba(185,148,88,0.18)"  : "rgba(140,200,100,0.18)";
@@ -1617,15 +1757,7 @@ function TreeCard({ treeData }: { treeData: TreeLevelData }) {
       </p>
 
       {/* 木のビジュアル（主役） */}
-      {isSeed ? (
-        <SeedVisual />
-      ) : (
-        <div className="flex items-center justify-center"
-          style={{ width:100, height:100, borderRadius:"50%", backgroundColor:treeData.bg,
-            boxShadow:"0 4px 24px rgba(100,160,60,0.14)" }}>
-          <span style={{ fontSize:58, lineHeight:1 }}>{treeData.emoji}</span>
-        </div>
-      )}
+      <TreeVisual level={treeData.level} />
 
       {/* 木の名前 */}
       <div className="flex flex-col items-center gap-1.5">

@@ -1551,7 +1551,7 @@ function NoCoupleIdScreen({ onGoSettings }: { onGoSettings:()=>void }) {
 
 // ─── 夫婦の木エリア ───────────────────────────────────────
 const TREE_SUBTEXTS: Record<number, string> = {
-  1: "ふたりが入力した日だけ、この木は育っていくよ",
+  1: "ふたりのペースで、ゆっくり育てていこう",
   2: "小さな芽が、ふたりの手で育ち始めているよ",
   3: "やさしい葉が、ふたりの日々をそっと包んでいるよ",
   4: "すくすく育つ木が、ふたりの積み重ねを教えてくれるよ",
@@ -1564,12 +1564,12 @@ const TREE_SUBTEXTS: Record<number, string> = {
 function SeedVisual() {
   return (
     <div style={{ position:"relative", width:100, height:100, borderRadius:"50%", overflow:"hidden",
-      backgroundColor:"#EDE4D2", boxShadow:"0 3px 14px rgba(120,90,50,0.12)" }}>
+      backgroundColor:"#E8DCC8", boxShadow:"0 4px 18px rgba(120,90,50,0.16)" }}>
       {/* 土の層 */}
       <div style={{
         position:"absolute", bottom:0, left:0, right:0, height:38,
-        backgroundColor:"rgba(120,85,45,0.18)",
-        borderTop:"1px solid rgba(120,85,45,0.22)",
+        backgroundColor:"rgba(110,75,38,0.26)",
+        borderTop:"1.5px solid rgba(110,75,38,0.35)",
       }}/>
       {/* 種（小さく地面に半分埋まった形） */}
       <div style={{
@@ -1579,17 +1579,17 @@ function SeedVisual() {
         transform:"translateX(-50%)",
         width:22,
         height:28,
-        backgroundColor:"#7A4E28",
+        backgroundColor:"#6B3E1C",
         borderRadius:"50% 50% 46% 46%",
       }}/>
-      {/* 種の光沢（小さな楕円） */}
+      {/* 種の光沢 */}
       <div style={{
         position:"absolute",
         bottom:36,
         left:"calc(50% - 4px)",
         width:7,
         height:9,
-        backgroundColor:"rgba(190,145,88,0.38)",
+        backgroundColor:"rgba(200,158,100,0.45)",
         borderRadius:"50%",
       }}/>
     </div>
@@ -1600,21 +1600,16 @@ function TreeCard({ treeData }: { treeData: TreeLevelData }) {
   const subtext = TREE_SUBTEXTS[treeData.level] ?? "";
   const isSeed  = treeData.level === 1;
 
-  // 背景グラデーション：たねは土っぽい暖色、それ以外は緑
-  const areaBg = isSeed
-    ? "linear-gradient(180deg, rgba(250,246,238,0) 0%, rgba(240,230,210,0.45) 40%, rgba(250,246,238,0) 100%)"
-    : "linear-gradient(180deg, rgba(240,250,234,0) 0%, rgba(232,247,222,0.55) 40%, rgba(240,250,234,0) 100%)";
-  const borderColor = isSeed ? "rgba(190,160,110,0.28)" : "rgba(180,220,155,0.30)";
-  const nameColor   = isSeed ? "#7A5830"                : "#3A6420";
-  const labelColor  = isSeed ? "#A08858"                : "#8AAA68";
-  const badgeBg     = isSeed ? "rgba(200,165,100,0.16)" : "rgba(155,210,110,0.18)";
-  const badgeBorder = isSeed ? "rgba(190,155,90,0.28)"  : "rgba(140,200,90,0.30)";
-  const badgeColor  = isSeed ? "#8A6838"                : "#6A9448";
-  const textColor   = isSeed ? "#B09A78"                : "#9AAA80";
+  const nameColor   = isSeed ? "#6A4820" : "#3A6420";
+  const labelColor  = isSeed ? "#8C7248" : "#7A9E58";
+  const badgeBg     = isSeed ? "rgba(185,148,88,0.18)"  : "rgba(140,200,100,0.18)";
+  const badgeBorder = isSeed ? "rgba(170,135,80,0.32)"  : "rgba(130,190,90,0.32)";
+  const badgeColor  = isSeed ? "#7A5830"                : "#5A8A38";
+  const textColor   = isSeed ? "#9A7E5A"                : "#849E68";
 
   return (
-    <div className="flex flex-col items-center py-7 px-4 gap-5"
-      style={{ background:areaBg, borderTop:`1px solid ${borderColor}`, borderBottom:`1px solid ${borderColor}` }}>
+    <div className="flex flex-col items-center px-4 gap-5"
+      style={{ paddingTop:28, paddingBottom:28 }}>
 
       {/* ラベル */}
       <p style={{ fontSize:11, color:labelColor, fontWeight:600, letterSpacing:"0.10em" }}>
@@ -1646,7 +1641,7 @@ function TreeCard({ treeData }: { treeData: TreeLevelData }) {
       </div>
 
       {/* 補足文 */}
-      <p style={{ fontSize:11, color:textColor, textAlign:"center", lineHeight:1.8 }}>
+      <p style={{ fontSize:11, color:textColor, textAlign:"center", lineHeight:1.9 }}>
         {subtext}
       </p>
     </div>

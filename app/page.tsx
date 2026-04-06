@@ -1052,11 +1052,100 @@ function SettingsScreen({
           </div>
         )}
 
+        {/* 退会 */}
+        <WithdrawSection />
+
         <div className="h-8"/>
       </div>
     </div>
   );
 }
+
+function WithdrawSection() {
+  const [showConfirm1, setShowConfirm1] = useState(false);
+  const [showConfirm2, setShowConfirm2] = useState(false);
+  const [withdrawing,  setWithdrawing]  = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+
+  const handleWithdraw = async () => {
+    setWithdrawing(true);
+    setError(null);
+    const { deleteAccount } = await import("@/app/auth/actions");
+    const result = await deleteAccount();
+    if (result && result.status === "error") {
+      setError(result.message);
+      setWithdrawing(false);
+      setShowConfirm2(false);
+    }
+    // 成功時は deleteAccount 内で /login にリダイレクトされる
+  };
+
+  return (
+    <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
+      <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
+        <p className="font-bold text-sm" style={{ color:"#B86540" }}>🚪 退会</p>
+      </div>
+      <div className="px-5 py-5 flex flex-col gap-3" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+        {error && (
+          <p className="text-xs text-center px-3 py-2 rounded-xl" style={{ backgroundColor:"#FCE8E5", color:"#D4533A" }}>
+            ⚠️ {error}
+          </p>
+        )}
+        {!showConfirm1 && !showConfirm2 && (
+          <>
+            <p className="text-xs leading-relaxed" style={{ color:"#9A7B6A" }}>
+              退会するとアカウントとすべてのデータが削除されます。この操作は取り消せません。
+            </p>
+            <button
+              onClick={() => setShowConfirm1(true)}
+              className="w-full py-2.5 rounded-2xl text-sm font-bold active:scale-95 transition-transform"
+              style={{ backgroundColor:"#FFF0F0", color:"#C0392B", border:"1px solid #F4A8A8" }}
+            >
+              退会する
+            </button>
+          </>
+        )}
+        {showConfirm1 && !showConfirm2 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-center font-bold" style={{ color:"#C0392B" }}>本当に退会しますか？</p>
+            <p className="text-xs text-center" style={{ color:"#9A7B6A" }}>すべてのデータが完全に削除されます</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowConfirm1(false)}
+                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                style={{ backgroundColor:"rgba(255,255,255,0.9)", border:"1px solid #FDEBD0", color:"#9A7B6A" }}>
+                キャンセル
+              </button>
+              <button onClick={() => { setShowConfirm1(false); setShowConfirm2(true); }}
+                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                style={{ backgroundColor:"#F4A8A8", color:"#fff" }}>
+                次へ
+              </button>
+            </div>
+          </div>
+        )}
+        {showConfirm2 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-center font-bold" style={{ color:"#C0392B" }}>最終確認</p>
+            <p className="text-xs text-center" style={{ color:"#9A7B6A" }}>この操作は取り消せません。退会を実行しますか？</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowConfirm2(false)} disabled={withdrawing}
+                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform disabled:opacity-50"
+                style={{ backgroundColor:"rgba(255,255,255,0.9)", border:"1px solid #FDEBD0", color:"#9A7B6A" }}>
+                キャンセル
+              </button>
+              <button onClick={handleWithdraw} disabled={withdrawing}
+                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform disabled:opacity-50"
+                style={{ backgroundColor:"#C0392B", color:"#fff" }}>
+                {withdrawing ? "処理中…" : "退会する"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LoadingScreen() {
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center gap-3" style={{ backgroundColor:"#FFFBF5" }}>

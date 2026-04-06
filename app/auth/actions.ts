@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
 type ActionResult =
@@ -73,6 +74,32 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
 // ── サインアウト ────────────────────────────────────────
 export async function logout() {
   const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}
+
+// ── 退会（データ削除 + auth ユーザー削除）──────────────
+export async function deleteAccount(): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    return { status: "error", message: "ユーザー情報の取得に失敗しました。" };
+  }
+
+  // sync_status の自分の行を削除
+  await supabase.from("sync_status").delete().eq("user_email", user.email!);
+
+  // auth ユーザーをサービスロールキーで削除
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
+  if (deleteError) {
+    return { status: "error", message: `退会処理に失敗しました: ${deleteError.message}` };
+  }
+
   await supabase.auth.signOut();
   redirect("/login");
 }

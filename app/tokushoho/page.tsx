@@ -69,7 +69,7 @@ export default function TokushohoPage() {
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           特定商取引法に基づく表記
         </h1>
-        <p className="text-sm text-gray-500 mb-10">最終更新日：2025年1月1日</p>
+        <p className="text-sm text-gray-500 mb-10">最終更新日：2026年4月6日</p>
 
         <div className="border border-gray-200 rounded-2xl overflow-hidden">
           {items.map(({ label, value }, i) => (

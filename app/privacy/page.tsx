@@ -25,7 +25,7 @@ export default function PrivacyPage() {
       {/* 本文 */}
       <main className="max-w-3xl mx-auto px-5 py-12 md:py-16">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">プライバシーポリシー</h1>
-        <p className="text-sm text-gray-500 mb-10">最終更新日：2025年1月1日</p>
+        <p className="text-sm text-gray-500 mb-10">最終更新日：2026年4月6日</p>
 
         <div className="prose prose-sm md:prose-base max-w-none space-y-8 text-gray-700 leading-relaxed">
 

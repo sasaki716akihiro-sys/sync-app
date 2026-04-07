@@ -514,16 +514,19 @@ function SettingsScreen({
   onResetPartnerPeriod:()=>Promise<void>;
   onDeletePartnerHistory:(start:string)=>Promise<void>;
 }) {
-  const [confirming,            setConfirming]            = useState(false);
-  const [resetting,             setResetting]             = useState(false);
-  const [showResetConfirm,      setShowResetConfirm]      = useState(false);
-  const [showAllHistory,        setShowAllHistory]        = useState(false);
-  const [deletingStart,         setDeletingStart]         = useState<string | null>(null);
-  const [deleting,              setDeleting]              = useState(false);
-  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
-  const [disconnecting,         setDisconnecting]         = useState(false);
+  // ── アコーディオン開閉管理 ──────────────────────────────
+  const [openSection,            setOpenSection]            = useState<string | null>(null);
+  const [confirming,             setConfirming]             = useState(false);
+  const [resetting,              setResetting]              = useState(false);
+  const [showResetConfirm,       setShowResetConfirm]       = useState(false);
+  const [showAllHistory,         setShowAllHistory]         = useState(false);
+  const [deletingStart,          setDeletingStart]          = useState<string | null>(null);
+  const [deleting,               setDeleting]               = useState(false);
+  const [showDisconnectConfirm,  setShowDisconnectConfirm]  = useState(false);
+  const [disconnecting,          setDisconnecting]          = useState(false);
   const HISTORY_LIMIT = 3;
   const cooldownDays = getCooldownDays(syncGoal);
+  const toggle = (key: string) => setOpenSection(prev => prev === key ? null : key);
 
   // ── 生理期間：共有カレンダー ──────────────────────────────
   // 自分の moon_start がなくてパートナーにある場合、パートナーのデータを編集する
@@ -651,66 +654,94 @@ function SettingsScreen({
     predEndInt   = _parseYMD(ne);
   }
 
+  // ── サマリー文字列（リスト行の右側に表示） ────────────────
+  const _mdLabel = (ymd: number) => {
+    const m = Math.floor((ymd % 10000) / 100);
+    const d = ymd % 100;
+    return `${m}/${d}`;
+  };
+  const periodSummary = (() => {
+    if (!confirmedStart) return "未記録";
+    if (!confirmedEnd)   return `生理中 ${_mdLabel(confirmedStart)}〜`;
+    return `最終記録 ${_mdLabel(confirmedStart)}〜${_mdLabel(confirmedEnd)}`;
+  })();
+
   return (
     <div className="min-h-dvh flex flex-col" style={{ backgroundColor:"#FFFBF5", color:"#4A3728" }}>
-      <div className="flex items-center gap-3 px-4 py-5 sticky top-0 z-10"
+      {/* ヘッダー */}
+      <div className="flex items-center gap-3 px-4 py-4 sticky top-0 z-10"
         style={{ backgroundColor:"rgba(255,251,245,0.95)", borderBottom:"1px solid #FDEBD0", backdropFilter:"blur(8px)" }}>
-        <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+        <button
+          onClick={() => onSave(usePartnerPeriod ? null : confirmedStart, usePartnerPeriod ? null : confirmedEnd)}
+          disabled={saving}
+          className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-transform"
           style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>←</button>
         <h1 className="font-bold text-base flex-1" style={{ color:"#8B4513" }}>設定・ふたりのルール</h1>
-        <button onClick={()=>onSave(usePartnerPeriod ? null : confirmedStart, usePartnerPeriod ? null : confirmedEnd)} disabled={saving}
-          className="px-4 py-2 rounded-full text-sm font-bold active:scale-95 transition-transform"
-          style={{ backgroundColor:saving?"#FDEBD0":"#D97B6C", color:"white" }}>
-          {saving ? "保存中…" : "保存 💾"}
-        </button>
+        {saving && <span style={{ fontSize:12, color:"#C4A898" }}>保存中…</span>}
       </div>
 
-      <div className="flex flex-col px-4 py-5 gap-5 max-w-sm w-full mx-auto">
+      <div className="flex flex-col py-4 gap-6 max-w-sm w-full mx-auto pb-12">
 
-        {/* Sync目標 */}
-        <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
-          <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
-            <p className="font-bold text-sm" style={{ color:"#B86540" }}>🎯 今月のSync目標</p>
-            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>ふたりで話し合って決めよう</p>
-          </div>
-          <div className="px-5 py-5 flex flex-col items-center gap-4" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-            <div className="flex items-center gap-6">
-              <button onClick={()=>{ const v=Math.max(1,syncGoal-1); setSyncGoal(v); onGoalChange(v); }}
-                className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-2xl active:scale-90 transition-transform shadow-sm"
-                style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>−</button>
-              <div className="flex flex-col items-center">
-                <span className="font-bold" style={{ fontSize:48, color:"#D97B6C", lineHeight:1 }}>{syncGoal}</span>
-                <span className="text-sm" style={{ color:"#C4A898" }}>回 / 月</span>
+        {/* ─────── セクション：ふたりのルール ─────── */}
+        <section>
+          <p className="px-5 pb-2 text-xs font-semibold tracking-wide" style={{ color:"#C4A898" }}>ふたりのルール</p>
+          <div style={{ borderTop:"1px solid #FDEBD0", borderBottom:"1px solid #FDEBD0", backgroundColor:"rgba(255,255,255,0.85)" }}>
+
+            {/* 今月のSync目標 */}
+            <button onClick={() => toggle("goal")}
+              className="w-full flex items-center gap-3 px-5 active:opacity-70 transition-opacity"
+              style={{ borderBottom:"1px solid #FDEBD0", minHeight:50 }}>
+              <span style={{ fontSize:16, width:22, textAlign:"center" }}>🎯</span>
+              <span className="flex-1 text-left text-sm font-medium" style={{ color:"#4A3728" }}>今月のSync目標</span>
+              <span className="text-sm" style={{ color:"#C4A898" }}>{syncGoal}回 / 月</span>
+              <span className="ml-1 text-xs" style={{ color:"#D0BDB0", display:"inline-block", transition:"transform 0.2s", transform: openSection==="goal" ? "rotate(90deg)" : "none" }}>›</span>
+            </button>
+            {openSection === "goal" && (
+              <div className="px-5 py-4 flex flex-col items-center gap-3" style={{ borderBottom:"1px solid #FDEBD0", backgroundColor:"rgba(255,250,244,0.85)" }}>
+                <div className="flex items-center gap-5">
+                  <button onClick={() => { const v = Math.max(1, syncGoal - 1); setSyncGoal(v); onGoalChange(v); }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl active:scale-90 transition-transform"
+                    style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>−</button>
+                  <div className="flex flex-col items-center">
+                    <span className="font-bold" style={{ fontSize:40, color:"#D97B6C", lineHeight:1 }}>{syncGoal}</span>
+                    <span className="text-xs" style={{ color:"#C4A898" }}>回 / 月</span>
+                  </div>
+                  <button onClick={() => { const v = Math.min(20, syncGoal + 1); setSyncGoal(v); onGoalChange(v); }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl active:scale-90 transition-transform"
+                    style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>＋</button>
+                </div>
               </div>
-              <button onClick={()=>{ const v=Math.min(20,syncGoal+1); setSyncGoal(v); onGoalChange(v); }}
-                className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-2xl active:scale-90 transition-transform shadow-sm"
-                style={{ backgroundColor:"#FFE0CC", color:"#B86540" }}>＋</button>
-            </div>
-            <div className="w-full px-4 py-3 rounded-2xl flex items-center gap-2"
-              style={{ backgroundColor:"rgba(255,224,204,0.35)", border:"1px solid #FFE0CC" }}>
-              <span style={{ fontSize:16 }}>⏳</span>
-              <p style={{ fontSize:11, color:"#B86540" }}>
-                Sync後は <span style={{ fontWeight:700 }}>{cooldownDays}日間</span> お休み期間になるよ
-              </p>
-            </div>
-          </div>
-        </div>
+            )}
 
-        {/* 生理期間 */}
-        <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
-          {/* ヘッダー */}
-          <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
-            <div className="flex items-center gap-1.5">
-              <span style={{ fontSize:16 }}>🌙</span>
-              <p className="font-bold text-sm" style={{ color:"#B86540" }}>生理期間（自動お休みモード）</p>
-            </div>
-            <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-              開始日を記録すると自動でお休みモードになるよ
-            </p>
-          </div>
+            {/* Sync後のお休み期間 */}
+            <button onClick={() => toggle("cooldown")}
+              className="w-full flex items-center gap-3 px-5 active:opacity-70 transition-opacity"
+              style={{ borderBottom:"1px solid #FDEBD0", minHeight:50 }}>
+              <span style={{ fontSize:16, width:22, textAlign:"center" }}>⏳</span>
+              <span className="flex-1 text-left text-sm font-medium" style={{ color:"#4A3728" }}>Sync後のお休み期間</span>
+              <span className="text-sm" style={{ color:"#C4A898" }}>{cooldownDays}日</span>
+              <span className="ml-1 text-xs" style={{ color:"#D0BDB0", display:"inline-block", transition:"transform 0.2s", transform: openSection==="cooldown" ? "rotate(90deg)" : "none" }}>›</span>
+            </button>
+            {openSection === "cooldown" && (
+              <div className="px-5 py-3" style={{ borderBottom:"1px solid #FDEBD0", backgroundColor:"rgba(255,250,244,0.85)" }}>
+                <p style={{ fontSize:12, color:"#9A7B6A", lineHeight:1.65 }}>
+                  Sync目標（{syncGoal}回 / 月）をもとに、お休み期間は自動で <span style={{ fontWeight:700, color:"#B86540" }}>{cooldownDays}日間</span> に設定されているよ。
+                </p>
+                <p style={{ fontSize:11, color:"#C4A898", marginTop:4 }}>変えたい場合は「今月のSync目標」を調整してね。</p>
+              </div>
+            )}
 
-          {/* カレンダーエリア */}
-          <div className="px-4 py-4" style={{ backgroundColor:"rgba(255,255,255,0.80)" }}>
+            {/* 生理期間共有 */}
+            <button onClick={() => toggle("period")}
+              className="w-full flex items-center gap-3 px-5 active:opacity-70 transition-opacity"
+              style={{ borderBottom:"1px solid #FDEBD0", minHeight:50 }}>
+              <span style={{ fontSize:16, width:22, textAlign:"center" }}>🌙</span>
+              <span className="flex-1 text-left text-sm font-medium" style={{ color:"#4A3728" }}>生理期間共有</span>
+              <span className="text-sm" style={{ color:"#C4A898", maxWidth:150, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{periodSummary}</span>
+              <span className="ml-1 text-xs" style={{ color:"#D0BDB0", display:"inline-block", transition:"transform 0.2s", transform: openSection==="period" ? "rotate(90deg)" : "none" }}>›</span>
+            </button>
+            {openSection === "period" && (
+            <div className="px-4 py-4" style={{ borderBottom:"1px solid #FDEBD0", backgroundColor:"rgba(255,250,244,0.85)" }}>
 
             {/* 月ナビゲーション */}
             <div className="flex items-center justify-between mb-4">
@@ -959,22 +990,11 @@ function SettingsScreen({
               </div>
             )}
 
-          </div>
-        </div>
-
-        {/* 記録済み履歴 */}
-        {activePeriodHistory && activePeriodHistory.length > 0 && (
-          <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #E8D8F0" }}>
-            <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(240,232,250,0.7)" }}>
-              <div className="flex items-center gap-1.5">
-                <span style={{ fontSize:16 }}>🗓️</span>
-                <p className="font-bold text-sm" style={{ color:"#6B5A90" }}>記録済み履歴</p>
-              </div>
-              <p style={{ fontSize:11, color:"#C4A898", marginTop:2 }}>
-                リセットしても、ここには残ります
-              </p>
-            </div>
-            <div className="px-5 py-4 flex flex-col gap-2" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
+              {/* 記録済み履歴（生理期間共有の詳細内に統合） */}
+              {activePeriodHistory && activePeriodHistory.length > 0 && (
+              <div className="mt-4 px-4">
+                <p className="text-xs font-semibold mb-2" style={{ color:"#8B7BA8" }}>🗓️ 記録済み履歴</p>
+                <div className="flex flex-col gap-1.5">
               {(showAllHistory ? activePeriodHistory! : activePeriodHistory!.slice(0, HISTORY_LIMIT)).map((rec) => (
                 <div key={rec.start}>
                   {deletingStart === rec.start ? (
@@ -1035,92 +1055,108 @@ function SettingsScreen({
                     : `すべて見る（残り ${activePeriodHistory!.length - HISTORY_LIMIT} 件）▼`}
                 </button>
               )}
-            </div>
-          </div>
-        )}
-
-
-
-        {/* ── パートナー接続 ─────────────────────────────── */}
-        {isConnected && (
-          <div className="rounded-3xl px-5 py-5 flex flex-col gap-3"
-            style={{ backgroundColor:"rgba(255,255,255,0.85)", border:"1.5px solid #FDEBD0", boxShadow:"0 2px 12px rgba(255,200,150,0.10)" }}>
-            <p className="font-bold text-sm" style={{ color:"#8B4513" }}>🔗 パートナー接続</p>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl"
-              style={{ backgroundColor:"rgba(122,173,114,0.12)", border:"1px solid #A8C9A0" }}>
-              <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block", flexShrink:0 }}/>
-              <span style={{ fontSize:12, color:"#4A7A5A", wordBreak:"break-all" }}>{partnerEmail}</span>
-            </div>
-            {!showDisconnectConfirm ? (
-              <button onClick={()=>setShowDisconnectConfirm(true)}
-                className="w-full py-2.5 rounded-2xl text-sm font-bold active:scale-95 transition-transform"
-                style={{ backgroundColor:"rgba(255,230,230,0.7)", border:"1px solid #F4A8A8", color:"#C45050" }}>
-                接続を解除する
-              </button>
-            ) : (
-              <div className="flex flex-col gap-2 rounded-2xl px-4 py-3"
-                style={{ backgroundColor:"rgba(255,240,240,0.8)", border:"1px solid #F4A8A8" }}>
-                <p className="text-xs text-center font-bold" style={{ color:"#C45050" }}>本当に解除しますか？</p>
-                <p className="text-xs text-center" style={{ color:"#9A7B6A" }}>解除後はお互いのデータが見えなくなります</p>
-                <div className="flex gap-2">
-                  <button onClick={()=>setShowDisconnectConfirm(false)}
-                    className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
-                    style={{ backgroundColor:"rgba(255,255,255,0.9)", border:"1px solid #FDEBD0", color:"#9A7B6A" }}>
-                    キャンセル
-                  </button>
-                  <button
-                    disabled={disconnecting}
-                    onClick={async()=>{
-                      setDisconnecting(true);
-                      await onDisconnect();
-                      setDisconnecting(false);
-                      setShowDisconnectConfirm(false);
-                    }}
-                    className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform disabled:opacity-50"
-                    style={{ backgroundColor:"#F4A8A8", color:"#fff" }}>
-                    {disconnecting ? "解除中…" : "解除する"}
-                  </button>
                 </div>
               </div>
+              )}
+            </div>
             )}
-          </div>
-        )}
 
-        {/* お問い合わせ */}
-        <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
-          <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
-            <p className="font-bold text-sm" style={{ color:"#B86540" }}>✉️ お問い合わせ</p>
+            {/* パートナー接続 */}
+            <button onClick={() => toggle("partner")}
+              className="w-full flex items-center gap-3 px-5 active:opacity-70 transition-opacity"
+              style={{ minHeight:50 }}>
+              <span style={{ fontSize:16, width:22, textAlign:"center" }}>🔗</span>
+              <span className="flex-1 text-left text-sm font-medium" style={{ color:"#4A3728" }}>パートナー接続</span>
+              <span className="text-sm" style={{ color: isConnected ? "#5A9E7A" : "#C4A898" }}>
+                {isConnected ? "接続済み" : "未接続"}
+              </span>
+              <span className="ml-1 text-xs" style={{ color:"#D0BDB0", display:"inline-block", transition:"transform 0.2s", transform: openSection==="partner" ? "rotate(90deg)" : "none" }}>›</span>
+            </button>
+            {openSection === "partner" && isConnected && (
+              <div className="px-5 py-4 flex flex-col gap-3" style={{ borderTop:"1px solid #FDEBD0", backgroundColor:"rgba(255,250,244,0.85)" }}>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-2xl"
+                  style={{ backgroundColor:"rgba(122,173,114,0.12)", border:"1px solid #A8C9A0" }}>
+                  <span style={{ width:7, height:7, borderRadius:"50%", backgroundColor:"#5A9E7A", display:"inline-block", flexShrink:0 }}/>
+                  <span style={{ fontSize:12, color:"#4A7A5A", wordBreak:"break-all" }}>{partnerEmail}</span>
+                </div>
+                {!showDisconnectConfirm ? (
+                  <button onClick={() => setShowDisconnectConfirm(true)}
+                    className="w-full py-2 rounded-2xl text-xs font-semibold active:scale-95 transition-transform"
+                    style={{ backgroundColor:"rgba(255,230,230,0.7)", border:"1px solid #F4A8A8", color:"#C45050" }}>
+                    接続を解除する
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2 rounded-2xl px-4 py-3"
+                    style={{ backgroundColor:"rgba(255,240,240,0.8)", border:"1px solid #F4A8A8" }}>
+                    <p className="text-xs text-center font-bold" style={{ color:"#C45050" }}>本当に解除しますか？</p>
+                    <p className="text-xs text-center" style={{ color:"#9A7B6A" }}>解除後はお互いのデータが見えなくなります</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowDisconnectConfirm(false)}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
+                        style={{ backgroundColor:"rgba(255,255,255,0.9)", border:"1px solid #FDEBD0", color:"#9A7B6A" }}>
+                        キャンセル
+                      </button>
+                      <button
+                        disabled={disconnecting}
+                        onClick={async () => {
+                          setDisconnecting(true);
+                          await onDisconnect();
+                          setDisconnecting(false);
+                          setShowDisconnectConfirm(false);
+                        }}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform disabled:opacity-50"
+                        style={{ backgroundColor:"#F4A8A8", color:"#fff" }}>
+                        {disconnecting ? "解除中…" : "解除する"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {openSection === "partner" && !isConnected && (
+              <div className="px-5 py-3" style={{ borderTop:"1px solid #FDEBD0", backgroundColor:"rgba(255,250,244,0.85)" }}>
+                <p style={{ fontSize:12, color:"#9A7B6A" }}>パートナーとまだ接続されていません。ホーム画面から接続してください。</p>
+              </div>
+            )}
+
           </div>
-          <div className="px-5 py-5" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-            <p className="text-xs leading-relaxed mb-3" style={{ color:"#9A7B6A" }}>
-              ご意見・ご要望・不具合のご報告はこちらからお気軽にどうぞ。
-            </p>
+        </section>
+
+        {/* ─────── セクション：サポート ─────── */}
+        <section>
+          <p className="px-5 pb-2 text-xs font-semibold tracking-wide" style={{ color:"#C4A898" }}>サポート</p>
+          <div style={{ borderTop:"1px solid #FDEBD0", borderBottom:"1px solid #FDEBD0", backgroundColor:"rgba(255,255,255,0.85)" }}>
             <a
               href="https://docs.google.com/forms/d/e/1FAIpQLSdeRI32etS8-oM9DFp_xm-eyvP312w0ONt9vVYD3uiLsjM1Yw/viewform"
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full py-2.5 rounded-2xl text-sm font-bold text-center active:scale-95 transition-transform"
-              style={{ backgroundColor:"#FFF5E0", color:"#B86540", border:"1px solid #F5CBA7" }}
-            >
-              お問い合わせフォームを開く
+              className="flex items-center gap-3 px-5 active:opacity-70 transition-opacity"
+              style={{ minHeight:50, color:"#4A3728" }}>
+              <span style={{ fontSize:16, width:22, textAlign:"center" }}>✉️</span>
+              <span className="flex-1 text-sm font-medium">お問い合わせ</span>
+              <span className="text-sm" style={{ color:"#C4A898" }}>フォームを開く</span>
+              <span className="ml-1 text-xs" style={{ color:"#D0BDB0" }}>›</span>
             </a>
           </div>
-        </div>
+        </section>
 
-        {/* 退会 */}
-        <WithdrawSection />
+        {/* ─────── セクション：アカウント ─────── */}
+        <section>
+          <p className="px-5 pb-2 text-xs font-semibold tracking-wide" style={{ color:"#C4A898" }}>アカウント</p>
+          <div style={{ borderTop:"1px solid #FDEBD0", borderBottom:"1px solid #FDEBD0", backgroundColor:"rgba(255,255,255,0.85)" }}>
+            <WithdrawRow />
+          </div>
+        </section>
 
-        <div className="h-8"/>
       </div>
     </div>
   );
 }
 
-function WithdrawSection() {
-  const [showConfirm1, setShowConfirm1] = useState(false);
-  const [showConfirm2, setShowConfirm2] = useState(false);
-  const [withdrawing,  setWithdrawing]  = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+function WithdrawRow() {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
 
   const handleWithdraw = async () => {
     setWithdrawing(true);
@@ -1130,74 +1166,57 @@ function WithdrawSection() {
     if (result && result.status === "error") {
       setError(result.message);
       setWithdrawing(false);
-      setShowConfirm2(false);
+      setShowConfirm(false);
     }
     // 成功時は deleteAccount 内で /login にリダイレクトされる
   };
 
   return (
-    <div className="rounded-3xl overflow-hidden" style={{ border:"1.5px solid #FDEBD0" }}>
-      <div className="px-5 py-3.5" style={{ backgroundColor:"rgba(255,245,228,0.9)" }}>
-        <p className="font-bold text-sm" style={{ color:"#B86540" }}>🚪 退会</p>
-      </div>
-      <div className="px-5 py-5 flex flex-col gap-3" style={{ backgroundColor:"rgba(255,255,255,0.75)" }}>
-        {error && (
-          <p className="text-xs text-center px-3 py-2 rounded-xl" style={{ backgroundColor:"#FCE8E5", color:"#D4533A" }}>
-            ⚠️ {error}
-          </p>
-        )}
-        {!showConfirm1 && !showConfirm2 && (
-          <>
-            <p className="text-xs leading-relaxed" style={{ color:"#9A7B6A" }}>
-              退会するとアカウントとすべてのデータが削除されます。この操作は取り消せません。
-            </p>
-            <button
-              onClick={() => setShowConfirm1(true)}
-              className="w-full py-2.5 rounded-2xl text-sm font-bold active:scale-95 transition-transform"
-              style={{ backgroundColor:"#FFF0F0", color:"#C0392B", border:"1px solid #F4A8A8" }}
-            >
-              退会する
-            </button>
-          </>
-        )}
-        {showConfirm1 && !showConfirm2 && (
-          <div className="flex flex-col gap-3">
-            <p className="text-xs text-center font-bold" style={{ color:"#C0392B" }}>本当に退会しますか？</p>
-            <p className="text-xs text-center" style={{ color:"#9A7B6A" }}>すべてのデータが完全に削除されます</p>
-            <div className="flex gap-2">
-              <button onClick={() => setShowConfirm1(false)}
-                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
-                style={{ backgroundColor:"rgba(255,255,255,0.9)", border:"1px solid #FDEBD0", color:"#9A7B6A" }}>
-                キャンセル
-              </button>
-              <button onClick={() => { setShowConfirm1(false); setShowConfirm2(true); }}
-                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform"
-                style={{ backgroundColor:"#F4A8A8", color:"#fff" }}>
-                次へ
-              </button>
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        className="w-full flex items-center gap-3 px-5 active:opacity-70 transition-opacity"
+        style={{ minHeight:50 }}>
+        <span style={{ fontSize:16, width:22, textAlign:"center" }}>🚪</span>
+        <span className="flex-1 text-left text-sm font-medium" style={{ color:"#C0392B" }}>退会する</span>
+        <span className="text-sm" style={{ color:"#C4A898" }}>アカウント削除</span>
+        <span className="ml-1 text-xs" style={{ color:"#D0BDB0" }}>›</span>
+      </button>
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor:"rgba(0,0,0,0.4)", backdropFilter:"blur(2px)" }}
+          onClick={() => !withdrawing && setShowConfirm(false)}>
+          <div className="w-full max-w-sm rounded-t-3xl p-6 pb-8 flex flex-col gap-4"
+            style={{ backgroundColor:"#FFFBF5", border:"1px solid #FDEBD0" }}
+            onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full mx-auto" style={{ backgroundColor:"#E0D0C0" }}/>
+            <div className="text-center">
+              <p className="font-bold text-base" style={{ color:"#C0392B" }}>本当に退会しますか？</p>
+              <p className="text-xs mt-2 leading-relaxed" style={{ color:"#9A7B6A" }}>
+                退会するとアカウントと関連データが削除されます。この操作は取り消せません。
+              </p>
             </div>
-          </div>
-        )}
-        {showConfirm2 && (
-          <div className="flex flex-col gap-3">
-            <p className="text-xs text-center font-bold" style={{ color:"#C0392B" }}>最終確認</p>
-            <p className="text-xs text-center" style={{ color:"#9A7B6A" }}>この操作は取り消せません。退会を実行しますか？</p>
+            {error && (
+              <p className="text-xs text-center px-3 py-2 rounded-xl" style={{ backgroundColor:"#FCE8E5", color:"#D4533A" }}>
+                ⚠️ {error}
+              </p>
+            )}
             <div className="flex gap-2">
-              <button onClick={() => setShowConfirm2(false)} disabled={withdrawing}
-                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform disabled:opacity-50"
+              <button onClick={() => setShowConfirm(false)} disabled={withdrawing}
+                className="flex-1 py-3 rounded-2xl text-sm font-bold active:scale-95 transition-transform disabled:opacity-50"
                 style={{ backgroundColor:"rgba(255,255,255,0.9)", border:"1px solid #FDEBD0", color:"#9A7B6A" }}>
                 キャンセル
               </button>
               <button onClick={handleWithdraw} disabled={withdrawing}
-                className="flex-1 py-2 rounded-xl text-xs font-bold active:scale-95 transition-transform disabled:opacity-50"
+                className="flex-1 py-3 rounded-2xl text-sm font-bold active:scale-95 transition-transform disabled:opacity-50"
                 style={{ backgroundColor:"#C0392B", color:"#fff" }}>
                 {withdrawing ? "処理中…" : "退会する"}
               </button>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 

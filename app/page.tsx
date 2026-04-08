@@ -2002,7 +2002,9 @@ export default function Home() {
     ? normalizeKimochi(partnerRow.kimochi) : null;
 
   // ─── クールダウン（お休み期間）状態の派生 ─────────────────
-  const lastSyncDate   = myRow?.last_sync_date ?? null;
+  // 自分の last_sync_date が未保存の場合、パートナーの値をフォールバックとして使う
+  // （アプリ非起動中にSyncが確定し、自分側の保存が走らなかったケースを補完）
+  const lastSyncDate   = myRow?.last_sync_date ?? partnerRow?.last_sync_date ?? null;
   const cooldownDays   = getCooldownDays(syncGoal);
   const cooldownEndMs  = lastSyncDate ? (() => {
     const d = new Date(lastSyncDate);
@@ -2436,6 +2438,20 @@ export default function Home() {
         couple_id: coupleId, user_email: myEmail,
         kimochi_log: updatedLog, updated_at: new Date().toISOString(),
       }, { onConflict: "couple_id,user_email" });
+
+      // パートナーの kimochi_log にも is_sync: true を書いておく
+      // （パートナーが後でアプリを開いたとき、リセット後でも Sync マークが表示されるようにする）
+      const partnerEmail = partnerRow?.user_email;
+      if (partnerEmail) {
+        const partnerLog: KimochiLogEntry[] = partnerRow?.kimochi_log ?? [];
+        const updatedPartnerLog: KimochiLogEntry[] = partnerLog.some(e => e.date === syncDate)
+          ? partnerLog.map(e => e.date === syncDate ? { ...e, is_sync: true } : e)
+          : [...partnerLog, { date: syncDate, my_kimochi: "circle", partner_kimochi: null, is_sync: true }];
+        await supabase.from("sync_status").upsert({
+          couple_id: coupleId, user_email: partnerEmail,
+          kimochi_log: updatedPartnerLog, updated_at: new Date().toISOString(),
+        }, { onConflict: "couple_id,user_email" });
+      }
     }
 
     const { error } = await supabase.from("sync_status").upsert({
@@ -2455,7 +2471,7 @@ export default function Home() {
           : r
       ));
     }
-  }, [coupleId, myEmail, myRow?.last_sync_date, kimochiLog]);
+  }, [coupleId, myEmail, myRow?.last_sync_date, kimochiLog, partnerRow]);
 
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
   useEffect(() => {
@@ -3099,10 +3115,15 @@ export default function Home() {
             .filter(e => e.is_sync && e.date >= start && e.date <= end)
             .map(e => e.date);
           // last_sync_date（まだリセットされていない場合のフォールバック）
+          // パートナーの last_sync_date も参照し、自分側でSync日が取れなかった場合を補完
+          const partnerLastSyncDate = partnerRow?.last_sync_date ?? null;
           const syncDates = [
             ...logSyncDates,
             ...(lastSyncDate && lastSyncDate >= start && lastSyncDate <= end && !logSyncDates.includes(lastSyncDate)
               ? [lastSyncDate] : []),
+            ...(partnerLastSyncDate && partnerLastSyncDate >= start && partnerLastSyncDate <= end
+              && !logSyncDates.includes(partnerLastSyncDate) && partnerLastSyncDate !== lastSyncDate
+              ? [partnerLastSyncDate] : []),
           ];
           if (!hasAnyEntry && syncDates.length === 0) return null;
 
@@ -3110,13 +3131,14 @@ export default function Home() {
           const entryCount = weekDays.filter(d => d.kimochi !== null).length;
           const lastEntryDay = [...weekDays].reverse().find(d => d.kimochi !== null);
           // 最後にSyncした日：今週内なら曜日、先週以前なら日付
+          const effectiveSyncDate = lastSyncDate ?? partnerLastSyncDate;
           const lastSyncDisplay: string | null = (() => {
             if (syncDates.length > 0) {
               const last = [...syncDates].sort().at(-1)!;
               return DOW_LABEL[new Date(last + "T00:00:00").getDay()];
             }
-            if (lastSyncDate) {
-              const [, m, day] = lastSyncDate.split("-");
+            if (effectiveSyncDate) {
+              const [, m, day] = effectiveSyncDate.split("-");
               return `${parseInt(m)}/${parseInt(day)}`;
             }
             return null;

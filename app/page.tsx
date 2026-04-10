@@ -1232,10 +1232,13 @@ function LoadingScreen() {
 
 // ─── Perfect Sync 花火オーバーレイ ───────────────────────────
 function PerfectSyncOverlay({ onClose }: { onClose: () => void }) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  // タイマーはマウント時に1度だけセット（親の再レンダリングでリセットされないよう ref で onClose を参照）
   useEffect(() => {
-    const t = setTimeout(onClose, 6000);
+    const t = setTimeout(() => onCloseRef.current(), 6000);
     return () => clearTimeout(t);
-  }, [onClose]);
+  }, []);
 
   const colors = ["#FFD700","#FF6B9D","#FF8C42","#7EC8E3","#A8E6CF","#FFB7C5","#C3A6FF"];
 
@@ -1872,6 +1875,10 @@ export default function Home() {
   // ── UI状態 ──（リマインド機能削除につきキモチ選択は常時解放）
   const is17 = true;
 
+  // ── オーバーレイ閉幕コールバック（stable ref → 親の再レンダリングでタイマーがリセットされない）──
+  const handlePerfectSyncClose  = useCallback(() => setShowPerfectSync(false),  []);
+  const handleTreeLevelUpClose   = useCallback(() => setShowTreeLevelUp(false),   []);
+
   // ── Toast ──
   const [toast, setToast] = useState({on:false, msg:""});
   const pop = useCallback((msg:string) => {
@@ -2427,6 +2434,15 @@ export default function Home() {
   const handleResetSync = useCallback(async () => {
     if (!coupleId || !myEmail) return;
 
+    // ★ 楽観的更新を最初に行い、モバイルでもボタン押下後すぐに画面が変わるようにする
+    // kimochi も一緒にリセットしないと Perfect Sync 検知 Effect が
+    // 即座に再発火して last_sync_date: today を書き戻してしまう
+    setSyncData(prev => prev.map(r =>
+      r.user_email === myEmail
+        ? { ...r, last_sync_date: null, kimochi: null, kimochi_date: null }
+        : r
+    ));
+
     // last_sync_date を null にする前に、その日を kimochi_log に is_sync: true で記録
     const syncDate = myRow?.last_sync_date;
     if (syncDate) {
@@ -2454,7 +2470,7 @@ export default function Home() {
       }
     }
 
-    const { error } = await supabase.from("sync_status").upsert({
+    await supabase.from("sync_status").upsert({
       couple_id:      coupleId,
       user_email:     myEmail,
       last_sync_date: null,
@@ -2462,15 +2478,6 @@ export default function Home() {
       kimochi_date:   null,
       updated_at:     new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
-    if (!error) {
-      // kimochi も一緒にリセットしないと Perfect Sync 検知 Effect が
-      // 即座に再発火して last_sync_date: today を書き戻してしまう
-      setSyncData(prev => prev.map(r =>
-        r.user_email === myEmail
-          ? { ...r, last_sync_date: null, kimochi: null, kimochi_date: null }
-          : r
-      ));
-    }
   }, [coupleId, myEmail, myRow?.last_sync_date, kimochiLog, partnerRow]);
 
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────
@@ -2535,7 +2542,7 @@ export default function Home() {
         body: JSON.stringify({ coupleId }),
       }).catch(e => console.error("[Push] notify failed:", e));
     }
-  }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod, isPartnerInPeriod, coupleId]);
+  }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod, isInCooldown, isPartnerInPeriod, coupleId]);
 
   // ─── 8b. 生理開始日の記録 ────────────────────────────────
   const handleConfirmStart = useCallback(async (start: number) => {
@@ -2713,9 +2720,9 @@ export default function Home() {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
 
       <Toast msg={toast.msg} on={toast.on}/>
-      {showPerfectSync && <PerfectSyncOverlay onClose={() => setShowPerfectSync(false)} />}
+      {showPerfectSync && <PerfectSyncOverlay onClose={handlePerfectSyncClose} />}
       {showTreeLevelUp && treeLevelUpInfo && (
-        <TreeLevelUpModal treeData={treeLevelUpInfo} onClose={() => setShowTreeLevelUp(false)} />
+        <TreeLevelUpModal treeData={treeLevelUpInfo} onClose={handleTreeLevelUpClose} />
       )}
 
       <div className="w-full max-w-sm flex flex-col px-4 pt-6 pb-10 gap-4">

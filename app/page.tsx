@@ -2548,18 +2548,26 @@ export default function Home() {
   }, [coupleId, myEmail, kimochiLog]);
 
   // ─── 6. キモチ選択ハンドラ ─────────────────────────────────
+  // ref ロックで再入を防ぐ（モバイルでの多重タップ → 通知2重送信を防止）
+  const selectingKimochiRef = useRef(false);
   const handleKimochiSelect = useCallback(async (val: Kimochi) => {
     if (isInPeriod || isInCooldown || isPartnerInPeriod) return; // お休みモード中・クールダウン中・パートナー生理中は入力ブロック
-    await saveMyKimochi(val);
-    await saveKimochiLog(val);
-    pop("キモチを更新したよ 🌸");
-    // パートナーにプッシュ通知（fire-and-forget）
-    if (coupleId) {
-      fetch("/api/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coupleId }),
-      }).catch(e => console.error("[Push] notify failed:", e));
+    if (selectingKimochiRef.current) return; // 処理中の再入を防ぐ
+    selectingKimochiRef.current = true;
+    try {
+      await saveMyKimochi(val);
+      await saveKimochiLog(val);
+      pop("キモチを更新したよ 🌸");
+      // パートナーにプッシュ通知（fire-and-forget）
+      if (coupleId) {
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coupleId }),
+        }).catch(e => console.error("[Push] notify failed:", e));
+      }
+    } finally {
+      selectingKimochiRef.current = false;
     }
   }, [saveMyKimochi, saveKimochiLog, pop, isInPeriod, isInCooldown, isPartnerInPeriod, coupleId]);
 

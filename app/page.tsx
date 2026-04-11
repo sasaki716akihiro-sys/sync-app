@@ -2437,11 +2437,18 @@ export default function Home() {
     // ★ 楽観的更新を最初に行い、モバイルでもボタン押下後すぐに画面が変わるようにする
     // kimochi も一緒にリセットしないと Perfect Sync 検知 Effect が
     // 即座に再発火して last_sync_date: today を書き戻してしまう
-    setSyncData(prev => prev.map(r =>
-      r.user_email === myEmail
-        ? { ...r, last_sync_date: null, kimochi: null, kimochi_date: null }
-        : r
-    ));
+    // パートナーの last_sync_date も一緒にクリアする：
+    // lastSyncDate = myRow?.last_sync_date ?? partnerRow?.last_sync_date のフォールバックにより
+    // 自分の行だけクリアしても isInCooldown が true のまま残るため
+    setSyncData(prev => prev.map(r => {
+      if (r.user_email === myEmail) {
+        return { ...r, last_sync_date: null, kimochi: null, kimochi_date: null };
+      }
+      if (r.couple_id === coupleId) {
+        return { ...r, last_sync_date: null };
+      }
+      return r;
+    }));
 
     // last_sync_date を null にする前に、その日を kimochi_log に is_sync: true で記録
     const syncDate = myRow?.last_sync_date;
@@ -2478,6 +2485,18 @@ export default function Home() {
       kimochi_date:   null,
       updated_at:     new Date().toISOString(),
     }, { onConflict: "couple_id,user_email" });
+
+    // パートナーの last_sync_date も DB でクリア
+    // （15秒ポーリングがパートナー行を DB から再取得して楽観的更新を上書きするのを防ぐ）
+    const partnerEmailForReset = partnerRow?.user_email;
+    if (partnerEmailForReset) {
+      await supabase.from("sync_status").upsert({
+        couple_id:      coupleId,
+        user_email:     partnerEmailForReset,
+        last_sync_date: null,
+        updated_at:     new Date().toISOString(),
+      }, { onConflict: "couple_id,user_email" });
+    }
   }, [coupleId, myEmail, myRow?.last_sync_date, kimochiLog, partnerRow]);
 
   // ─── 2. coupleId + email 揃ったら初期ロード ───────────────

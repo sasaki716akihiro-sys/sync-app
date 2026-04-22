@@ -2445,7 +2445,7 @@ export default function Home() {
         return { ...r, last_sync_date: null, kimochi: null, kimochi_date: null };
       }
       if (r.couple_id === coupleId) {
-        return { ...r, last_sync_date: null };
+        return { ...r, last_sync_date: null, kimochi: null, kimochi_date: null };
       }
       return r;
     }));
@@ -2494,6 +2494,8 @@ export default function Home() {
         couple_id:      coupleId,
         user_email:     partnerEmailForReset,
         last_sync_date: null,
+        kimochi:        null,
+        kimochi_date:   null,
         updated_at:     new Date().toISOString(),
       }, { onConflict: "couple_id,user_email" });
     }
